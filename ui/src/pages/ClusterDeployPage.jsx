@@ -137,7 +137,7 @@ function ClusterDeployPage() {
 
       const payload = await response.json()
       setRunId(payload.run_id)
-      setStreamUrl(`/api/v1/pipeline/${payload.run_id}/stream`)
+      setStreamUrl(import.meta.env.VITE_TERMINAL_STREAM_URL || `/api/v1/pipeline/${payload.run_id}/stream`)
       setCurrentStep(5)
     } catch (error) {
       setErrorMessage(error instanceof Error ? error.message : 'Deployment submission failed')
