@@ -1,4 +1,6 @@
 import React from 'react'
+import LiveTerminal from '../components/common/LiveTerminal.jsx'
+
 function ClustersPage() {
   return (
     <section
@@ -9,6 +11,9 @@ function ClustersPage() {
       <p className="mt-2 text-sm text-slate-300">
         Placeholder cluster overview for NKP deployment lifecycle.
       </p>
+      <div className="mt-4">
+        <LiveTerminal activeStepName="01-preprov-create-nkp-cluster-konvoy.sh" />
+      </div>
     </section>
   )
 }

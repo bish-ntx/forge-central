@@ -15,8 +15,11 @@ from dataclasses import dataclass, field
 from datetime import datetime, timezone
 from enum import Enum
 from pathlib import Path
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID, uuid4
+
+from ..schemas.pipeline import PipelineEndEventData, PipelineLogEventData
+from .log_publisher import LogPublisher
 
 
 class RunStatus(str, Enum):
@@ -39,9 +42,10 @@ class ProcessRun:
 
 
 class ProcessRunner:
-    def __init__(self, forge_bin: Path) -> None:
+    def __init__(self, forge_bin: Path, log_publisher: LogPublisher | None = None) -> None:
         self._forge_bin = forge_bin.expanduser().resolve()
         self._runs: dict[UUID, ProcessRun] = {}
+        self._log_publisher = log_publisher
 
     @property
     def forge_bin(self) -> Path:
@@ -69,21 +73,19 @@ class ProcessRunner:
 
         return cli_tokens
 
-    @staticmethod
-    async def _read_stream(stream: asyncio.StreamReader, run: ProcessRun, channel: str) -> None:
-        while True:
-            line = await stream.readline()
-            if not line:
-                return
-            payload = line.decode(errors="replace").rstrip("\n")
-            await run.events.put(
-                {
-                    "event": "log",
-                    "stream": channel,
-                    "line": payload,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                }
-            )
+    async def _publish_stream_line(
+        self, run: ProcessRun, channel: Literal["stdout", "stderr"], payload: str
+    ) -> None:
+        if self._log_publisher is None:
+            return
+        await self._log_publisher.publish_log(
+            run.run_id,
+            PipelineLogEventData(
+                timestamp=datetime.now(timezone.utc),
+                line=payload,
+                stream=channel,
+            ),
+        )
 
     async def _run_subprocess(self, run: ProcessRun, env_overrides: dict[str, str]) -> None:
         run.status = RunStatus.RUNNING
@@ -106,8 +108,24 @@ class ProcessRunner:
             env=env,
         )
 
-        stdout_task = asyncio.create_task(self._read_stream(process.stdout, run, "stdout"))  # type: ignore[arg-type]
-        stderr_task = asyncio.create_task(self._read_stream(process.stderr, run, "stderr"))  # type: ignore[arg-type]
+        async def read_and_publish(stream: asyncio.StreamReader, channel: Literal["stdout", "stderr"]) -> None:
+            while True:
+                line = await stream.readline()
+                if not line:
+                    return
+                payload = line.decode(errors="replace").rstrip("\n")
+                await run.events.put(
+                    {
+                        "event": "log",
+                        "stream": channel,
+                        "line": payload,
+                        "timestamp": datetime.now(timezone.utc).isoformat(),
+                    }
+                )
+                await self._publish_stream_line(run, channel, payload)
+
+        stdout_task = asyncio.create_task(read_and_publish(process.stdout, "stdout"))  # type: ignore[arg-type]
+        stderr_task = asyncio.create_task(read_and_publish(process.stderr, "stderr"))  # type: ignore[arg-type]
 
         await process.wait()
         await asyncio.gather(stdout_task, stderr_task)
@@ -123,6 +141,14 @@ class ProcessRunner:
                 "timestamp": run.completed_at.isoformat(),
             }
         )
+        if self._log_publisher is not None and run.exit_code is not None:
+            await self._log_publisher.publish_end(
+                run.run_id,
+                PipelineEndEventData(
+                    exit_code=run.exit_code,
+                    status="COMPLETED" if run.exit_code == 0 else "FAILED",
+                ),
+            )
 
     async def start_run(
         self,

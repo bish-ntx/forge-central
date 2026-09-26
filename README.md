@@ -12,9 +12,13 @@ It includes:
 - `api/app/main.py`: FastAPI application bootstrap.
 - `api/app/config.py`: Environment-based runtime settings.
 - `api/app/services/process_runner.py`: Async `./forge` subprocess runner.
+- `api/app/services/log_publisher.py`: In-memory SSE log event publisher.
 - `api/app/routers/cli.py`: Base API routes (`/health`, `/api/v1/version`, `/api/v1/cli/execute`).
+- `api/app/routers/pipeline.py`: Pipeline SSE stream route (`/api/v1/pipeline/{run_id}/stream`).
 - `api/app/schemas/cli.py`: Pydantic request/response models.
+- `api/app/schemas/pipeline.py`: Pydantic SSE event payload models.
 - `api/tests/test_cli_runner.py`: Async endpoint tests using `httpx.AsyncClient`.
+- `api/tests/test_sse_stream.py`: SSE stream contract tests.
 
 ## Quickstart
 
@@ -54,6 +58,11 @@ The React shell in `ui/src/components/layout/` includes:
 - `Layout.jsx`: Shared shell that renders `Sidebar`, `Header`, and route content via React Router `<Outlet />`.
 
 Page placeholders live under `ui/src/pages/` and expose deterministic `data-testid` selectors for automated UI tests.
+
+## Live Pipeline Terminal
+
+- `ui/src/hooks/useEventSource.js` manages SSE connection lifecycle with reconnect behavior.
+- `ui/src/components/common/LiveTerminal.jsx` renders real-time stdout/stderr output, line numbers, stderr highlighting, status/elapsed metadata, and copy/auto-scroll controls.
 
 ## Environment Variables
 

@@ -46,6 +46,23 @@ The initial Prompt 02 skeleton includes route pages:
 
 Each page container includes a stable `data-testid` to support automated tests and CI flows.
 
+## Live Terminal Streaming
+
+The Clusters view now includes a reusable live terminal component:
+
+- Component: `ui/src/components/common/LiveTerminal.jsx`
+- Hook: `ui/src/hooks/useEventSource.js`
+- Backend stream: `GET /api/v1/pipeline/{run_id}/stream`
+
+Behavior:
+
+- Subscribes to SSE log events (`stdout` and `stderr`) from active pipeline runs.
+- Renders numbered terminal lines in a dark monospace panel.
+- Colors `stderr` lines in amber to make failures easy to spot.
+- Shows run status with spinner/success/failure state icons.
+- Displays active step name and elapsed execution timer.
+- Supports auto-scroll toggle and one-click copy-to-clipboard log export.
+
 ## Frontend Validation Commands
 
 ```bash

@@ -55,3 +55,42 @@ Response (`202 Accepted`):
   "started_at": "2026-09-26T21:40:00Z"
 }
 ```
+
+### `GET /api/v1/pipeline/{run_id}/stream`
+
+Streams pipeline logs over Server-Sent Events (SSE) for a previously started run.
+
+- Requires a valid `run_id` from `POST /api/v1/cli/execute`.
+- Returns `404` if the run is unknown.
+- Uses `text/event-stream` with named events:
+  - `event: log`
+  - `event: end`
+
+`log` event payload:
+
+```json
+{
+  "timestamp": "2026-09-26T22:40:01.100000+00:00",
+  "line": "step 01 complete",
+  "stream": "stdout"
+}
+```
+
+`end` event payload:
+
+```json
+{
+  "exit_code": 0,
+  "status": "COMPLETED"
+}
+```
+
+Wire format example:
+
+```text
+event: log
+data: {"timestamp":"2026-09-26T22:40:01.100000+00:00","line":"step 01 complete","stream":"stdout"}
+
+event: end
+data: {"exit_code":0,"status":"COMPLETED"}
+```
