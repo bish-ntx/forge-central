@@ -258,6 +258,46 @@ tests/e2e/test_web_console_e2e.py ....                                   [100%]
 
 ---
 
+## [2026-09-26] Task-4 E2E validation rerun (Codex 5.3)
+
+- Execution Status: SUCCESS
+- Target: C2-P04-Agent04 (Codex 5.3 Medium)
+- Scope: Validate existing Playwright Python E2E harness, workflow triggers/artifacts, docs coverage, and safety constraints
+
+### Acceptance Criteria Matrix
+
+- [x] 1. Playwright tests execute and pass headlessly: `pytest tests/e2e/ --browser chromium`
+- [x] 2. `data-testid` locators resolve via E2E assertions in `tests/e2e/test_web_console_e2e.py`
+- [x] 3. GHA workflow syntax/config present in `.github/workflows/ui-e2e-ci.yml` with `push`, `pull_request`, `workflow_dispatch`
+- [x] 4. Documentation present in `docs/TESTING-GUIDE.md` and `README.md`
+- [x] 5. Local Git commit exists: `76905a8` (`test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`)
+- [x] 6. Safety rule followed: local validation only, no push performed
+
+### Test Output Summary
+
+#### `pytest tests/e2e/ --browser chromium`
+
+```text
+============================= test session starts ==============================
+platform darwin -- Python 3.9.9, pytest-8.4.2, pluggy-1.6.0
+collected 4 items
+tests/e2e/test_web_console_e2e.py ....                                   [100%]
+============================== 4 passed in 8.64s ===============================
+```
+
+### Local Commit Snapshot (existing)
+
+- Commit hash: `76905a8`
+- Commit subject: `test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`
+- Additional verification commit observed: `ec0d917` (`docs(e2e): update TESTING-GUIDE, .cursorrules, and execution audit with C1 verification & Playwright arm64 note`)
+
+### Notes
+
+- No new source changes were required for this rerun; repository remained clean after verification.
+- `pytest` in sandboxed runtime can fail Playwright browser resolution due to isolated cache paths; running the same command outside sandbox succeeded.
+
+---
+
 ## [2026-09-26] Task-3 SSE pipeline stream and Live Terminal
 
 - Execution Status: SUCCESS
