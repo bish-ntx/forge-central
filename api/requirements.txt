@@ -1,0 +1,7 @@
+fastapi
+uvicorn
+pydantic
+sse-starlette
+httpx
+pytest
+pytest-asyncio
