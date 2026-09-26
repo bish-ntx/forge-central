@@ -174,128 +174,6 @@ Not run in this task (frontend-only scope).
   git push origin main
   ```
 
-## [2026-09-26] Task-4 Playwright UI automation harness and CI workflow
-
-- Execution Status: SUCCESS
-- Target: C2-P04-Agent04 (Codex 5.3 Medium)
-- Scope: Python Playwright E2E suite, UI test selectors/toggles, GitHub Actions workflow, testing docs, local commit
-
-### Acceptance Criteria Matrix
-
-- [x] 1. Playwright tests execute and pass headlessly: `pytest tests/e2e/` passes 100%
-- [x] 2. `data-testid` locators resolve reliably without fragile CSS/text selectors
-- [x] 3. GHA workflow syntax and triggers configured in `.github/workflows/ui-e2e-ci.yml`
-- [x] 4. Documentation updated in `docs/TESTING-GUIDE.md` and `README.md`
-- [x] 5. Local git commit created with requested subject
-- [x] 6. Safety rule followed: local commit only, no push
-
-### Test Output Summary
-
-#### `npm test` (from `ui/`)
-
-```text
-Test Files  2 passed (2)
-Tests  4 passed (4)
-```
-
-#### `pytest api/tests/`
-
-```text
-collected 5 items
-api/tests/test_cli_runner.py ...                                         [ 60%]
-api/tests/test_sse_stream.py ..                                          [100%]
-============================== 5 passed in 0.31s ===============================
-```
-
-#### `pytest tests/e2e/ --browser chromium`
-
-```text
-collected 4 items
-tests/e2e/test_web_console_e2e.py ....                                   [100%]
-============================== 4 passed in 6.51s ===============================
-```
-
-### Local Commit Snapshot
-
-- Commit hash: `76905a8`
-- Commit subject: `test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`
-- Files created/modified:
-  - `.github/workflows/ui-e2e-ci.yml`
-  - `.gitignore`
-  - `README.md`
-  - `api/app/routers/cli.py`
-  - `docs/TESTING-GUIDE.md`
-  - `tests/e2e/conftest.py`
-  - `tests/e2e/requirements-e2e.txt`
-  - `tests/e2e/test_web_console_e2e.py`
-  - `ui/src/components/layout/Header.jsx`
-  - `ui/src/components/layout/Layout.jsx`
-  - `ui/src/components/layout/Sidebar.jsx`
-  - `ui/src/components/layout/__tests__/Layout.test.jsx`
-  - `ui/src/pages/ClustersPage.jsx`
-  - `ui/vite.config.js`
-
----
-
-### [C1 VERIFICATION VERDICT — APPROVED]
-
-- **Date/Time:** 2026-09-26 15:50 PDT / 22:50 UTC
-- **Reviewing Agent:** C1 Planner
-- **Verification Status:** 100% APPROVED
-- **Disk Inspection:**
-  - Local commit `76905a8` created cleanly (`test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`).
-  - Playwright Python E2E test harness created under `tests/e2e/` with `conftest.py` starting FastAPI backend and Vite preview server.
-  - Headless E2E tests (`pytest tests/e2e/ --browser chromium`) passed 4/4 in 6.51s (testing navigation, site mode toggles, theme switcher, and Live Terminal streaming).
-  - GitHub Actions workflow `.github/workflows/ui-e2e-ci.yml` configured supporting both `push`/`pull_request` and `workflow_dispatch` manual triggers with artifact retention.
-  - Documentation created in `docs/TESTING-GUIDE.md` and updated in `README.md`.
-- **Checklist Updated:** Tasks 4.8 and 4.9 marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
-- **Authorized Git Push Command:**
-  ```bash
-  cd ~/work/git/forge-central
-  git push origin main
-  ```
-
-
----
-
-## [2026-09-26] Task-4 E2E validation rerun (Codex 5.3)
-
-- Execution Status: SUCCESS
-- Target: C2-P04-Agent04 (Codex 5.3 Medium)
-- Scope: Validate existing Playwright Python E2E harness, workflow triggers/artifacts, docs coverage, and safety constraints
-
-### Acceptance Criteria Matrix
-
-- [x] 1. Playwright tests execute and pass headlessly: `pytest tests/e2e/ --browser chromium`
-- [x] 2. `data-testid` locators resolve via E2E assertions in `tests/e2e/test_web_console_e2e.py`
-- [x] 3. GHA workflow syntax/config present in `.github/workflows/ui-e2e-ci.yml` with `push`, `pull_request`, `workflow_dispatch`
-- [x] 4. Documentation present in `docs/TESTING-GUIDE.md` and `README.md`
-- [x] 5. Local Git commit exists: `76905a8` (`test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`)
-- [x] 6. Safety rule followed: local validation only, no push performed
-
-### Test Output Summary
-
-#### `pytest tests/e2e/ --browser chromium`
-
-```text
-============================= test session starts ==============================
-platform darwin -- Python 3.9.9, pytest-8.4.2, pluggy-1.6.0
-collected 4 items
-tests/e2e/test_web_console_e2e.py ....                                   [100%]
-============================== 4 passed in 8.64s ===============================
-```
-
-### Local Commit Snapshot (existing)
-
-- Commit hash: `76905a8`
-- Commit subject: `test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`
-- Additional verification commit observed: `ec0d917` (`docs(e2e): update TESTING-GUIDE, .cursorrules, and execution audit with C1 verification & Playwright arm64 note`)
-
-### Notes
-
-- No new source changes were required for this rerun; repository remained clean after verification.
-- `pytest` in sandboxed runtime can fail Playwright browser resolution due to isolated cache paths; running the same command outside sandbox succeeded.
-
 ---
 
 ## [2026-09-26] Task-3 SSE pipeline stream and Live Terminal
@@ -388,5 +266,125 @@ vite v8.3.1 building client environment for production...
   git push origin main
   ```
 
+---
 
+## [2026-09-26] Task-4 Playwright UI automation harness and CI workflow
 
+- Execution Status: SUCCESS
+- Target: C2-P04-Agent04 (Codex 5.3 Medium)
+- Scope: Python Playwright E2E suite, UI test selectors/toggles, GitHub Actions workflow, testing docs, local commit
+
+### Acceptance Criteria Matrix
+
+- [x] 1. Playwright tests execute and pass headlessly: `pytest tests/e2e/` passes 100%
+- [x] 2. `data-testid` locators resolve reliably without fragile CSS/text selectors
+- [x] 3. GHA workflow syntax and triggers configured in `.github/workflows/ui-e2e-ci.yml`
+- [x] 4. Documentation updated in `docs/TESTING-GUIDE.md` and `README.md`
+- [x] 5. Local git commit created with requested subject
+- [x] 6. Safety rule followed: local commit only, no push
+
+### Test Output Summary
+
+#### `npm test` (from `ui/`)
+
+```text
+Test Files  2 passed (2)
+Tests  4 passed (4)
+```
+
+#### `pytest api/tests/`
+
+```text
+collected 5 items
+api/tests/test_cli_runner.py ...                                         [ 60%]
+api/tests/test_sse_stream.py ..                                          [100%]
+============================== 5 passed in 0.31s ===============================
+```
+
+#### `pytest tests/e2e/ --browser chromium`
+
+```text
+collected 4 items
+tests/e2e/test_web_console_e2e.py ....                                   [100%]
+============================== 4 passed in 6.51s ===============================
+```
+
+### Local Commit Snapshot
+
+- Commit hash: `76905a8`
+- Commit subject: `test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`
+- Files created/modified:
+  - `.github/workflows/ui-e2e-ci.yml`
+  - `.gitignore`
+  - `README.md`
+  - `api/app/routers/cli.py`
+  - `docs/TESTING-GUIDE.md`
+  - `tests/e2e/conftest.py`
+  - `tests/e2e/requirements-e2e.txt`
+  - `tests/e2e/test_web_console_e2e.py`
+  - `ui/src/components/layout/Header.jsx`
+  - `ui/src/components/layout/Layout.jsx`
+  - `ui/src/components/layout/Sidebar.jsx`
+  - `ui/src/components/layout/__tests__/Layout.test.jsx`
+  - `ui/src/pages/ClustersPage.jsx`
+  - `ui/vite.config.js`
+
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED]
+
+- **Date/Time:** 2026-09-26 15:50 PDT / 22:50 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `76905a8` created cleanly (`test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`).
+  - Playwright Python E2E test harness created under `tests/e2e/` with `conftest.py` starting FastAPI backend and Vite preview server.
+  - Headless E2E tests (`pytest tests/e2e/ --browser chromium`) passed 4/4 in 6.51s (testing navigation, site mode toggles, theme switcher, and Live Terminal streaming).
+  - GitHub Actions workflow `.github/workflows/ui-e2e-ci.yml` configured supporting both `push`/`pull_request` and `workflow_dispatch` manual triggers with artifact retention.
+  - Documentation created in `docs/TESTING-GUIDE.md` and updated in `README.md`.
+- **Checklist Updated:** Tasks 4.8 and 4.9 marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+
+---
+
+## [2026-09-26] Task-4 E2E validation rerun (Codex 5.3)
+
+- Execution Status: SUCCESS
+- Target: C2-P04-Agent04 (Codex 5.3 Medium)
+- Scope: Validate existing Playwright Python E2E harness, workflow triggers/artifacts, docs coverage, and safety constraints
+
+### Acceptance Criteria Matrix
+
+- [x] 1. Playwright tests execute and pass headlessly: `pytest tests/e2e/ --browser chromium`
+- [x] 2. `data-testid` locators resolve via E2E assertions in `tests/e2e/test_web_console_e2e.py`
+- [x] 3. GHA workflow syntax/config present in `.github/workflows/ui-e2e-ci.yml` with `push`, `pull_request`, `workflow_dispatch`
+- [x] 4. Documentation present in `docs/TESTING-GUIDE.md` and `README.md`
+- [x] 5. Local Git commit exists: `76905a8` (`test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`)
+- [x] 6. Safety rule followed: local validation only, no push performed
+
+### Test Output Summary
+
+#### `pytest tests/e2e/ --browser chromium`
+
+```text
+============================= test session starts ==============================
+platform darwin -- Python 3.9.9, pytest-8.4.2, pluggy-1.6.0
+collected 4 items
+tests/e2e/test_web_console_e2e.py ....                                   [100%]
+============================== 4 passed in 8.64s ===============================
+```
+
+### Local Commit Snapshot (existing)
+
+- Commit hash: `76905a8`
+- Commit subject: `test(ui): Task-4 — add Playwright Python UI automation harness & GHA workflow`
+- Additional verification commit observed: `ec0d917` (`docs(e2e): update TESTING-GUIDE, .cursorrules, and execution audit with C1 verification & Playwright arm64 note`)
+
+### Notes
+
+- No new source changes were required for this rerun; repository remained clean after verification.
+- `pytest` in sandboxed runtime can fail Playwright browser resolution due to isolated cache paths; running the same command outside sandbox succeeded.
