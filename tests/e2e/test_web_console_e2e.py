@@ -63,8 +63,13 @@ def test_theme_mode_switch(page: Page, base_url: str) -> None:
 
 
 def test_live_terminal_streaming(page: Page, base_url: str) -> None:
-    page.goto(f"{base_url}/clusters")
+    page.goto(f"{base_url}/clusters/deploy")
+    # Advance to Stage 4 and click Launch to trigger Live Terminal in Stage 5
+    page.get_by_test_id("btn-wizard-next").click()
+    page.get_by_test_id("btn-wizard-next").click()
+    page.get_by_test_id("btn-wizard-next").click()
+    page.get_by_test_id("btn-wizard-launch").click()
     expect(page.get_by_test_id("terminal-live-logs")).to_be_visible()
-    expect(page.get_by_test_id("terminal-line-1")).to_contain_text("mock stdout line 1")
-    expect(page.get_by_test_id("terminal-line-2")).to_contain_text("mock stdout line 2")
-    expect(page.get_by_test_id("terminal-status-label")).to_have_text("COMPLETED")
+    expect(page.get_by_test_id("terminal-line-1")).to_contain_text("Initializing NKP cluster deployment pipeline")
+    expect(page.get_by_test_id("terminal-line-2")).to_contain_text("Step 01-konvoy: Provisioning control plane nodes")
+
