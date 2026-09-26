@@ -113,6 +113,21 @@ The NKP Cluster Deploy page (`ClusterDeployPage.jsx`) provides an interactive 5-
   - Forward/backward navigation (`data-testid="btn-wizard-next"`, `data-testid="btn-wizard-back"`) with client-side form state retention across step transitions.
   - Launch button debouncing (`disabled={isSubmitting}`) preventing accidental duplicate cluster creation requests.
 
+## Preprovisioned Inventory Inspection & YAML Viewer Component
+
+The `InventoryYamlViewer` component (`ui/src/components/cluster/InventoryYamlViewer.jsx`) provides dedicated YAML manifest inspection and pre-flight health status display:
+
+- **Raw YAML Code Viewer Box (`data-testid="inventory-yaml-text"`):**
+  - Dark syntax-highlighted code container with monospace font and custom scrollbar for preprovisioned inventory manifests.
+- **Copy Manifest Button (`data-testid="btn-copy-yaml"`):**
+  - Instant copy-to-clipboard trigger with visual feedback (`Copied!`).
+- **Node Summary Chips:**
+  - Control Plane node count & address list chip (`data-testid="chip-cp-nodes"`).
+  - Worker node count & address list chip (`data-testid="chip-worker-nodes"`).
+- **Validation Check Result Badges (`data-testid="validation-status-badge"`):**
+  - Displays pre-flight diagnostic status badges wrapping `POST /api/v1/inventory/validate` / `preprov-diagnose.sh` results.
+  - Visual status color indicators for `PASS` (emerald), `WARN` (amber), and `FAIL` (rose) status checks.
+
 ## Frontend Validation Commands
 
 ```bash

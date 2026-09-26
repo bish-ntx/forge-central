@@ -292,3 +292,77 @@ data: {"timestamp":"2026-09-26T22:40:01.100000+00:00","line":"step 01 complete",
 event: end
 data: {"exit_code":0,"status":"COMPLETED"}
 ```
+
+## Preprovisioned Inventory Inspection API
+
+### `GET /api/v1/inventory/list`
+
+Returns available PreprovisionedInventory INI/YAML manifest files in `FORGE_DATA_DIR` (`~/forge-data/`).
+
+Example response:
+
+```json
+{
+  "files": [
+    {
+      "filename": "inventory-lab-01.yaml",
+      "node_count": 5,
+      "control_plane_count": 3,
+      "worker_count": 2
+    }
+  ]
+}
+```
+
+### `GET /api/v1/inventory/{filename}`
+
+Returns raw manifest YAML content and parsed node topology counts.
+
+Example response:
+
+```json
+{
+  "filename": "inventory-lab-01.yaml",
+  "raw_yaml": "apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1\nkind: PreprovisionedInventory\n...",
+  "node_count": 5,
+  "control_plane_nodes": ["10.10.40.11", "10.10.40.12", "10.10.40.13"],
+  "worker_nodes": ["10.10.40.21", "10.10.40.22"]
+}
+```
+
+### `POST /api/v1/inventory/validate`
+
+Executes pre-flight inventory health checks (wrapping `preprov-diagnose.sh`).
+
+Request schema:
+
+```json
+{
+  "filename": "inventory-lab-01.yaml"
+}
+```
+
+Example response:
+
+```json
+{
+  "valid": true,
+  "check_results": [
+    {
+      "name": "YAML Syntax & Kind Validation",
+      "status": "pass",
+      "message": "Valid PreprovisionedInventory manifest syntax."
+    },
+    {
+      "name": "Control Plane Quorum",
+      "status": "pass",
+      "message": "Optimal etcd HA quorum with 3 control plane node(s)."
+    },
+    {
+      "name": "Network Connectivity & IP Uniqueness",
+      "status": "pass",
+      "message": "All 5 node IP address formats valid and unique."
+    }
+  ]
+}
+```

@@ -627,3 +627,76 @@ Duration  2.18s
   ```
 
 
+---
+
+## [2026-09-26] Task-8 PreprovisionedInventory REST routes & InventoryYamlViewer UI component
+
+- Execution Status: SUCCESS
+- Target: C2-P08-Agent08 (Gemini 3.6 Flash / Sonnet 5 Thinking)
+- Scope: PreprovisionedInventory REST endpoints (`GET /api/v1/inventory/list`, `GET /api/v1/inventory/{filename}`, `POST /api/v1/inventory/validate`), `InventoryYamlViewer.jsx` UI component, Pytest & Vitest test suites, API & User Guide documentation updates, local git commit
+
+### Acceptance Criteria Matrix
+
+- [x] 1. Backend REST endpoints built in `api/app/routers/inventory.py` & schemas in `api/app/schemas/inventory.py` (`GET /api/v1/inventory/list`, `GET /api/v1/inventory/{filename}`, `POST /api/v1/inventory/validate`)
+- [x] 2. UI component built in `ui/src/components/cluster/InventoryYamlViewer.jsx` with raw YAML viewer box (`data-testid="inventory-yaml-text"`), copy button (`data-testid="btn-copy-yaml"`), node chips (`data-testid="chip-cp-nodes"`, `data-testid="chip-worker-nodes"`), and status badges (`data-testid="validation-status-badge"`)
+- [x] 3. Backend Pytest suite passes: `pytest api/tests/test_inventory.py` (4/4 passed) & full suite `pytest api/tests/` (15/15 passed)
+- [x] 4. Frontend Vitest suite passes: `npm test` in `ui/` (21/21 passed across 6 test files)
+- [x] 5. Documentation updated in `docs/API-GUIDE.md` and `docs/USER-GUIDE.md`
+- [x] 6. Execution audit report appended to `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- [x] 7. Local git commit created: `feat(inventory): Task-8 — add PreprovisionedInventory validation REST routes & InventoryYamlViewer UI component`
+- [x] 8. Safety rule followed: local git commit only, no git push performed
+
+### Test Output Summary
+
+#### `pytest api/tests/`
+
+```text
+============================= test session starts ==============================
+platform darwin -- Python 3.9.9, pytest-8.4.2, pluggy-1.6.0
+collected 15 items
+
+api/tests/test_cli_runner.py ...                                         [ 20%]
+api/tests/test_clusters.py ...                                           [ 40%]
+api/tests/test_inventory.py ....                                         [ 66%]
+api/tests/test_sse_stream.py ..                                          [ 80%]
+api/tests/test_vms.py ...                                                [100%]
+
+======================== 15 passed, 1 warning in 0.44s =========================
+```
+
+#### `npm test` (from `ui/`)
+
+```text
+ RUN  v3.2.7 /Users/bishwajit.kumar/work/git/forge-central/ui
+
+ ✓ src/pages/__tests__/VmListPage.test.jsx (4 tests)
+ ✓ src/components/common/__tests__/LiveTerminal.test.jsx (1 test)
+ ✓ src/components/cluster/__tests__/InventoryYamlViewer.test.jsx (3 tests)
+ ✓ src/pages/__tests__/ClustersPage.test.jsx (4 tests)
+ ✓ src/components/layout/__tests__/Layout.test.jsx (3 tests)
+ ✓ src/pages/__tests__/ClusterDeployPage.test.jsx (6 tests)
+
+ Test Files  6 passed (6)
+      Tests  21 passed (21)
+   Duration  2.58s
+```
+
+### Local Commit Snapshot
+
+- Commit subject: `feat(inventory): Task-8 — add PreprovisionedInventory validation REST routes & InventoryYamlViewer UI component`
+
+### Files Created / Modified
+
+- `api/app/config.py`
+- `api/app/main.py`
+- `api/app/schemas/inventory.py`
+- `api/app/routers/inventory.py`
+- `api/tests/test_inventory.py`
+- `ui/src/components/cluster/InventoryYamlViewer.jsx`
+- `ui/src/components/cluster/__tests__/InventoryYamlViewer.test.jsx`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+
+
