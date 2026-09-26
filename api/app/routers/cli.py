@@ -8,7 +8,11 @@
 
 from __future__ import annotations
 
+import asyncio
+import json
+
 from fastapi import APIRouter, HTTPException, Request
+from sse_starlette.sse import EventSourceResponse
 
 from ..config import get_settings
 from ..schemas.cli import CLIExecuteRequest, CLIExecuteResponse, HealthResponse, VersionResponse
@@ -66,3 +70,34 @@ async def execute_cli(request: Request, payload: CLIExecuteRequest) -> CLIExecut
         command=run.command,
         started_at=run.started_at,
     )
+
+
+@router.get("/api/v1/test/live-terminal-stream")
+async def live_terminal_stream() -> EventSourceResponse:
+    """Emit deterministic mock SSE log events for UI automation tests."""
+
+    async def event_generator():
+        for index in range(1, 4):
+            yield {
+                "event": "log",
+                "data": json.dumps(
+                    {
+                        "timestamp": f"2026-09-26T22:40:0{index}.100000+00:00",
+                        "line": f"mock stdout line {index}",
+                        "stream": "stdout",
+                    }
+                ),
+            }
+            await asyncio.sleep(0.15)
+
+        yield {
+            "event": "end",
+            "data": json.dumps(
+                {
+                    "exit_code": 0,
+                    "status": "COMPLETED",
+                }
+            ),
+        }
+
+    return EventSourceResponse(event_generator())

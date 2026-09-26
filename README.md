@@ -49,6 +49,27 @@ npm test
 npm run build
 ```
 
+## Automated Testing
+
+Backend tests:
+
+```bash
+cd ~/work/git/forge-central
+pytest api/tests/
+```
+
+Playwright Python E2E tests:
+
+```bash
+cd ~/work/git/forge-central
+pip install -r api/requirements.txt -r tests/e2e/requirements-e2e.txt
+cd ui && npm install && cd ..
+python -m playwright install chromium --with-deps
+pytest tests/e2e/ --browser chromium
+```
+
+For complete backend + UI testing flows, see `docs/TESTING-GUIDE.md`.
+
 ## Web Console Layout Skeleton
 
 The React shell in `ui/src/components/layout/` includes:

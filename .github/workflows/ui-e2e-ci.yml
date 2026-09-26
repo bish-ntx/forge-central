@@ -1,0 +1,92 @@
+name: UI E2E CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Target environment (mock or lab URL)"
+        required: false
+        default: mock
+        type: string
+      test_scope:
+        description: "Test scope selector"
+        required: false
+        default: all
+        type: choice
+        options:
+          - all
+          - e2e
+          - component
+      runner_label:
+        description: "Runner label"
+        required: false
+        default: ubuntu-latest
+        type: choice
+        options:
+          - ubuntu-latest
+          - self-hosted
+
+jobs:
+  ui-e2e:
+    name: Playwright Python E2E
+    runs-on: ${{ github.event_name == 'workflow_dispatch' && inputs.runner_label || 'ubuntu-latest' }}
+    env:
+      TARGET_ENVIRONMENT: ${{ github.event_name == 'workflow_dispatch' && inputs.environment || 'mock' }}
+      TEST_SCOPE: ${{ github.event_name == 'workflow_dispatch' && inputs.test_scope || 'all' }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ui/package-lock.json
+
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r api/requirements.txt -r tests/e2e/requirements-e2e.txt
+
+      - name: Install frontend dependencies
+        run: npm ci
+        working-directory: ui
+
+      - name: Install Playwright Chromium dependencies
+        run: python -m playwright install chromium --with-deps
+
+      - name: Run Playwright E2E tests
+        if: ${{ env.TEST_SCOPE == 'all' || env.TEST_SCOPE == 'e2e' }}
+        run: |
+          pytest tests/e2e/ \
+            --browser chromium \
+            --tracing retain-on-failure \
+            --screenshot only-on-failure \
+            --output tests/e2e/artifacts \
+            --html=tests/e2e/report.html \
+            --self-contained-html
+
+      - name: Component scope placeholder
+        if: ${{ env.TEST_SCOPE == 'component' }}
+        run: echo "Component scope selected; no Playwright component tests are currently defined."
+
+      - name: Upload Playwright artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-ui-e2e-artifacts
+          retention-days: 14
+          path: |
+            tests/e2e/report.html
+            tests/e2e/artifacts/**/trace.zip
+            tests/e2e/artifacts/**/*.png

@@ -33,14 +33,14 @@ describe('Layout', () => {
       'Forge Central Console',
     )
     expect(screen.getByTestId('header-system-health')).toBeInTheDocument()
-    expect(screen.getByTestId('header-search-trigger')).toBeInTheDocument()
+    expect(screen.getByTestId('toggle-theme-mode')).toBeInTheDocument()
     expect(screen.getByTestId('lab-site-badge')).toBeInTheDocument()
     expect(screen.getByTestId('mode-switcher')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-link-vms')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-link-clusters')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-link-fleet')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-link-ipam')).toBeInTheDocument()
-    expect(screen.getByTestId('nav-link-settings')).toBeInTheDocument()
+    expect(screen.getByTestId('link-vms')).toBeInTheDocument()
+    expect(screen.getByTestId('link-clusters')).toBeInTheDocument()
+    expect(screen.getByTestId('link-fleet')).toBeInTheDocument()
+    expect(screen.getByTestId('link-ipam')).toBeInTheDocument()
+    expect(screen.getByTestId('link-settings')).toBeInTheDocument()
   })
 
   test('routes to each page through sidebar links', () => {
@@ -48,16 +48,16 @@ describe('Layout', () => {
 
     expect(screen.getByTestId('page-vms')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId('nav-link-clusters'))
+    fireEvent.click(screen.getByTestId('link-clusters'))
     expect(screen.getByTestId('page-clusters')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId('nav-link-fleet'))
+    fireEvent.click(screen.getByTestId('link-fleet'))
     expect(screen.getByTestId('page-fleet')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId('nav-link-ipam'))
+    fireEvent.click(screen.getByTestId('link-ipam'))
     expect(screen.getByTestId('page-ipam')).toBeInTheDocument()
 
-    fireEvent.click(screen.getByTestId('nav-link-settings'))
+    fireEvent.click(screen.getByTestId('link-settings'))
     expect(screen.getByTestId('page-settings')).toBeInTheDocument()
   })
 

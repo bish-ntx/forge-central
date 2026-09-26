@@ -9,25 +9,25 @@ import {
 import { NavLink } from 'react-router-dom'
 
 const NAV_ITEMS = [
-  { to: '/vms', label: 'VMs', icon: Server, testId: 'nav-link-vms' },
+  { to: '/vms', label: 'VMs', icon: Server, testId: 'link-vms' },
   {
     to: '/clusters',
     label: 'Clusters',
     icon: SquareStack,
-    testId: 'nav-link-clusters',
+    testId: 'link-clusters',
   },
   {
     to: '/fleet',
     label: 'Fleet Dashboard',
     icon: FolderKanban,
-    testId: 'nav-link-fleet',
+    testId: 'link-fleet',
   },
-  { to: '/ipam', label: 'IPAM Subnets', icon: Network, testId: 'nav-link-ipam' },
+  { to: '/ipam', label: 'IPAM Subnets', icon: Network, testId: 'link-ipam' },
   {
     to: '/settings',
     label: 'Settings',
     icon: Settings,
-    testId: 'nav-link-settings',
+    testId: 'link-settings',
   },
 ]
 

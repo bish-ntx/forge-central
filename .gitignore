@@ -1,6 +1,8 @@
 my-notes/
 __pycache__/
 .venv/
+.venv-e2e/
+.playwright-browsers/
 .pytest_cache/
 node_modules/
 dist/
