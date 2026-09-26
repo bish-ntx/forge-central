@@ -2,6 +2,11 @@
 
 Forge Central is a control-plane service that wraps local `./forge` CLI workflows behind a FastAPI backend.
 
+It includes:
+
+- `api/`: FastAPI REST control-plane services.
+- `ui/`: React 18 + Vite web console with Tailwind dark theme routing shell.
+
 ## Architecture Overview
 
 - `api/app/main.py`: FastAPI application bootstrap.
@@ -24,6 +29,31 @@ uvicorn api.app.main:app --reload --port 8000
 OpenAPI docs are available at:
 
 - `http://127.0.0.1:8000/docs`
+
+## Frontend Quickstart
+
+```bash
+cd ~/work/git/forge-central/ui
+npm install
+npm run dev
+```
+
+Frontend build and tests:
+
+```bash
+npm test
+npm run build
+```
+
+## Web Console Layout Skeleton
+
+The React shell in `ui/src/components/layout/` includes:
+
+- `Sidebar.jsx`: Left navigation for `/vms`, `/clusters`, `/fleet`, `/ipam`, `/settings` with active route highlighting, lab-site badge, and mode switcher (`Console` vs `Fleet`).
+- `Header.jsx`: Control-plane mode badge (`Forge Central Console` or `Forge Fleet Dashboard`), system health indicator, and `⌘K` search trigger.
+- `Layout.jsx`: Shared shell that renders `Sidebar`, `Header`, and route content via React Router `<Outlet />`.
+
+Page placeholders live under `ui/src/pages/` and expose deterministic `data-testid` selectors for automated UI tests.
 
 ## Environment Variables
 
