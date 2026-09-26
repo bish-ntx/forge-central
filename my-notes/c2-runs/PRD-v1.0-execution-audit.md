@@ -698,5 +698,28 @@ api/tests/test_vms.py ...                                                [100%]
 - `docs/USER-GUIDE.md`
 - `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
 
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED]
+
+- **Date/Time:** 2026-09-26 16:32 PDT / 23:32 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `6eb44fa` created cleanly (`feat(inventory): Task-8 — add PreprovisionedInventory validation REST routes & InventoryYamlViewer UI component`).
+  - PreprovisionedInventory REST routes (`GET /api/v1/inventory/list`, `GET /api/v1/inventory/{filename}`, `POST /api/v1/inventory/validate`) created in `api/app/routers/inventory.py`.
+  - Pydantic v2 schemas (`InventoryListResponse`, `InventoryDetailResponse`, `InventoryValidationResponse`, `ValidationCheck`) created in `api/app/schemas/inventory.py`.
+  - Backend pytest suite passed 15/15 across all endpoints.
+  - UI component `InventoryYamlViewer.jsx` created rendering dark syntax-highlighted raw YAML box (`data-testid="inventory-yaml-text"`), instant copy button (`data-testid="btn-copy-yaml"`), control plane / worker node address chips, and diagnostic status badges (`data-testid="validation-status-badge"`).
+  - Vitest component suite passed 21/21 tests across 6 test files in `ui/`.
+  - OpenAPI & user documentation updated in `docs/API-GUIDE.md` and `docs/USER-GUIDE.md`.
+- **Checklist Updated:** Task 4.6 (InventoryYamlViewer inspection) marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+
+
 
 
