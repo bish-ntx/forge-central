@@ -388,3 +388,85 @@ tests/e2e/test_web_console_e2e.py ....                                   [100%]
 
 - No new source changes were required for this rerun; repository remained clean after verification.
 - `pytest` in sandboxed runtime can fail Playwright browser resolution due to isolated cache paths; running the same command outside sandbox succeeded.
+
+---
+
+## [2026-09-26] Task-5 VM REST + UI delivery (Codex 5.3)
+
+- Execution Status: SUCCESS
+- Target: C2-P05-Agent05 (Codex 5.3 Medium / Sonnet 5 Thinking)
+- Scope: Add VM management API endpoints, VM list UI, backend/frontend tests, and docs
+
+### Acceptance Criteria Matrix
+
+- [x] 1. Backend pytest suite passes: `pytest api/tests/test_vms.py`
+- [x] 2. Frontend Vitest suite passes: `npm test`
+- [x] 3. `data-testid` locators present on VM table, filters, modals, and action buttons
+- [x] 4. Documentation updated in `docs/API-GUIDE.md` and `docs/USER-GUIDE.md`
+- [x] 5. Local Git commit created: `4d0fa2e` (`feat(vms): Task-5 — add Proxmox VM management REST endpoints & VmListPage UI component`)
+- [x] 6. Safety rule followed: local commit only, no push performed
+
+### Test Output Summary
+
+#### `pytest api/tests/test_vms.py`
+
+```text
+============================= test session starts ==============================
+platform darwin -- Python 3.9.9, pytest-8.4.2, pluggy-1.6.0
+collected 3 items
+api/tests/test_vms.py ...                                                [100%]
+============================== 3 passed in 0.31s ===============================
+```
+
+#### `npm test`
+
+```text
+RUN  v3.2.7 /Users/bishwajit.kumar/work/git/forge-central/ui
+✓ src/pages/__tests__/VmListPage.test.jsx (4 tests)
+✓ src/components/layout/__tests__/Layout.test.jsx (3 tests)
+✓ src/components/common/__tests__/LiveTerminal.test.jsx (1 test)
+Test Files  3 passed (3)
+Tests  8 passed (8)
+Duration  2.42s
+```
+
+### Local Commit Snapshot
+
+- Commit hash: `4d0fa2e`
+- Commit subject: `feat(vms): Task-5 — add Proxmox VM management REST endpoints & VmListPage UI component`
+
+### Files Created / Modified
+
+- `api/app/routers/vms.py`
+- `api/app/schemas/vms.py`
+- `api/app/main.py`
+- `api/tests/test_vms.py`
+- `ui/src/pages/VmListPage.jsx`
+- `ui/src/pages/__tests__/VmListPage.test.jsx`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED]
+
+- **Date/Time:** 2026-09-26 16:10 PDT / 23:10 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `4d0fa2e` created cleanly (`feat(vms): Task-5 — add Proxmox VM management REST endpoints & VmListPage UI component`).
+  - FastAPI VM management routes (`GET /api/v1/vms`, `POST /api/v1/vms/create`, `POST /api/v1/vms/{vmid}/action`, `POST /api/v1/vms/pci-passthrough`) created in `api/app/routers/vms.py`.
+  - Pydantic v2 schemas (`VmListResponse`, `VmCreateRequest`, `VmActionRequest`, `PciPassthroughRequest`) created in `api/app/schemas/vms.py`.
+  - Pytest backend tests (`pytest api/tests/test_vms.py`) passed 3/3 in 0.31s.
+  - React `VmListPage.jsx` view built supporting VM data table, search input (`data-testid="input-vm-search"`), status filter (`data-testid="select-vm-status-filter"`), creation modal (`data-testid="btn-open-create-vm-modal"`), action buttons (`data-testid="btn-vm-start-{vmid}"`, `data-testid="btn-vm-stop-{vmid}"`, `data-testid="btn-vm-destroy-{vmid}"`), and typed confirmation modal (`data-testid="modal-confirm-vm-destroy"`).
+  - Vitest component suite passed 8/8 tests across 3 test files in 2.42s.
+  - API and user guides updated in `docs/API-GUIDE.md` and `docs/USER-GUIDE.md`.
+- **Checklist Updated:** Tasks 3.6 (partial VMs), 3.7 (hardware passthrough), and 4.3 marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+
