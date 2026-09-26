@@ -470,3 +470,86 @@ Duration  2.42s
   git push origin main
   ```
 
+---
+
+## [2026-09-26] Task-6 Cluster REST + UI delivery (Codex 5.3)
+
+- Execution Status: SUCCESS
+- Target: C2-P06-Agent06 (Codex 5.3 Medium / Sonnet 5 Thinking)
+- Scope: Add NKP cluster management API routes, cluster UI page, backend/frontend tests, and docs updates
+
+### Acceptance Criteria Matrix
+
+- [x] 1. Backend pytest suite passes: `pytest api/tests/test_clusters.py`
+- [x] 2. Frontend Vitest suite passes: `npm test`
+- [x] 3. `data-testid` locators present on cluster cards, buttons, search filter, and modal
+- [x] 4. Documentation updated in `docs/API-GUIDE.md` and `docs/USER-GUIDE.md`
+- [x] 5. Local Git commit created: `76d6f90` (`feat(clusters): Task-6 — add NKP cluster management REST endpoints & ClustersPage UI component`)
+- [x] 6. Safety rule followed: local commit only, no push performed
+
+### Test Output Summary
+
+#### `pytest api/tests/test_clusters.py`
+
+```text
+============================= test session starts ==============================
+platform darwin -- Python 3.9.9, pytest-8.4.2, pluggy-1.6.0
+collected 3 items
+api/tests/test_clusters.py ...                                           [100%]
+============================== 3 passed in 0.36s ===============================
+```
+
+#### `npm test`
+
+```text
+RUN  v3.2.7 /Users/bishwajit.kumar/work/git/forge-central/ui
+✓ src/pages/__tests__/VmListPage.test.jsx (4 tests)
+✓ src/components/common/__tests__/LiveTerminal.test.jsx (1 test)
+✓ src/pages/__tests__/ClustersPage.test.jsx (4 tests)
+✓ src/components/layout/__tests__/Layout.test.jsx (3 tests)
+Test Files  4 passed (4)
+Tests  12 passed (12)
+Duration  2.18s
+```
+
+### Local Commit Snapshot
+
+- Commit hash: `76d6f90`
+- Commit subject: `feat(clusters): Task-6 — add NKP cluster management REST endpoints & ClustersPage UI component`
+
+### Files Created / Modified
+
+- `api/app/routers/clusters.py`
+- `api/app/schemas/clusters.py`
+- `api/tests/test_clusters.py`
+- `api/app/main.py`
+- `ui/src/pages/ClustersPage.jsx`
+- `ui/src/pages/ClusterDeployPage.jsx`
+- `ui/src/pages/__tests__/ClustersPage.test.jsx`
+- `ui/src/App.jsx`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED]
+
+- **Date/Time:** 2026-09-26 16:25 PDT / 23:25 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `76d6f90` created cleanly (`feat(clusters): Task-6 — add NKP cluster management REST endpoints & ClustersPage UI component`).
+  - FastAPI NKP cluster management routes (`GET /api/v1/clusters`, `POST /api/v1/clusters/create`, `GET /api/v1/clusters/{name}`, `DELETE /api/v1/clusters/{name}`, `POST /api/v1/clusters/{name}/nodepools`) created in `api/app/routers/clusters.py`.
+  - Pydantic v2 schemas (`ClusterListResponse`, `ClusterCreateRequest`, `ClusterItem`, `NodepoolCreateRequest`) created in `api/app/schemas/clusters.py`.
+  - Pytest backend tests (`pytest api/tests/test_clusters.py`) passed 3/3 in 0.36s.
+  - React `ClustersPage.jsx` view built rendering cluster cards with readiness status progress bars (`Ready N/M nodes`), search filter (`data-testid="input-cluster-search"`), deploy cluster button (`data-testid="btn-open-deploy-cluster"`), action buttons (`data-testid="btn-cluster-delete-{name}"`), and typed confirmation modal (`data-testid="modal-confirm-cluster-delete"`).
+  - Vitest component suite passed 12/12 tests across 4 test files in 2.18s.
+  - API and user guides updated in `docs/API-GUIDE.md` and `docs/USER-GUIDE.md`.
+- **Checklist Updated:** Tasks 3.3 (NKP creation pipeline), 3.4 (nodepools), 3.5 (workload clusters), and 4.4 marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
