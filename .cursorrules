@@ -38,14 +38,20 @@ Your goal is to generate deterministic, production-grade Python backend and Reac
 - **State & API Handling:** Use custom React hooks (`useEventSource`, `useFetch`) or Axios for API interaction.
 - **Live Terminal Component:** Render streaming logs using a dark monospace terminal box with auto-scroll and status indicators (running, succeeded, failed).
 
-### Zero Hardcoded Paths & Dynamic Directory Rules
-- **No Hardcoded Absolute/Relative Paths:** NEVER hardcode paths like `~/forge-state/`, `~/work/git/nkp-forge/forge`, or `/var/log/forge-central/` in Python code, shell wrappers, or React components.
-- **Centralized `app/config.py` Settings:** All directory locations (`FORGE_HOME`, `FORGE_BIN_DIR`, `FORGE_CLI_PATH`, `FORGE_DATA_DIR` / `FORGE_STATE_DIR`, `FORGE_BACKUP_DIR`, `FORGE_LOG_DIR`) MUST be resolved dynamically via environment-driven settings.
+### Zero Hardcoded Paths, Structured INI Configuration & Anti-Dotenv Rules
+- **No Hardcoded Absolute/Relative Paths:** NEVER hardcode paths like `~/forge-data/`, `~/work/git/nkp-forge/forge`, or `/var/log/forge-central/` in Python code, shell wrappers, or React components.
+- **Centralized `app/config.py` Settings Engine:** All directory locations (`FORGE_HOME`, `FORGE_BIN_DIR`, `FORGE_CLI_PATH`, `FORGE_DATA_DIR`, `FORGE_BACKUP_DIR`, `FORGE_LOG_DIR`) MUST be resolved dynamically via environment-driven settings.
+- **Structured INI Configuration Standard:** Main application parameters and lab cluster settings MUST be stored in simple, human-readable **`.ini`** files (`forge.ini`, `lab-config.ini`, `~/forge-data/*.ini`). Avoid `.conf` extensions (reserved for system files like `kubeconfig.conf`) to ensure 100% uniformity with `nkp-forge`'s CLI INI engine.
+- **Anti-Dotenv Discipline:** Avoid relying on `.env` files for operational or application configuration. `.env` files are reserved strictly as low-level local developer environment overrides (such as local port numbers or secret keys) and MUST NOT be used for main application or lab configuration.
 
 ### Security & Credential Hygiene
 - **No Secret Leakage:** NEVER log passwords, SSH private keys, or API tokens in plaintext or emit them in standard SSE log streams.
 - **Credential Storage:** Store sensitive credentials in encrypted local storage (`/api/v1/secrets`) or out-of-band environment variables.
 - **Masking:** Mask secrets in log outputs before broadcasting (`***MASKED***`).
+
+### Testing & Architecture Rules
+- **Playwright E2E Isolation:** E2E UI tests in `tests/e2e/` must use deterministic `data-testid` locators.
+- **macOS Apple Silicon Architecture Matching:** On macOS Apple Silicon (arm64), always install and run Playwright browser binaries (`playwright install chromium`) natively in non-sandboxed host runtime to prevent x64 vs arm64 CPU emulation mismatches.
 
 ### Documentation & Help-As-You-Go Discipline
 - **C2-Owned Documentation:** `README.md` and tracked guides under `docs/` (`docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `docs/ADMIN-GUIDE.md`) are **C2-owned**. C2 MUST update documentation concurrently with code changes.

@@ -29,6 +29,9 @@ python3 -m pip install -r api/requirements.txt -r tests/e2e/requirements-e2e.txt
 python3 -m playwright install chromium --with-deps
 ```
 
+> **Architecture & Sandbox Note for macOS (Apple Silicon arm64):**  
+> If executing inside a sandboxed CLI runtime or virtualized environment where Python reports `x64` / `darwin-x64`, Playwright may download x86_64 binaries (`mac-x64`) resulting in architecture mismatches. Always run `playwright install chromium` natively or in the non-sandboxed host runtime matching your workstation CPU architecture (`arm64`).
+
 Install frontend dependencies:
 
 ```bash
