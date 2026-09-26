@@ -46,6 +46,29 @@ The initial Prompt 02 skeleton includes route pages:
 
 Each page container includes a stable `data-testid` to support automated tests and CI flows.
 
+## VM Management Page (`/vms`)
+
+The VM page now provides interactive Proxmox/AHV VM operations:
+
+- Search/filter toolbar:
+  - Search input (`data-testid="input-vm-search"`) for VM name/VMID matching.
+  - Status dropdown (`data-testid="select-vm-status-filter"`) with `All`, `Running`, and `Stopped`.
+  - Node dropdown for per-node filtering.
+- VM table columns:
+  - `VMID`, `Name`, `Node`, `CPUs`, `RAM`, `Disk`, `Status`, `GPU Passthrough`, and `Actions`.
+  - Running VMs are shown with a green status badge; stopped VMs use a gray badge.
+  - GPU passthrough column marks VMs with attached PCI/GPU devices.
+- Lifecycle actions:
+  - Start button: `data-testid="btn-vm-start-{vmid}"`.
+  - Stop button: `data-testid="btn-vm-stop-{vmid}"`.
+  - Destroy button: `data-testid="btn-vm-destroy-{vmid}"`.
+- VM creation:
+  - Create modal trigger: `data-testid="btn-open-create-vm-modal"`.
+  - Modal includes name, node, CPU, RAM, and disk fields and calls `POST /api/v1/vms/create`.
+- Destroy safety:
+  - Typed-confirmation modal (`data-testid="modal-confirm-vm-destroy"`).
+  - User must type VM name exactly before destroy action is enabled.
+
 ## Live Terminal Streaming
 
 The Clusters view now includes a reusable live terminal component:

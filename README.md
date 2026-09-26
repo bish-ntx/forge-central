@@ -15,10 +15,13 @@ It includes:
 - `api/app/services/log_publisher.py`: In-memory SSE log event publisher.
 - `api/app/routers/cli.py`: Base API routes (`/health`, `/api/v1/version`, `/api/v1/cli/execute`).
 - `api/app/routers/pipeline.py`: Pipeline SSE stream route (`/api/v1/pipeline/{run_id}/stream`).
+- `api/app/routers/vms.py`: VM inventory and lifecycle APIs (`/api/v1/vms`).
 - `api/app/schemas/cli.py`: Pydantic request/response models.
 - `api/app/schemas/pipeline.py`: Pydantic SSE event payload models.
+- `api/app/schemas/vms.py`: VM API request/response schemas.
 - `api/tests/test_cli_runner.py`: Async endpoint tests using `httpx.AsyncClient`.
 - `api/tests/test_sse_stream.py`: SSE stream contract tests.
+- `api/tests/test_vms.py`: VM router unit tests.
 
 ## Quickstart
 
@@ -78,7 +81,14 @@ The React shell in `ui/src/components/layout/` includes:
 - `Header.jsx`: Control-plane mode badge (`Forge Central Console` or `Forge Fleet Dashboard`), system health indicator, and `⌘K` search trigger.
 - `Layout.jsx`: Shared shell that renders `Sidebar`, `Header`, and route content via React Router `<Outlet />`.
 
-Page placeholders live under `ui/src/pages/` and expose deterministic `data-testid` selectors for automated UI tests.
+Pages under `ui/src/pages/` expose deterministic `data-testid` selectors for automated UI tests.
+
+`VmListPage.jsx` now includes VM inventory management with:
+
+- Search by VM name/VMID and status/node filters.
+- VM creation modal flow (`POST /api/v1/vms/create`).
+- VM lifecycle controls (`start`, `stop`, `restart`, `destroy`).
+- Typed destroy confirmation modal and GPU/PCI passthrough indicators.
 
 ## Live Pipeline Terminal
 

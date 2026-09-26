@@ -56,6 +56,112 @@ Response (`202 Accepted`):
 }
 ```
 
+## VM Management API
+
+### `GET /api/v1/vms`
+
+Returns active VM inventory records from forge CLI JSON output.
+
+Query parameters:
+
+- `node` (optional): filter by node name.
+- `status` (optional): `running` or `stopped`.
+
+Example:
+
+```bash
+curl -s "http://127.0.0.1:8000/api/v1/vms?status=running"
+```
+
+Example response:
+
+```json
+{
+  "vms": [
+    {
+      "vmid": 101,
+      "name": "gpu-vm-01",
+      "node": "pve-a",
+      "cores": 8,
+      "memory_mb": 16384,
+      "disk_gb": 200,
+      "status": "running",
+      "gpu_passthrough": true,
+      "pci_devices": ["0000:65:00.0"]
+    }
+  ]
+}
+```
+
+### `POST /api/v1/vms/create`
+
+Queues VM provisioning in forge CLI.
+
+Request schema:
+
+```json
+{
+  "name": "gpu-vm-02",
+  "node": "pve-b",
+  "cores": 8,
+  "memory_mb": 16384,
+  "disk_gb": 120,
+  "hypervisor_type": "proxmox"
+}
+```
+
+Example:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/vms/create" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"gpu-vm-02","node":"pve-b","cores":8,"memory_mb":16384,"disk_gb":120,"hypervisor_type":"proxmox"}'
+```
+
+### `POST /api/v1/vms/{vmid}/action`
+
+Queues VM lifecycle action for a specific VM.
+
+Request schema:
+
+```json
+{
+  "action": "restart"
+}
+```
+
+Valid action values: `start`, `stop`, `restart`, `destroy`.
+
+Example:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/vms/101/action" \
+  -H "Content-Type: application/json" \
+  -d '{"action":"stop"}'
+```
+
+### `POST /api/v1/vms/pci-passthrough`
+
+Queues PCI device passthrough mapping to target VM.
+
+Request schema:
+
+```json
+{
+  "vmid": 101,
+  "pci_id": "0000:65:00.0",
+  "hostpci_index": 0
+}
+```
+
+Example:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/vms/pci-passthrough" \
+  -H "Content-Type: application/json" \
+  -d '{"vmid":101,"pci_id":"0000:65:00.0","hostpci_index":0}'
+```
+
 ### `GET /api/v1/pipeline/{run_id}/stream`
 
 Streams pipeline logs over Server-Sent Events (SSE) for a previously started run.
