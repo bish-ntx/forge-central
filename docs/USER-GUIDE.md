@@ -34,12 +34,13 @@ The web console uses a dark Tailwind layout inspired by Nutanix/Proxmox operatio
 - **Main Panel (`ui/src/components/layout/Layout.jsx`)**
   - Renders route pages through React Router `<Outlet />`
 
-## Route Placeholders
+## Route Pages
 
-The initial Prompt 02 skeleton includes route pages:
+Current route pages:
 
 - `VmListPage.jsx` (`/vms`)
 - `ClustersPage.jsx` (`/clusters`)
+- `ClusterDeployPage.jsx` (`/clusters/deploy`)
 - `FleetDashboardPage.jsx` (`/fleet`)
 - `IpamPage.jsx` (`/ipam`)
 - `SettingsPage.jsx` (`/settings`)
@@ -69,22 +70,29 @@ The VM page now provides interactive Proxmox/AHV VM operations:
   - Typed-confirmation modal (`data-testid="modal-confirm-vm-destroy"`).
   - User must type VM name exactly before destroy action is enabled.
 
-## Live Terminal Streaming
+## NKP Cluster Management Page (`/clusters`)
 
-The Clusters view now includes a reusable live terminal component:
+The Clusters page provides an NKP-focused cluster overview and lifecycle controls:
 
-- Component: `ui/src/components/common/LiveTerminal.jsx`
-- Hook: `ui/src/hooks/useEventSource.js`
-- Backend stream: `GET /api/v1/pipeline/{run_id}/stream`
+- Search/filter:
+  - Search input (`data-testid="input-cluster-search"`) filters by cluster name or Kubernetes version.
+- Deployment launcher:
+  - Primary button (`data-testid="btn-open-deploy-cluster"`) navigates to `/clusters/deploy`.
+- Cluster cards:
+  - Each card uses `data-testid="cluster-card-{clusterName}"`.
+  - Status badge supports `Ready`, `Deploying`, and `Failed` states.
+  - Node readiness progress displays `Ready N/M nodes` with a progress bar.
+  - MetalLB VIP range is displayed per cluster.
+- Cluster table:
+  - Tabular summary (`data-testid="table-clusters"`) mirrors card data for quick scanning.
+- Safe destructive action:
+  - Delete button (`data-testid="btn-cluster-delete-{clusterName}"`) opens a typed confirmation modal.
+  - Modal (`data-testid="modal-confirm-cluster-delete"`) requires exact cluster name match before delete is enabled.
 
-Behavior:
+## NKP Cluster Deploy Page (`/clusters/deploy`)
 
-- Subscribes to SSE log events (`stdout` and `stderr`) from active pipeline runs.
-- Renders numbered terminal lines in a dark monospace panel.
-- Colors `stderr` lines in amber to make failures easy to spot.
-- Shows run status with spinner/success/failure state icons.
-- Displays active step name and elapsed execution timer.
-- Supports auto-scroll toggle and one-click copy-to-clipboard log export.
+- `ClusterDeployPage.jsx` is a deployment wizard launcher target.
+- It provides the initial shell for upcoming step-by-step NKP create flows.
 
 ## Frontend Validation Commands
 

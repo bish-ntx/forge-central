@@ -12,6 +12,7 @@ from fastapi import FastAPI
 
 from .config import get_settings
 from .routers.cli import router as cli_router
+from .routers.clusters import router as clusters_router
 from .routers.pipeline import router as pipeline_router
 from .routers.vms import router as vms_router
 from .services.log_publisher import LogPublisher
@@ -27,3 +28,4 @@ app.state.process_runner = ProcessRunner(
 app.include_router(cli_router)
 app.include_router(pipeline_router)
 app.include_router(vms_router)
+app.include_router(clusters_router)

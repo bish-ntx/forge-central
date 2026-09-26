@@ -16,12 +16,15 @@ It includes:
 - `api/app/routers/cli.py`: Base API routes (`/health`, `/api/v1/version`, `/api/v1/cli/execute`).
 - `api/app/routers/pipeline.py`: Pipeline SSE stream route (`/api/v1/pipeline/{run_id}/stream`).
 - `api/app/routers/vms.py`: VM inventory and lifecycle APIs (`/api/v1/vms`).
+- `api/app/routers/clusters.py`: NKP cluster lifecycle APIs (`/api/v1/clusters`).
 - `api/app/schemas/cli.py`: Pydantic request/response models.
 - `api/app/schemas/pipeline.py`: Pydantic SSE event payload models.
 - `api/app/schemas/vms.py`: VM API request/response schemas.
+- `api/app/schemas/clusters.py`: NKP cluster API request/response schemas.
 - `api/tests/test_cli_runner.py`: Async endpoint tests using `httpx.AsyncClient`.
 - `api/tests/test_sse_stream.py`: SSE stream contract tests.
 - `api/tests/test_vms.py`: VM router unit tests.
+- `api/tests/test_clusters.py`: Cluster router unit tests.
 
 ## Quickstart
 
@@ -89,6 +92,13 @@ Pages under `ui/src/pages/` expose deterministic `data-testid` selectors for aut
 - VM creation modal flow (`POST /api/v1/vms/create`).
 - VM lifecycle controls (`start`, `stop`, `restart`, `destroy`).
 - Typed destroy confirmation modal and GPU/PCI passthrough indicators.
+
+`ClustersPage.jsx` now includes NKP cluster operations with:
+
+- Cluster inventory cards and table backed by `GET /api/v1/clusters`.
+- Search input (`data-testid="input-cluster-search"`), status badges, node readiness progress, and MetalLB VIP range display.
+- Cluster deployment launcher button (`data-testid="btn-open-deploy-cluster"`) that routes to `/clusters/deploy`.
+- Typed destructive confirmation modal (`data-testid="modal-confirm-cluster-delete"`) for `DELETE /api/v1/clusters/{name}`.
 
 ## Live Pipeline Terminal
 

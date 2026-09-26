@@ -162,6 +162,98 @@ curl -s -X POST "http://127.0.0.1:8000/api/v1/vms/pci-passthrough" \
   -d '{"vmid":101,"pci_id":"0000:65:00.0","hostpci_index":0}'
 ```
 
+## NKP Cluster Management API
+
+### `GET /api/v1/clusters`
+
+Returns cluster inventory records from forge CLI JSON output.
+
+Response schema:
+
+```json
+{
+  "clusters": [
+    {
+      "name": "nkp-prod-01",
+      "status": "ready",
+      "kubernetes_version": "v1.31.1",
+      "desired_nodes": 6,
+      "ready_nodes": 6,
+      "metallb": {
+        "vip_range": "10.10.40.100-10.10.40.120",
+        "address_pool": "prod-pool"
+      }
+    }
+  ]
+}
+```
+
+### `POST /api/v1/clusters/create`
+
+Queues the preprovisioned NKP pipeline (`01-preprov-create-nkp-cluster-konvoy.sh` through `05-preprov-validate-cluster.sh`).
+
+Request schema:
+
+```json
+{
+  "cluster_name": "nkp-prod-01",
+  "control_plane_nodes": 3,
+  "worker_nodes": 3,
+  "kubernetes_version": "v1.31.1",
+  "hypervisor_type": "proxmox"
+}
+```
+
+### `GET /api/v1/clusters/{name}`
+
+Returns detailed cluster metadata including node status and MetalLB VIP configuration.
+
+Example response:
+
+```json
+{
+  "cluster": {
+    "name": "nkp-prod-01",
+    "status": "ready",
+    "kubernetes_version": "v1.31.1",
+    "desired_nodes": 6,
+    "ready_nodes": 6,
+    "metallb": {
+      "vip_range": "10.10.40.100-10.10.40.120",
+      "address_pool": "prod-pool"
+    }
+  },
+  "nodes": [
+    { "name": "nkp-prod-01-cp-1", "role": "control-plane", "status": "ready" },
+    { "name": "nkp-prod-01-md-1", "role": "worker", "status": "ready" }
+  ]
+}
+```
+
+### `DELETE /api/v1/clusters/{name}`
+
+Queues cluster deletion for workload or management clusters.
+
+Example:
+
+```bash
+curl -s -X DELETE "http://127.0.0.1:8000/api/v1/clusters/nkp-prod-01"
+```
+
+### `POST /api/v1/clusters/{name}/nodepools`
+
+Queues nodepool creation/scale operation through preprovisioned nodepool workflow.
+
+Request schema:
+
+```json
+{
+  "nodepool_name": "md-gpu",
+  "replicas": 3,
+  "hypervisor_type": "proxmox"
+}
+```
+
 ### `GET /api/v1/pipeline/{run_id}/stream`
 
 Streams pipeline logs over Server-Sent Events (SSE) for a previously started run.
