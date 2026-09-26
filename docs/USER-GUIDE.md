@@ -91,8 +91,27 @@ The Clusters page provides an NKP-focused cluster overview and lifecycle control
 
 ## NKP Cluster Deploy Page (`/clusters/deploy`)
 
-- `ClusterDeployPage.jsx` is a deployment wizard launcher target.
-- It provides the initial shell for upcoming step-by-step NKP create flows.
+The NKP Cluster Deploy page (`ClusterDeployPage.jsx`) provides an interactive 5-stage wizard for configuring and launching preprovisioned Nutanix Kubernetes Platform (NKP) clusters:
+
+- **Stage 1: Cluster Basics**
+  - Inputs: Cluster name (`data-testid="input-cluster-name"`), hypervisor engine (`data-testid="select-hypervisor"` with Proxmox VE / Nutanix AHV choices), and Kubernetes release version (`data-testid="input-k8s-version"`).
+- **Stage 2: Node Topology & Preprovisioned Inventory**
+  - Inputs: Control plane node count (`data-testid="input-control-plane-count"`), worker node count (`data-testid="input-worker-count"`), and inventory file selector (`data-testid="select-inventory-file"`).
+  - Pre-flight PreprovisionedInventory inspection card (`data-testid="inventory-inspection-card"`):
+    - Live pre-flight node status check matrix (`data-testid="preflight-status-checks"`) showing node reachability, role assignments, and hardware capacity.
+    - PreprovisionedInventory YAML manifest preview (`data-testid="inventory-yaml-preview"`).
+- **Stage 3: Networking & VIP Configuration**
+  - Inputs: MetalLB Layer-2 IP range (`data-testid="input-metallb-range"`) and Control Plane API Virtual IP (`data-testid="input-cp-vip"`).
+- **Stage 4: Storage & Management Addons**
+  - Toggles: Nutanix CSI Storage Driver (`data-testid="toggle-csi"`) and Kommander Addons (`data-testid="toggle-kommander"`).
+  - Pre-launch deployment summary box summarizing full cluster specifications.
+- **Stage 5: Live Execution & SSE Streaming**
+  - Launches `POST /api/v1/clusters/create` on trigger button click (`data-testid="btn-wizard-launch"`).
+  - Embedded `<LiveTerminal />` (`data-testid="terminal-live-logs"`) streams real-time execution logs from `/api/v1/pipeline/{run_id}/stream`.
+  - Stage status cards (`01-konvoy`, `02-metallb`, `03-csi`, `04-kommander`, `05-validation`) display real-time execution progress.
+- **Navigation Controls:**
+  - Forward/backward navigation (`data-testid="btn-wizard-next"`, `data-testid="btn-wizard-back"`) with client-side form state retention across step transitions.
+  - Launch button debouncing (`disabled={isSubmitting}`) preventing accidental duplicate cluster creation requests.
 
 ## Frontend Validation Commands
 

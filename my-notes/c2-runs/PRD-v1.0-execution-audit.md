@@ -553,3 +553,52 @@ Duration  2.18s
   cd ~/work/git/forge-central
   git push origin main
   ```
+
+---
+
+## [2026-09-26] Task-7 5-stage NKP cluster deployment wizard UI component
+
+- Execution Status: SUCCESS
+- Target: C2-P07-Agent07 (Gemini 3.6 Flash / Sonnet 5 Thinking)
+- Scope: 5-stage interactive NKP deployment wizard UI (`ClusterDeployPage.jsx`), pre-flight inventory inspection, live SSE pipeline terminal wiring, Vitest test suite (`ClusterDeployPage.test.jsx`), user guide updates, and local git commit
+
+### Acceptance Criteria Matrix
+
+- [x] 1. Interactive 5-Stage Deployment Wizard built (`01-konvoy`, `02-metallb`, `03-csi`, `04-kommander`, `05-validation`) in `ui/src/pages/ClusterDeployPage.jsx`
+- [x] 2. Pre-flight PreprovisionedInventory YAML inspection & node status checks integrated into Stage 2 (`data-testid="inventory-inspection-card"`, `data-testid="preflight-status-checks"`, `data-testid="inventory-yaml-preview"`)
+- [x] 3. Direct backend SSE wiring to `POST /api/v1/clusters/create` rendering live stream in embedded `<LiveTerminal />` (`data-testid="terminal-live-logs"`)
+- [x] 4. Unit tests pass in `ui/src/pages/__tests__/ClusterDeployPage.test.jsx` (18/18 passing across full Vitest suite in `ui/`)
+- [x] 5. Navigation & Stepper UI controls (`data-testid="btn-wizard-next"`, `data-testid="btn-wizard-back"`, `data-testid="btn-wizard-launch"`) with debouncing (`disabled={isSubmitting}`) implemented
+- [x] 6. Documentation updated in `docs/USER-GUIDE.md` and recorded run in `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- [x] 7. Local git commit created: `feat(ui): Task-7 — add 5-stage NKP cluster deployment wizard UI component`
+- [x] 8. Safety rule followed: local commit only, no git push performed
+
+### Test Output Summary
+
+#### `npm test` (from `ui/`)
+
+```text
+ RUN  v3.2.7 /Users/bishwajit.kumar/work/git/forge-central/ui
+
+ ✓ src/pages/__tests__/VmListPage.test.jsx (4 tests)
+ ✓ src/components/common/__tests__/LiveTerminal.test.jsx (1 test)
+ ✓ src/components/layout/__tests__/Layout.test.jsx (3 tests)
+ ✓ src/pages/__tests__/ClusterDeployPage.test.jsx (6 tests)
+ ✓ src/pages/__tests__/ClustersPage.test.jsx (4 tests)
+
+ Test Files  5 passed (5)
+      Tests  18 passed (18)
+   Duration  2.21s
+```
+
+### Local Commit Snapshot
+
+- Commit subject: `feat(ui): Task-7 — add 5-stage NKP cluster deployment wizard UI component`
+
+### Files Created / Modified
+
+- `ui/src/pages/ClusterDeployPage.jsx`
+- `ui/src/pages/__tests__/ClusterDeployPage.test.jsx`
+- `docs/USER-GUIDE.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
