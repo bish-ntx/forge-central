@@ -176,79 +176,6 @@ Not run in this task (frontend-only scope).
 
 ---
 
-## [2026-09-26] Task-9 Forge Fleet Aggregator REST endpoints and FleetDashboardPage UI
-
-- Execution Status: SUCCESS
-- Target: C2 Executor (Codex 5.3)
-- Scope: Fleet aggregator backend routes/schemas, fleet dashboard UI, tests, docs, and local commit
-
-### Acceptance Criteria Matrix
-
-- [x] 1. Backend schema file `api/app/schemas/fleet.py` created with `SiteSnapshot`, `SiteStatus`, and `FleetStatusResponse`
-- [x] 2. Backend router `api/app/routers/fleet.py` created with seeded in-memory state and fleet endpoints (`POST /snapshot`, `GET /status`, `GET /sites/{site_id}`)
-- [x] 3. Fleet router registered in `api/app/main.py`
-- [x] 4. Backend tests added in `api/tests/test_fleet.py` for aggregate status, snapshot update, known site lookup, and unknown site 404
-- [x] 5. Fleet dashboard page updated in `ui/src/pages/FleetDashboardPage.jsx` with read-only banner/badge, refresh button, summary metrics, site cards, and fallback seed telemetry
-- [x] 6. Frontend tests added in `ui/src/pages/__tests__/FleetDashboardPage.test.jsx` for render coverage and refresh action
-- [x] 7. Documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`
-- [x] 8. Full backend and frontend tests pass (`pytest api/tests/`, `npm test`)
-- [x] 9. Safety rule followed: local commit only, no git push performed
-
-### Test Output Summary
-
-#### `pytest api/tests/`
-
-```text
-============================= test session starts ==============================
-platform darwin -- Python 3.9.9, pytest-8.4.2, pluggy-1.6.0
-collected 19 items
-
-api/tests/test_cli_runner.py ...                                         [ 15%]
-api/tests/test_clusters.py ...                                           [ 31%]
-api/tests/test_fleet.py ....                                             [ 52%]
-api/tests/test_inventory.py ....                                         [ 73%]
-api/tests/test_sse_stream.py ..                                          [ 84%]
-api/tests/test_vms.py ...                                                [100%]
-
-============================== 19 passed in 1.30s ==============================
-```
-
-#### `npm test` (from `ui/`)
-
-```text
-RUN  v3.2.7 /Users/bishwajit.kumar/work/git/forge-central/ui
-✓ src/pages/__tests__/FleetDashboardPage.test.jsx (2 tests)
-✓ src/components/common/__tests__/LiveTerminal.test.jsx (1 test)
-✓ src/pages/__tests__/VmListPage.test.jsx (4 tests)
-✓ src/components/cluster/__tests__/InventoryYamlViewer.test.jsx (3 tests)
-✓ src/pages/__tests__/ClustersPage.test.jsx (4 tests)
-✓ src/components/layout/__tests__/Layout.test.jsx (3 tests)
-✓ src/pages/__tests__/ClusterDeployPage.test.jsx (6 tests)
-
-Test Files  7 passed (7)
-Tests  23 passed (23)
-Duration  6.09s
-```
-
-### Local Commit Snapshot
-
-- Commit subject: `feat(fleet): Task-9 — add Forge Fleet Aggregator REST endpoints & FleetDashboardPage UI component`
-
-### Files Created / Modified
-
-- `README.md`
-- `api/app/main.py`
-- `api/app/routers/fleet.py`
-- `api/app/schemas/fleet.py`
-- `api/tests/test_fleet.py`
-- `docs/API-GUIDE.md`
-- `docs/USER-GUIDE.md`
-- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
-- `ui/src/pages/FleetDashboardPage.jsx`
-- `ui/src/pages/__tests__/FleetDashboardPage.test.jsx`
-
----
-
 ## [2026-09-26] Task-3 SSE pipeline stream and Live Terminal
 
 - Execution Status: SUCCESS
@@ -792,6 +719,102 @@ api/tests/test_vms.py ...                                                [100%]
   cd ~/work/git/forge-central
   git push origin main
   ```
+
+---
+
+## [2026-09-26] Task-9 Forge Fleet Aggregator REST endpoints and FleetDashboardPage UI
+
+- Execution Status: SUCCESS
+- Target: C2 Executor (Codex 5.3)
+- Scope: Fleet aggregator backend routes/schemas, fleet dashboard UI, tests, docs, and local commit
+
+### Acceptance Criteria Matrix
+
+- [x] 1. Backend schema file `api/app/schemas/fleet.py` created with `SiteSnapshot`, `SiteStatus`, and `FleetStatusResponse`
+- [x] 2. Backend router `api/app/routers/fleet.py` created with seeded in-memory state and fleet endpoints (`POST /snapshot`, `GET /status`, `GET /sites/{site_id}`)
+- [x] 3. Fleet router registered in `api/app/main.py`
+- [x] 4. Backend tests added in `api/tests/test_fleet.py` for aggregate status, snapshot update, known site lookup, and unknown site 404
+- [x] 5. Fleet dashboard page updated in `ui/src/pages/FleetDashboardPage.jsx` with read-only banner/badge, refresh button, summary metrics, site cards, and fallback seed telemetry
+- [x] 6. Frontend tests added in `ui/src/pages/__tests__/FleetDashboardPage.test.jsx` for render coverage and refresh action
+- [x] 7. Documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`
+- [x] 8. Full backend and frontend tests pass (`pytest api/tests/`, `npm test`)
+- [x] 9. Safety rule followed: local commit only, no git push performed
+
+### Test Output Summary
+
+#### `pytest api/tests/`
+
+```text
+============================= test session starts ==============================
+platform darwin -- Python 3.9.9, pytest-8.4.2, pluggy-1.6.0
+collected 19 items
+
+api/tests/test_cli_runner.py ...                                         [ 15%]
+api/tests/test_clusters.py ...                                           [ 31%]
+api/tests/test_fleet.py ....                                             [ 52%]
+api/tests/test_inventory.py ....                                         [ 73%]
+api/tests/test_sse_stream.py ..                                          [ 84%]
+api/tests/test_vms.py ...                                                [100%]
+
+============================== 19 passed in 1.30s ==============================
+```
+
+#### `npm test` (from `ui/`)
+
+```text
+RUN  v3.2.7 /Users/bishwajit.kumar/work/git/forge-central/ui
+✓ src/pages/__tests__/FleetDashboardPage.test.jsx (2 tests)
+✓ src/components/common/__tests__/LiveTerminal.test.jsx (1 test)
+✓ src/pages/__tests__/VmListPage.test.jsx (4 tests)
+✓ src/components/cluster/__tests__/InventoryYamlViewer.test.jsx (3 tests)
+✓ src/pages/__tests__/ClustersPage.test.jsx (4 tests)
+✓ src/components/layout/__tests__/Layout.test.jsx (3 tests)
+✓ src/pages/__tests__/ClusterDeployPage.test.jsx (6 tests)
+
+Test Files  7 passed (7)
+Tests  23 passed (23)
+Duration  6.09s
+```
+
+### Local Commit Snapshot
+
+- Commit subject: `feat(fleet): Task-9 — add Forge Fleet Aggregator REST endpoints & FleetDashboardPage UI component`
+
+### Files Created / Modified
+
+- `README.md`
+- `api/app/main.py`
+- `api/app/routers/fleet.py`
+- `api/app/schemas/fleet.py`
+- `api/tests/test_fleet.py`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- `ui/src/pages/FleetDashboardPage.jsx`
+- `ui/src/pages/__tests__/FleetDashboardPage.test.jsx`
+
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED]
+
+- **Date/Time:** 2026-09-26 17:15 PDT / 00:15 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `a350f6b` created cleanly (`feat(fleet): Task-9 — add Forge Fleet Aggregator REST endpoints & FleetDashboardPage UI component`).
+  - Fleet aggregator REST routes (`POST /api/v1/fleet/snapshot`, `GET /api/v1/fleet/status`, `GET /api/v1/fleet/sites/{site_id}`) implemented in `api/app/routers/fleet.py`.
+  - Pydantic models (`SiteSnapshot`, `SiteStatus`, `FleetStatusResponse`) implemented in `api/app/schemas/fleet.py`.
+  - Backend pytest suite passed 19/19 across all endpoints in 1.30s.
+  - UI page `FleetDashboardPage.jsx` implemented rendering amber read-only guardrail banner (`data-testid="fleet-banner-readonly"`), summary metrics (`data-testid="metric-total-sites"`, `data-testid="metric-total-clusters"`, `data-testid="metric-total-vms"`, `data-testid="metric-total-gpu"`), site telemetry cards (`amd-lab`, `cirra-lab`, `ntx-lab`), and live refresh trigger (`data-testid="btn-refresh-fleet"`).
+  - Vitest component suite passed 23/23 tests across 7 test files in `ui/`.
+  - OpenAPI & user documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Checklist Updated:** Phase 6 (Tasks 6.1, 6.2, 6.3) marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+
 
 
 
