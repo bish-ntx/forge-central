@@ -342,6 +342,77 @@ Request schema:
 }
 ```
 
+## Fleet Aggregator API (HQ Read-Only)
+
+### `GET /api/v1/fleet/status`
+
+Returns all site telemetry snapshots plus aggregate fleet totals.
+
+Example response:
+
+```json
+{
+  "sites": [
+    {
+      "site_id": "amd-lab",
+      "site_name": "AMD Lab",
+      "location": "Santa Clara, CA",
+      "status": "HEALTHY",
+      "clusters_count": 2,
+      "vms_count": 12,
+      "ipam_utilization_pct": 45.0,
+      "gpu_nodes_count": 4,
+      "timestamp": "2026-09-26T23:00:00+00:00",
+      "details": null,
+      "last_seen": "2026-09-26T23:00:00+00:00"
+    }
+  ],
+  "total_clusters": 6,
+  "total_vms": 36,
+  "total_gpu_nodes": 14,
+  "hq_sync_status": "ONLINE"
+}
+```
+
+### `POST /api/v1/fleet/snapshot`
+
+Records or updates a single remote site telemetry snapshot.
+
+Request schema:
+
+```json
+{
+  "site_id": "amd-lab",
+  "site_name": "AMD Lab",
+  "location": "Santa Clara, CA",
+  "status": "HEALTHY",
+  "clusters_count": 2,
+  "vms_count": 12,
+  "ipam_utilization_pct": 45.0,
+  "gpu_nodes_count": 4,
+  "timestamp": "2026-09-26T23:00:00+00:00",
+  "details": {
+    "note": "nightly sync"
+  }
+}
+```
+
+Example response:
+
+```json
+{
+  "status": "recorded",
+  "site_id": "amd-lab",
+  "recorded_at": "2026-09-26T23:00:02.123456+00:00"
+}
+```
+
+### `GET /api/v1/fleet/sites/{site_id}`
+
+Returns a single site status payload by site ID.
+
+- Returns `404` with `{"detail":"site not found: <site_id>"}` when the site is unknown.
+
 Example response:
 
 ```json

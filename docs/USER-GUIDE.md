@@ -47,6 +47,28 @@ Current route pages:
 
 Each page container includes a stable `data-testid` to support automated tests and CI flows.
 
+## Fleet Dashboard Page (`/fleet`)
+
+The Fleet Dashboard page is an HQ-level read-only telemetry surface for multi-site visibility:
+
+- Read-only safety indicators:
+  - Amber top banner (`data-testid="fleet-banner-readonly"`).
+  - Mode badge (`data-testid="fleet-readonly-badge"`) showing `HQ READ-ONLY MODE`.
+- Fleet refresh:
+  - Manual reload button (`data-testid="btn-refresh-fleet"`) calling `GET /api/v1/fleet/status`.
+- Summary metrics row:
+  - Total sites (`data-testid="metric-total-sites"`).
+  - Total clusters (`data-testid="metric-total-clusters"`).
+  - Total VMs (`data-testid="metric-total-vms"`).
+  - Total GPU nodes (`data-testid="metric-total-gpu"`).
+- Site telemetry cards:
+  - `AMD Lab` (`data-testid="site-card-amd-lab"`).
+  - `Cirrascale Lab` (`data-testid="site-card-cirra-lab"`).
+  - `Nutanix Durham Lab` (`data-testid="site-card-ntx-lab"`).
+  - Each card includes status badge (`data-testid="site-status-{site_id}"`), location, cluster/VM/GPU counts, IPAM utilization bar, and last sync timestamp.
+- Fallback behavior:
+  - If HQ cannot reach the fleet API, the page shows deterministic seed telemetry cards while staying read-only.
+
 ## VM Management Page (`/vms`)
 
 The VM page now provides interactive Proxmox/AHV VM operations:

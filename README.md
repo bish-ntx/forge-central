@@ -17,14 +17,17 @@ It includes:
 - `api/app/routers/pipeline.py`: Pipeline SSE stream route (`/api/v1/pipeline/{run_id}/stream`).
 - `api/app/routers/vms.py`: VM inventory and lifecycle APIs (`/api/v1/vms`).
 - `api/app/routers/clusters.py`: NKP cluster lifecycle APIs (`/api/v1/clusters`).
+- `api/app/routers/fleet.py`: HQ read-only fleet aggregator APIs (`/api/v1/fleet`).
 - `api/app/schemas/cli.py`: Pydantic request/response models.
 - `api/app/schemas/pipeline.py`: Pydantic SSE event payload models.
 - `api/app/schemas/vms.py`: VM API request/response schemas.
 - `api/app/schemas/clusters.py`: NKP cluster API request/response schemas.
+- `api/app/schemas/fleet.py`: Fleet snapshot and aggregate status schemas.
 - `api/tests/test_cli_runner.py`: Async endpoint tests using `httpx.AsyncClient`.
 - `api/tests/test_sse_stream.py`: SSE stream contract tests.
 - `api/tests/test_vms.py`: VM router unit tests.
 - `api/tests/test_clusters.py`: Cluster router unit tests.
+- `api/tests/test_fleet.py`: Fleet aggregator router unit tests.
 
 ## Quickstart
 
@@ -99,6 +102,13 @@ Pages under `ui/src/pages/` expose deterministic `data-testid` selectors for aut
 - Search input (`data-testid="input-cluster-search"`), status badges, node readiness progress, and MetalLB VIP range display.
 - Cluster deployment launcher button (`data-testid="btn-open-deploy-cluster"`) that routes to `/clusters/deploy`.
 - Typed destructive confirmation modal (`data-testid="modal-confirm-cluster-delete"`) for `DELETE /api/v1/clusters/{name}`.
+
+`FleetDashboardPage.jsx` now includes read-only multi-site telemetry with:
+
+- HQ read-only banner and badge (`fleet-banner-readonly`, `fleet-readonly-badge`).
+- Refresh action (`btn-refresh-fleet`) calling `GET /api/v1/fleet/status`.
+- Aggregate counters for sites, clusters, VMs, and GPU nodes.
+- Site cards for `amd-lab`, `cirra-lab`, and `ntx-lab` with status, inventory counts, IPAM utilization, and last-sync metadata.
 
 ## Live Pipeline Terminal
 
