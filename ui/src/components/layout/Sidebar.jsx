@@ -1,5 +1,6 @@
 import React from 'react'
 import {
+  FileText,
   FolderKanban,
   Network,
   Server,
@@ -21,6 +22,12 @@ const NAV_ITEMS = [
     label: 'Fleet Dashboard',
     icon: FolderKanban,
     testId: 'link-fleet',
+  },
+  {
+    to: '/diagnostics',
+    label: 'Diagnostics',
+    icon: FileText,
+    testId: 'link-diagnostics',
   },
   { to: '/ipam', label: 'IPAM Subnets', icon: Network, testId: 'link-ipam' },
   {

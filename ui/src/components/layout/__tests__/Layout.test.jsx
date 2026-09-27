@@ -3,6 +3,7 @@ import { fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../Layout.jsx'
 import ClustersPage from '../../../pages/ClustersPage.jsx'
+import DiagnosticsPage from '../../../pages/DiagnosticsPage.jsx'
 import FleetDashboardPage from '../../../pages/FleetDashboardPage.jsx'
 import IpamPage from '../../../pages/IpamPage.jsx'
 import SettingsPage from '../../../pages/SettingsPage.jsx'
@@ -15,6 +16,7 @@ function renderLayout(initialEntry = '/vms') {
         <Route path="/" element={<Layout />}>
           <Route path="vms" element={<VmListPage />} />
           <Route path="clusters" element={<ClustersPage />} />
+          <Route path="diagnostics" element={<DiagnosticsPage />} />
           <Route path="fleet" element={<FleetDashboardPage />} />
           <Route path="ipam" element={<IpamPage />} />
           <Route path="settings" element={<SettingsPage />} />
@@ -39,6 +41,7 @@ describe('Layout', () => {
     expect(screen.getByTestId('link-vms')).toBeInTheDocument()
     expect(screen.getByTestId('link-clusters')).toBeInTheDocument()
     expect(screen.getByTestId('link-fleet')).toBeInTheDocument()
+    expect(screen.getByTestId('link-diagnostics')).toBeInTheDocument()
     expect(screen.getByTestId('link-ipam')).toBeInTheDocument()
     expect(screen.getByTestId('link-settings')).toBeInTheDocument()
   })
@@ -53,6 +56,9 @@ describe('Layout', () => {
 
     fireEvent.click(screen.getByTestId('link-fleet'))
     expect(screen.getByTestId('page-fleet')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('link-diagnostics'))
+    expect(screen.getByTestId('page-diagnostics')).toBeInTheDocument()
 
     fireEvent.click(screen.getByTestId('link-ipam'))
     expect(screen.getByTestId('page-ipam')).toBeInTheDocument()

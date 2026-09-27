@@ -13,6 +13,8 @@ from fastapi import FastAPI
 from .config import get_settings
 from .routers.cli import router as cli_router
 from .routers.clusters import router as clusters_router
+from .routers.audit import router as audit_router
+from .routers.diagnostics import router as diagnostics_router
 from .routers.fleet import router as fleet_router
 from .routers.inventory import router as inventory_router
 from .routers.pipeline import router as pipeline_router
@@ -31,5 +33,7 @@ app.include_router(cli_router)
 app.include_router(pipeline_router)
 app.include_router(vms_router)
 app.include_router(clusters_router)
+app.include_router(diagnostics_router)
+app.include_router(audit_router)
 app.include_router(inventory_router)
 app.include_router(fleet_router)

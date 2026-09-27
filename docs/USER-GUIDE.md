@@ -24,6 +24,7 @@ The web console uses a dark Tailwind layout inspired by Nutanix/Proxmox operatio
   - Navigation routes:
     - `/vms`
     - `/clusters`
+    - `/diagnostics`
     - `/fleet`
     - `/ipam`
     - `/settings`
@@ -41,6 +42,7 @@ Current route pages:
 - `VmListPage.jsx` (`/vms`)
 - `ClustersPage.jsx` (`/clusters`)
 - `ClusterDeployPage.jsx` (`/clusters/deploy`)
+- `DiagnosticsPage.jsx` (`/diagnostics`)
 - `FleetDashboardPage.jsx` (`/fleet`)
 - `IpamPage.jsx` (`/ipam`)
 - `SettingsPage.jsx` (`/settings`)
@@ -134,6 +136,22 @@ The NKP Cluster Deploy page (`ClusterDeployPage.jsx`) provides an interactive 5-
 - **Navigation Controls:**
   - Forward/backward navigation (`data-testid="btn-wizard-next"`, `data-testid="btn-wizard-back"`) with client-side form state retention across step transitions.
   - Launch button debouncing (`disabled={isSubmitting}`) preventing accidental duplicate cluster creation requests.
+
+## Diagnostics & Audit Page (`/diagnostics`)
+
+The Diagnostics page provides a Day-0 operational surface for synthetic support bundle capture and audit history:
+
+- Capture card (`data-testid="card-diagnostics-capture"`):
+  - Cluster text input (`data-testid="input-diagnostics-cluster"`).
+  - Capture trigger button (`data-testid="btn-capture-diagnostics"`) calling `POST /api/v1/diagnostics/capture`.
+- Support bundles table (`data-testid="table-diagnostic-bundles"`):
+  - Columns: Bundle Filename, Cluster, Size, Captured At, and Status badge (`data-testid="badge-bundle-status"`).
+  - Backed by `GET /api/v1/diagnostics/bundles`.
+- Operational audit log table (`data-testid="table-audit-logs"`):
+  - Columns: Run ID, Timestamp, Verb, User, Status badge (`data-testid="badge-audit-status"`), and Duration.
+  - Backed by `GET /api/v1/audit/logs`.
+- Safe fallback behavior:
+  - If diagnostics or audit APIs are unavailable, the page renders deterministic local mock rows so operators still have stable visibility.
 
 ## Preprovisioned Inventory Inspection & YAML Viewer Component
 

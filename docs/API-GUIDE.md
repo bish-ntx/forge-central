@@ -254,6 +254,83 @@ Request schema:
 }
 ```
 
+## Diagnostics & Audit API
+
+### `POST /api/v1/diagnostics/capture`
+
+Captures a synthetic Day-0 support bundle and records an audit event.
+
+Request schema:
+
+```json
+{
+  "cluster_name": "amd-nkp1",
+  "include_logs": true,
+  "node_names": ["amd-nkp1-cp-1", "amd-nkp1-md-1"]
+}
+```
+
+Example response:
+
+```json
+{
+  "bundle_id": "bundle-amd-nkp1-20260926120000",
+  "cluster_name": "amd-nkp1",
+  "filename": "bundle-amd-nkp1-20260926120000.tar.gz",
+  "file_size_bytes": 93000000,
+  "status": "ready",
+  "captured_at": "2026-09-26T12:00:00+00:00",
+  "download_url": "/api/v1/diagnostics/bundles/bundle-amd-nkp1-20260926120000"
+}
+```
+
+### `GET /api/v1/diagnostics/bundles`
+
+Returns available synthetic support bundles.
+
+### `GET /api/v1/diagnostics/bundles/{bundle_id}`
+
+Returns support bundle metadata for a single bundle ID.
+
+- Returns `404` with `{"detail":"support bundle not found: <bundle_id>"}` when unknown.
+
+### `GET /api/v1/audit/logs`
+
+Returns operational audit events for Day-0 activities.
+
+Query parameters:
+
+- `verb` (optional): filter by operation verb, such as `diagnostics-capture`.
+- `status` (optional): filter by run status, such as `succeeded` or `failed`.
+
+Example:
+
+```bash
+curl -s "http://127.0.0.1:8000/api/v1/audit/logs?status=succeeded"
+```
+
+Example response:
+
+```json
+{
+  "logs": [
+    {
+      "run_id": "run-diag-capture-cirra-nkp1",
+      "timestamp": "2026-09-26T12:33:19+00:00",
+      "verb": "diagnostics-capture",
+      "user": "sre-oncall",
+      "status": "succeeded",
+      "duration_sec": 23.5,
+      "details": {
+        "cluster_name": "cirra-nkp1",
+        "bundle_id": "bundle-cirra-nkp1-20260925"
+      }
+    }
+  ],
+  "total_count": 1
+}
+```
+
 ### `GET /api/v1/pipeline/{run_id}/stream`
 
 Streams pipeline logs over Server-Sent Events (SSE) for a previously started run.

@@ -17,16 +17,22 @@ It includes:
 - `api/app/routers/pipeline.py`: Pipeline SSE stream route (`/api/v1/pipeline/{run_id}/stream`).
 - `api/app/routers/vms.py`: VM inventory and lifecycle APIs (`/api/v1/vms`).
 - `api/app/routers/clusters.py`: NKP cluster lifecycle APIs (`/api/v1/clusters`).
+- `api/app/routers/diagnostics.py`: Day-0 diagnostics capture APIs (`/api/v1/diagnostics`).
+- `api/app/routers/audit.py`: Operational audit trail APIs (`/api/v1/audit`).
 - `api/app/routers/fleet.py`: HQ read-only fleet aggregator APIs (`/api/v1/fleet`).
 - `api/app/schemas/cli.py`: Pydantic request/response models.
 - `api/app/schemas/pipeline.py`: Pydantic SSE event payload models.
 - `api/app/schemas/vms.py`: VM API request/response schemas.
 - `api/app/schemas/clusters.py`: NKP cluster API request/response schemas.
+- `api/app/schemas/diagnostics.py`: Diagnostics capture and support bundle schemas.
+- `api/app/schemas/audit.py`: Audit log entry/list schemas.
 - `api/app/schemas/fleet.py`: Fleet snapshot and aggregate status schemas.
 - `api/tests/test_cli_runner.py`: Async endpoint tests using `httpx.AsyncClient`.
 - `api/tests/test_sse_stream.py`: SSE stream contract tests.
 - `api/tests/test_vms.py`: VM router unit tests.
 - `api/tests/test_clusters.py`: Cluster router unit tests.
+- `api/tests/test_diagnostics.py`: Diagnostics router unit tests.
+- `api/tests/test_audit.py`: Audit router unit tests.
 - `api/tests/test_fleet.py`: Fleet aggregator router unit tests.
 
 ## Quickstart
@@ -83,7 +89,7 @@ For complete backend + UI testing flows, see `docs/TESTING-GUIDE.md`.
 
 The React shell in `ui/src/components/layout/` includes:
 
-- `Sidebar.jsx`: Left navigation for `/vms`, `/clusters`, `/fleet`, `/ipam`, `/settings` with active route highlighting, lab-site badge, and mode switcher (`Console` vs `Fleet`).
+- `Sidebar.jsx`: Left navigation for `/vms`, `/clusters`, `/diagnostics`, `/fleet`, `/ipam`, `/settings` with active route highlighting, lab-site badge, and mode switcher (`Console` vs `Fleet`).
 - `Header.jsx`: Control-plane mode badge (`Forge Central Console` or `Forge Fleet Dashboard`), system health indicator, and `⌘K` search trigger.
 - `Layout.jsx`: Shared shell that renders `Sidebar`, `Header`, and route content via React Router `<Outlet />`.
 
@@ -109,6 +115,13 @@ Pages under `ui/src/pages/` expose deterministic `data-testid` selectors for aut
 - Refresh action (`btn-refresh-fleet`) calling `GET /api/v1/fleet/status`.
 - Aggregate counters for sites, clusters, VMs, and GPU nodes.
 - Site cards for `amd-lab`, `cirra-lab`, and `ntx-lab` with status, inventory counts, IPAM utilization, and last-sync metadata.
+
+`DiagnosticsPage.jsx` now includes synthetic Day-0 diagnostics tooling with:
+
+- Support bundle capture card and cluster input (`btn-capture-diagnostics`, `input-diagnostics-cluster`).
+- Support bundle inventory table (`table-diagnostic-bundles`) from `GET /api/v1/diagnostics/bundles`.
+- Operational audit table (`table-audit-logs`) from `GET /api/v1/audit/logs`.
+- Deterministic fallback rows when backend APIs are unavailable.
 
 ## Live Pipeline Terminal
 
