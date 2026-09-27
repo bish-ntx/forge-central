@@ -174,79 +174,6 @@ Not run in this task (frontend-only scope).
   git push origin main
   ```
 
-## [2026-09-26] Task-10 Cluster diagnostics wrapper and audit trail engine
-
-- Execution Status: SUCCESS
-- Target: C2 Executor (Codex 5.3)
-- Scope: Add Day-0 diagnostics/audit REST APIs, Diagnostics UI page, backend/frontend tests, docs, and local commit
-
-### Acceptance Criteria Matrix
-
-- [x] 1. Added `diagnostics` and `audit` backend schemas with strict Pydantic models
-- [x] 2. Added diagnostics router endpoints (`capture`, `bundles`, `bundle by id`) with deterministic synthetic support bundle seeds
-- [x] 3. Added audit router endpoint (`GET /api/v1/audit/logs`) with seeded events and reusable `record_audit_event(...)` helper
-- [x] 4. Registered diagnostics and audit routers in `api/app/main.py`
-- [x] 5. Added backend tests for diagnostics capture/list/detail/404 and audit list/filter behavior
-- [x] 6. Added Diagnostics route/page/sidebar link in UI with required `data-testid` hooks and safe fallback rows
-- [x] 7. Added frontend Diagnostics page tests for render coverage and capture trigger action
-- [x] 8. Updated `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`
-- [x] 9. Ran full backend and frontend test suites successfully
-- [x] 10. Safety rule followed: local commit only, no push
-
-### Test Output Summary
-
-#### `pytest api/tests/`
-
-```text
-============================= test session starts ==============================
-collected 26 items
-api/tests/test_audit.py ...                                              [ 11%]
-api/tests/test_cli_runner.py ...                                         [ 23%]
-api/tests/test_clusters.py ...                                           [ 34%]
-api/tests/test_diagnostics.py ....                                       [ 50%]
-api/tests/test_fleet.py ....                                             [ 65%]
-api/tests/test_inventory.py ....                                         [ 80%]
-api/tests/test_sse_stream.py ..                                          [ 88%]
-api/tests/test_vms.py ...                                                [100%]
-======================== 26 passed, 1 warning in 0.59s =========================
-```
-
-#### `npm test` (from `ui/`)
-
-```text
-RUN  v3.2.7 /Users/bishwajit.kumar/work/git/forge-central/ui
-✓ src/pages/__tests__/DiagnosticsPage.test.jsx (2 tests)
-✓ src/components/layout/__tests__/Layout.test.jsx (3 tests)
-... (all remaining suites passed)
-Test Files  8 passed (8)
-Tests  25 passed (25)
-Duration  2.82s
-```
-
-### Local Commit Snapshot
-
-- Commit hash: Pending local commit
-- Commit subject: `feat(diagnostics): Task-10 — add cluster diagnostics capture REST routes, audit logs & DiagnosticsPage UI`
-
-### Files Created / Modified
-
-- `README.md`
-- `api/app/main.py`
-- `api/app/routers/audit.py`
-- `api/app/routers/diagnostics.py`
-- `api/app/schemas/audit.py`
-- `api/app/schemas/diagnostics.py`
-- `api/tests/test_audit.py`
-- `api/tests/test_diagnostics.py`
-- `docs/API-GUIDE.md`
-- `docs/USER-GUIDE.md`
-- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
-- `ui/src/App.jsx`
-- `ui/src/components/layout/Sidebar.jsx`
-- `ui/src/components/layout/__tests__/Layout.test.jsx`
-- `ui/src/pages/DiagnosticsPage.jsx`
-- `ui/src/pages/__tests__/DiagnosticsPage.test.jsx`
-
 ---
 
 ## [2026-09-26] Task-3 SSE pipeline stream and Live Terminal
@@ -887,6 +814,105 @@ Duration  6.09s
   cd ~/work/git/forge-central
   git push origin main
   ```
+
+---
+
+## [2026-09-26] Task-10 Cluster diagnostics wrapper and audit trail engine
+
+- Execution Status: SUCCESS
+- Target: C2 Executor (Codex 5.3)
+- Scope: Add Day-0 diagnostics/audit REST APIs, Diagnostics UI page, backend/frontend tests, docs, and local commit
+
+### Acceptance Criteria Matrix
+
+- [x] 1. Added `diagnostics` and `audit` backend schemas with strict Pydantic models
+- [x] 2. Added diagnostics router endpoints (`capture`, `bundles`, `bundle by id`) with deterministic synthetic support bundle seeds
+- [x] 3. Added audit router endpoint (`GET /api/v1/audit/logs`) with seeded events and reusable `record_audit_event(...)` helper
+- [x] 4. Registered diagnostics and audit routers in `api/app/main.py`
+- [x] 5. Added backend tests for diagnostics capture/list/detail/404 and audit list/filter behavior
+- [x] 6. Added Diagnostics route/page/sidebar link in UI with required `data-testid` hooks and safe fallback rows
+- [x] 7. Added frontend Diagnostics page tests for render coverage and capture trigger action
+- [x] 8. Updated `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`
+- [x] 9. Ran full backend and frontend test suites successfully
+- [x] 10. Safety rule followed: local commit only, no push
+
+### Test Output Summary
+
+#### `pytest api/tests/`
+
+```text
+============================= test session starts ==============================
+collected 26 items
+api/tests/test_audit.py ...                                              [ 11%]
+api/tests/test_cli_runner.py ...                                         [ 23%]
+api/tests/test_clusters.py ...                                           [ 34%]
+api/tests/test_diagnostics.py ....                                       [ 50%]
+api/tests/test_fleet.py ....                                             [ 65%]
+api/tests/test_inventory.py ....                                         [ 80%]
+api/tests/test_sse_stream.py ..                                          [ 88%]
+api/tests/test_vms.py ...                                                [100%]
+======================== 26 passed, 1 warning in 0.59s =========================
+```
+
+#### `npm test` (from `ui/`)
+
+```text
+RUN  v3.2.7 /Users/bishwajit.kumar/work/git/forge-central/ui
+✓ src/pages/__tests__/DiagnosticsPage.test.jsx (2 tests)
+✓ src/components/layout/__tests__/Layout.test.jsx (3 tests)
+... (all remaining suites passed)
+Test Files  8 passed (8)
+Tests  25 passed (25)
+Duration  2.82s
+```
+
+### Local Commit Snapshot
+
+- Commit hash: `4e19c56`
+- Commit subject: `feat(diagnostics): Task-10 — add cluster diagnostics capture REST routes, audit logs & DiagnosticsPage UI`
+
+### Files Created / Modified
+
+- `README.md`
+- `api/app/main.py`
+- `api/app/routers/audit.py`
+- `api/app/routers/diagnostics.py`
+- `api/app/schemas/audit.py`
+- `api/app/schemas/diagnostics.py`
+- `api/tests/test_audit.py`
+- `api/tests/test_diagnostics.py`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- `ui/src/App.jsx`
+- `ui/src/components/layout/Sidebar.jsx`
+- `ui/src/components/layout/__tests__/Layout.test.jsx`
+- `ui/src/pages/DiagnosticsPage.jsx`
+- `ui/src/pages/__tests__/DiagnosticsPage.test.jsx`
+
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED]
+
+- **Date/Time:** 2026-09-26 18:10 PDT / 01:10 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `4e19c56` created cleanly (`feat(diagnostics): Task-10 — add cluster diagnostics capture REST routes, audit logs & DiagnosticsPage UI`).
+  - Diagnostics REST routes (`POST /api/v1/diagnostics/capture`, `GET /api/v1/diagnostics/bundles`, `GET /api/v1/diagnostics/bundles/{bundle_id}`) built in `api/app/routers/diagnostics.py`.
+  - Audit REST routes (`GET /api/v1/audit/logs` with verb/status filtering) and shared helper `record_audit_event(...)` built in `api/app/routers/audit.py`.
+  - Pydantic models created in `api/app/schemas/diagnostics.py` and `api/app/schemas/audit.py`.
+  - Backend pytest suite passed 26/26 across all endpoints in 0.59s.
+  - UI page `DiagnosticsPage.jsx` built with `/diagnostics` route in `App.jsx` and nav item in `Sidebar.jsx`, featuring capture card (`data-testid="card-diagnostics-capture"`), bundles table (`data-testid="table-diagnostic-bundles"`), and audit log table (`data-testid="table-audit-logs"`).
+  - Vitest component suite passed 25/25 tests across 8 test files in `ui/`.
+  - OpenAPI & user documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Checklist Updated:** Tasks 3.9 (Diagnostics & Audit) and 8.3 (Audit Trail Engine) marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+
 
 
 
