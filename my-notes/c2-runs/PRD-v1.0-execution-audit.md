@@ -1014,3 +1014,27 @@ Duration  2.82s
 - `docs/USER-GUIDE.md`
 - `README.md`
 - `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED]
+
+- **Date/Time:** 2026-09-30 16:25 PDT / 23:25 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `0ee2a36` created cleanly (`feat(vms): Task-12 — batch VM lifecycle actions (multi-select start/stop/restart/destroy & UI batch control bar)`).
+  - Batch VM REST routes (`POST /api/v1/vms/batch-action`, `POST /api/v1/vms/clone-batch`) added in `api/app/routers/vms.py`.
+  - Pydantic schemas added: `VmBatchActionRequest`, `VmBatchActionResponse`, `VmCloneBatchRequest`, `VmCloneBatchResponse` in `api/app/schemas/vms.py`.
+  - Operations logged to centralized audit log via `record_audit_event(...)`.
+  - Backend pytest suite passed 30/30 across all endpoints in `api/tests/`.
+  - Frontend UI in `ui/src/pages/VmListPage.jsx` updated with row checkboxes (`data-testid="checkbox-vm-{vmid}"`), header select-all (`data-testid="checkbox-select-all-vms"`), sticky batch action bar (`data-testid="batch-action-bar"`), and 2-step typed confirmation modal requiring `DESTROY` (`data-testid="modal-confirm-batch-destroy"`).
+  - Vitest component suite passed 37/37 tests across 9 test files in `ui/`.
+  - OpenAPI & user documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Checklist Updated:** Tasks 3.1, 4.3, 4.13 marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+
