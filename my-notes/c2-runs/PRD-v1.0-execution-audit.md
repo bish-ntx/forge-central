@@ -956,3 +956,29 @@ Duration  2.82s
 - `docs/USER-GUIDE.md`
 - `README.md`
 - `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED]
+
+- **Date/Time:** 2026-09-30 16:18 PDT / 23:18 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `e4f00cd` created cleanly (`feat(clusters): Task-11 — cluster lifecycle operations (nodepool management, node reset & ClusterDetailPage UI)`).
+  - Cluster lifecycle REST routes (`POST /api/v1/clusters/{name}/reset-nodes`, `GET /api/v1/clusters/{name}/nodepools`) built in `api/app/routers/clusters.py`.
+  - In-memory nodepool management and shared audit logging via `record_audit_event(...)` fully integrated.
+  - Pydantic models `ClusterNodepoolItem`, `ClusterNodepoolListResponse`, `ClusterResetNodesRequest` created in `api/app/schemas/clusters.py`.
+  - Backend pytest suite passed 28/28 across all endpoints in `api/tests/`.
+  - UI components updated:
+    - `ClustersPage.jsx` enriched with Add Nodepool modal (`data-testid="modal-add-nodepool"`), 2-step typed confirmation Reset Nodes modal (`data-testid="modal-confirm-reset-nodes"`), and clickable cluster detail links (`data-testid="link-cluster-detail-*"`).
+    - `ClusterDetailPage.jsx` implemented at `/clusters/:name` in `App.jsx`, rendering cluster overview, MetalLB VIP range, node breakdown table (control-plane vs worker with status badges), nodepool scaling +/- buttons, and lifecycle action controls.
+  - Vitest component suite passed 33/33 tests across 9 test files in `ui/`.
+  - OpenAPI & user documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Checklist Updated:** Tasks 3.4, 4.4, 4.13 marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+
