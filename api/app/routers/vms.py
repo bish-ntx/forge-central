@@ -9,12 +9,17 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from ..schemas.vms import (
     PciPassthroughRequest,
     VmActionRequest,
+    VmBatchActionRequest,
+    VmBatchActionResponse,
+    VmCloneBatchRequest,
+    VmCloneBatchResponse,
     VmCommandResponse,
     VmCreateRequest,
     VmItem,
     VmListResponse,
 )
 from ..services.process_runner import ProcessRunner
+from .audit import record_audit_event
 
 router = APIRouter(prefix="/api/v1/vms", tags=["vms"])
 
@@ -105,6 +110,75 @@ async def create_vm(request: Request, payload: VmCreateRequest) -> VmCommandResp
     ]
     run = await runner.start_run(command="forge", args=args)
     return VmCommandResponse(
+        run_id=run.run_id,
+        status=run.status.value,
+        command=run.command,
+        started_at=run.started_at,
+    )
+
+
+@router.post("/batch-action", response_model=VmBatchActionResponse, status_code=202)
+async def vm_batch_action(request: Request, payload: VmBatchActionRequest) -> VmBatchActionResponse:
+    """Queue a lifecycle action (start/stop/restart/destroy) for multiple VMs."""
+    runner = get_runner(request)
+    run = await runner.start_run(
+        command="forge",
+        args=[
+            "vm-batch-action",
+            "--action",
+            payload.action,
+            "--vmids",
+            ",".join(str(v) for v in payload.vmids),
+        ],
+    )
+    record_audit_event(
+        run_id=str(run.run_id),
+        verb=f"vm-batch-{payload.action}",
+        user="lab-operator",
+        status="succeeded",
+        duration_sec=4.5,
+        details={"action": payload.action, "vmids": payload.vmids},
+    )
+    return VmBatchActionResponse(
+        run_id=run.run_id,
+        status=run.status.value,
+        action=payload.action,
+        affected_vmids=payload.vmids,
+        started_at=run.started_at,
+    )
+
+
+@router.post("/clone-batch", response_model=VmCloneBatchResponse, status_code=202)
+async def vm_clone_batch(request: Request, payload: VmCloneBatchRequest) -> VmCloneBatchResponse:
+    """Queue batch cloning of a VM template through the forge CLI engine."""
+    runner = get_runner(request)
+    run = await runner.start_run(
+        command="forge",
+        args=[
+            "vm-clone-batch",
+            "--template-id",
+            str(payload.template_id),
+            "--count",
+            str(payload.count),
+            "--base-name",
+            payload.base_name,
+            "--node",
+            payload.node,
+        ],
+    )
+    record_audit_event(
+        run_id=str(run.run_id),
+        verb="vm-clone-batch",
+        user="lab-operator",
+        status="succeeded",
+        duration_sec=12.0,
+        details={
+            "template_id": payload.template_id,
+            "count": payload.count,
+            "base_name": payload.base_name,
+        },
+    )
+    return VmCloneBatchResponse(
         run_id=run.run_id,
         status=run.status.value,
         command=run.command,

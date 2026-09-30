@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -46,4 +46,33 @@ class VmCommandResponse(BaseModel):
     run_id: UUID
     status: str
     command: str
+    started_at: datetime
+
+
+class VmBatchActionRequest(BaseModel):
+    vmids: list[int]
+    action: Literal["start", "stop", "restart", "destroy"]
+
+
+class VmBatchActionResponse(BaseModel):
+    run_id: UUID
+    status: str = "PENDING"
+    action: str
+    affected_vmids: list[int]
+    started_at: datetime
+
+
+class VmCloneBatchRequest(BaseModel):
+    template_id: int
+    count: int = 1
+    base_name: str
+    node: str = "pve-a"
+    start_vmid: Optional[int] = None
+
+
+class VmCloneBatchResponse(BaseModel):
+    run_id: UUID
+    status: str = "PENDING"
+    command: str
+    created_vms: list[dict[str, Any]] = Field(default_factory=list)
     started_at: datetime

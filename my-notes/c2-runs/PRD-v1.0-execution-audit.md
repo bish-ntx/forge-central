@@ -982,3 +982,35 @@ Duration  2.82s
   git push origin main
   ```
 
+
+## [2026-09-30] Task-12 Batch VM lifecycle operations & high-density UI console
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] `VmBatchActionRequest/Response`, `VmCloneBatchRequest/Response` schemas added
+- [x] `POST /api/v1/vms/batch-action` (202, runs `forge vm-batch-action`, logs `vm-batch-{action}` audit event)
+- [x] `POST /api/v1/vms/clone-batch` (202, runs `forge vm-clone-batch`, logs `vm-clone-batch` audit event)
+- [x] VmListPage: row + select-all checkboxes, sticky batch action bar, start/stop/restart/destroy batch buttons
+- [x] 2-step batch destroy modal (type `DESTROY`), selection cleared and VMs reloaded after action
+- [x] Backend tests (2 new) and frontend tests (4 new)
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+
+### Test Output Summary
+- `pytest api/tests/`: 30 passed
+- `npm test` (ui/): 9 test files, 37 tests passed
+
+### Local Commit Snapshot
+- Subject: `feat(vms): Task-12 — batch VM lifecycle actions (multi-select start/stop/restart/destroy & UI batch control bar)`
+- Hash: see `git log -1` (local commit only; NOT pushed)
+
+### Files Created / Modified
+- `api/app/schemas/vms.py`
+- `api/app/routers/vms.py`
+- `api/tests/test_vms.py`
+- `ui/src/pages/VmListPage.jsx`
+- `ui/src/pages/__tests__/VmListPage.test.jsx`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`

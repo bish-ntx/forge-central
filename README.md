@@ -100,6 +100,7 @@ Pages under `ui/src/pages/` expose deterministic `data-testid` selectors for aut
 - Search by VM name/VMID and status/node filters.
 - VM creation modal flow (`POST /api/v1/vms/create`).
 - VM lifecycle controls (`start`, `stop`, `restart`, `destroy`).
+- Multi-select batch lifecycle actions with a batch control bar and typed `DESTROY` confirmation (`POST /api/v1/vms/batch-action`; template cloning via `POST /api/v1/vms/clone-batch`).
 - Typed destroy confirmation modal and GPU/PCI passthrough indicators.
 
 `ClustersPage.jsx` now includes NKP cluster operations with:

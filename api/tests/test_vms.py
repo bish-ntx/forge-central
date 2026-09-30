@@ -113,3 +113,51 @@ async def test_vm_action_endpoint_queues_requested_action(monkeypatch: pytest.Mo
 
     assert response.status_code == 202
     assert captured_args == ["vm-action", "--vmid", "200", "--action", "restart"]
+
+
+@pytest.mark.asyncio
+async def test_vm_batch_action_queues_runner(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_args: list[str] = []
+
+    async def fake_start_run(command: str | list[str], args: list[str], env_overrides=None) -> ProcessRun:
+        _ = (command, env_overrides)
+        captured_args.extend(args)
+        return _pending_run("./forge vm-batch-action --action stop --vmids 101,102")
+
+    monkeypatch.setattr(app.state.process_runner, "start_run", fake_start_run)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/vms/batch-action", json={"vmids": [101, 102], "action": "stop"}
+        )
+
+    assert response.status_code == 202
+    payload = response.json()
+    assert payload["affected_vmids"] == [101, 102]
+    assert payload["action"] == "stop"
+    assert captured_args == ["vm-batch-action", "--action", "stop", "--vmids", "101,102"]
+
+
+@pytest.mark.asyncio
+async def test_vm_clone_batch_queues_runner(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_args: list[str] = []
+
+    async def fake_start_run(command: str | list[str], args: list[str], env_overrides=None) -> ProcessRun:
+        _ = (command, env_overrides)
+        captured_args.extend(args)
+        return _pending_run("./forge vm-clone-batch --template-id 9000")
+
+    monkeypatch.setattr(app.state.process_runner, "start_run", fake_start_run)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/vms/clone-batch",
+            json={"template_id": 9000, "count": 3, "base_name": "worker"},
+        )
+
+    assert response.status_code == 202
+    assert response.json()["created_vms"] == []
+    assert captured_args == [
+        "vm-clone-batch", "--template-id", "9000", "--count", "3",
+        "--base-name", "worker", "--node", "pve-a",
+    ]

@@ -94,6 +94,12 @@ The VM page now provides interactive Proxmox/AHV VM operations:
 - Destroy safety:
   - Typed-confirmation modal (`data-testid="modal-confirm-vm-destroy"`).
   - User must type VM name exactly before destroy action is enabled.
+- Multi-select batch controls:
+  - Row checkboxes (`data-testid="checkbox-vm-{vmid}"`) and a header select-all checkbox (`data-testid="checkbox-select-all-vms"`, selects/deselects all filtered VMs).
+  - When one or more VMs are selected, a sticky batch bar (`data-testid="batch-action-bar"`) shows "N VMs selected" with `Start Selected`, `Stop Selected`, `Restart Selected` (`btn-batch-start|stop|restart`), and `Destroy Selected` (`btn-batch-destroy`). These call `POST /api/v1/vms/batch-action`.
+  - Selection is cleared and the VM list reloaded after the action completes.
+- Batch destroy safety:
+  - `Destroy Selected` opens a modal (`data-testid="modal-confirm-batch-destroy"`); type `DESTROY` in `input-confirm-batch-destroy` to enable `btn-confirm-batch-destroy`. `btn-cancel-batch-destroy` aborts.
 
 ## NKP Cluster Management Page (`/clusters`)
 

@@ -23,6 +23,9 @@ function VmListPage() {
   const [isCreateSubmitting, setIsCreateSubmitting] = useState(false)
   const [destroyTargetVm, setDestroyTargetVm] = useState(null)
   const [destroyConfirmationText, setDestroyConfirmationText] = useState('')
+  const [selectedVmids, setSelectedVmids] = useState([])
+  const [isBatchDestroyOpen, setIsBatchDestroyOpen] = useState(false)
+  const [batchDestroyText, setBatchDestroyText] = useState('')
 
   async function loadVms() {
     setLoading(true)
@@ -62,6 +65,50 @@ function VmListPage() {
       return matchesSearch && matchesStatus && matchesNode
     })
   }, [nodeFilter, searchTerm, statusFilter, vms])
+
+  const allFilteredSelected =
+    filteredVms.length > 0 && filteredVms.every((vm) => selectedVmids.includes(vm.vmid))
+
+  function toggleVmSelection(vmid) {
+    setSelectedVmids((current) =>
+      current.includes(vmid) ? current.filter((id) => id !== vmid) : [...current, vmid],
+    )
+  }
+
+  function toggleSelectAll() {
+    setSelectedVmids(allFilteredSelected ? [] : filteredVms.map((vm) => vm.vmid))
+  }
+
+  async function runBatchAction(action) {
+    setError('')
+    try {
+      const response = await fetch(`${API_BASE}/batch-action`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ vmids: selectedVmids, action }),
+      })
+      if (!response.ok) {
+        throw new Error(`Batch ${action} failed`)
+      }
+      setSelectedVmids([])
+      await loadVms()
+    } catch (batchError) {
+      setError(batchError instanceof Error ? batchError.message : 'Batch action failed')
+    }
+  }
+
+  function closeBatchDestroyModal() {
+    setIsBatchDestroyOpen(false)
+    setBatchDestroyText('')
+  }
+
+  async function confirmBatchDestroy() {
+    if (batchDestroyText !== 'DESTROY') {
+      return
+    }
+    await runBatchAction('destroy')
+    closeBatchDestroyModal()
+  }
 
   function openCreateVmModal() {
     setCreateForm(DEFAULT_CREATE_FORM)
@@ -186,10 +233,61 @@ function VmListPage() {
         </p>
       ) : null}
 
+      {selectedVmids.length > 0 ? (
+        <div
+          className="sticky top-0 z-10 mt-4 flex flex-wrap items-center gap-2 rounded border border-slate-600 bg-slate-800 px-3 py-2"
+          data-testid="batch-action-bar"
+        >
+          <span className="text-sm font-medium text-slate-100">
+            {selectedVmids.length} {selectedVmids.length === 1 ? 'VM' : 'VMs'} selected
+          </span>
+          <button
+            type="button"
+            onClick={() => runBatchAction('start')}
+            className="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
+            data-testid="btn-batch-start"
+          >
+            Start Selected
+          </button>
+          <button
+            type="button"
+            onClick={() => runBatchAction('stop')}
+            className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white"
+            data-testid="btn-batch-stop"
+          >
+            Stop Selected
+          </button>
+          <button
+            type="button"
+            onClick={() => runBatchAction('restart')}
+            className="rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white"
+            data-testid="btn-batch-restart"
+          >
+            Restart Selected
+          </button>
+          <button
+            type="button"
+            onClick={() => setIsBatchDestroyOpen(true)}
+            className="rounded bg-rose-700 px-2 py-1 text-xs font-medium text-white"
+            data-testid="btn-batch-destroy"
+          >
+            Destroy Selected
+          </button>
+        </div>
+      ) : null}
+
       <div className="mt-4 overflow-x-auto">
         <table className="min-w-full divide-y divide-slate-700 text-sm" data-testid="table-vms">
           <thead className="bg-slate-800/70 text-left text-slate-300">
             <tr>
+              <th className="px-3 py-2">
+                <input
+                  type="checkbox"
+                  checked={allFilteredSelected}
+                  onChange={toggleSelectAll}
+                  data-testid="checkbox-select-all-vms"
+                />
+              </th>
               <th className="px-3 py-2">VMID</th>
               <th className="px-3 py-2">Name</th>
               <th className="px-3 py-2">Node</th>
@@ -204,7 +302,7 @@ function VmListPage() {
           <tbody className="divide-y divide-slate-800 text-slate-200">
             {!loading && filteredVms.length === 0 ? (
               <tr data-testid="row-vm-empty">
-                <td className="px-3 py-4 text-slate-400" colSpan={9}>
+                <td className="px-3 py-4 text-slate-400" colSpan={10}>
                   No VMs match the current filters.
                 </td>
               </tr>
@@ -214,6 +312,14 @@ function VmListPage() {
                 Boolean(vm.gpu_passthrough) || (vm.pci_devices?.length ?? 0) > 0
               return (
                 <tr key={vm.vmid} data-testid={`row-vm-${vm.vmid}`}>
+                  <td className="px-3 py-2">
+                    <input
+                      type="checkbox"
+                      checked={selectedVmids.includes(vm.vmid)}
+                      onChange={() => toggleVmSelection(vm.vmid)}
+                      data-testid={`checkbox-vm-${vm.vmid}`}
+                    />
+                  </td>
                   <td className="px-3 py-2">{vm.vmid}</td>
                   <td className="px-3 py-2">{vm.name}</td>
                   <td className="px-3 py-2">{vm.node}</td>
@@ -409,6 +515,46 @@ function VmListPage() {
                 data-testid="btn-confirm-vm-destroy"
               >
                 Destroy VM
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {isBatchDestroyOpen ? (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/70">
+          <div
+            className="w-full max-w-md rounded border border-slate-700 bg-slate-900 p-5"
+            data-testid="modal-confirm-batch-destroy"
+          >
+            <h3 className="text-lg font-semibold text-slate-100">Confirm Batch Destroy</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Type <span className="font-semibold text-rose-300">DESTROY</span> to permanently
+              delete {selectedVmids.length} selected {selectedVmids.length === 1 ? 'VM' : 'VMs'}.
+            </p>
+            <input
+              className="mt-3 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+              value={batchDestroyText}
+              onChange={(event) => setBatchDestroyText(event.target.value)}
+              data-testid="input-confirm-batch-destroy"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={closeBatchDestroyModal}
+                className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200"
+                data-testid="btn-cancel-batch-destroy"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmBatchDestroy}
+                disabled={batchDestroyText !== 'DESTROY'}
+                className="rounded bg-rose-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                data-testid="btn-confirm-batch-destroy"
+              >
+                Destroy Selected
               </button>
             </div>
           </div>

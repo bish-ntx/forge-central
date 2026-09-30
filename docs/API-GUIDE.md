@@ -162,6 +162,65 @@ curl -s -X POST "http://127.0.0.1:8000/api/v1/vms/pci-passthrough" \
   -d '{"vmid":101,"pci_id":"0000:65:00.0","hostpci_index":0}'
 ```
 
+### `POST /api/v1/vms/batch-action`
+
+Queues one lifecycle action (`start`, `stop`, `restart`, `destroy`) for multiple VMs via `forge vm-batch-action`. Returns `202` and records a `vm-batch-{action}` audit event.
+
+Request schema:
+
+```json
+{
+  "vmids": [101, 102],
+  "action": "stop"
+}
+```
+
+Response:
+
+```json
+{
+  "run_id": "3f2b8c1e-0d4a-4c55-9a51-2a7d6e9f1b10",
+  "status": "PENDING",
+  "action": "stop",
+  "affected_vmids": [101, 102],
+  "started_at": "2026-09-30T23:30:00Z"
+}
+```
+
+Example:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/vms/batch-action" \
+  -H "Content-Type: application/json" \
+  -d '{"vmids":[101,102],"action":"stop"}'
+```
+
+### `POST /api/v1/vms/clone-batch`
+
+Queues cloning of a template into `count` VMs via `forge vm-clone-batch`. Returns `202` and records a `vm-clone-batch` audit event.
+
+Request schema:
+
+```json
+{
+  "template_id": 9000,
+  "count": 3,
+  "base_name": "worker",
+  "node": "pve-a",
+  "start_vmid": null
+}
+```
+
+Response fields: `run_id`, `status`, `command`, `created_vms` (list, empty until the run reports results), `started_at`.
+
+Example:
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/vms/clone-batch" \
+  -H "Content-Type: application/json" \
+  -d '{"template_id":9000,"count":3,"base_name":"worker"}'
+```
+
 ## NKP Cluster Management API
 
 ### `GET /api/v1/clusters`
