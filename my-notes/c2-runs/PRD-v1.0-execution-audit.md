@@ -918,3 +918,41 @@ Duration  2.82s
 
 
 
+
+---
+
+## [2026-09-30] Task-11 Cluster lifecycle operations (nodepool management, node reset & ClusterDetailPage UI)
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] `ClusterNodepoolItem`, `ClusterNodepoolListResponse`, `ClusterResetNodesRequest` schemas added
+- [x] In-memory nodepool state seeded (`worker-pool-1` x3, `worker-pool-2` x2); `POST /nodepools` updates it
+- [x] `GET /api/v1/clusters/{name}/nodepools`
+- [x] `POST /api/v1/clusters/{name}/reset-nodes` (202, runs `preprov-reset-nodes.sh`, logs `cluster-reset-nodes` audit event)
+- [x] ClustersPage: Add Nodepool modal, 2-step Reset Nodes modal, cluster detail links
+- [x] `ClusterDetailPage.jsx` at `/clusters/:name` with nodes, nodepools, scale, actions, offline seed fallback
+- [x] Backend tests (2 new) and frontend tests (5 new in ClustersPage, 4 new in ClusterDetailPage)
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+
+### Test Output Summary
+- `pytest api/tests/`: 28 passed
+- `npm test` (ui/): 9 test files, 33 tests passed
+
+### Local Commit Snapshot
+- Subject: `feat(clusters): Task-11 — cluster lifecycle operations (nodepool management, node reset & ClusterDetailPage UI)`
+- Hash: see `git log -1` (local commit only; NOT pushed)
+
+### Files Created / Modified
+- `api/app/routers/clusters.py`
+- `api/app/schemas/clusters.py`
+- `api/tests/test_clusters.py`
+- `ui/src/App.jsx`
+- `ui/src/pages/ClustersPage.jsx`
+- `ui/src/pages/ClusterDetailPage.jsx` (new)
+- `ui/src/pages/__tests__/ClustersPage.test.jsx`
+- `ui/src/pages/__tests__/ClusterDetailPage.test.jsx` (new)
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`

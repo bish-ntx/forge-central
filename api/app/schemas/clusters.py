@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Literal
+from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -43,6 +43,21 @@ class ClusterNodepoolRequest(BaseModel):
     nodepool_name: str
     replicas: int = 1
     hypervisor_type: Literal["proxmox", "ahv"] = "proxmox"
+
+
+class ClusterNodepoolItem(BaseModel):
+    name: str
+    replicas: int = 1
+    hypervisor_type: Literal["proxmox", "ahv"] = "proxmox"
+    status: str = "ready"
+
+
+class ClusterNodepoolListResponse(BaseModel):
+    nodepools: list[ClusterNodepoolItem]
+
+
+class ClusterResetNodesRequest(BaseModel):
+    node_names: Optional[list[str]] = None
 
 
 class ClusterCommandResponse(BaseModel):

@@ -1,6 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
-import { Trash2 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Plus, RotateCcw, Trash2 } from 'lucide-react'
+import { Link, useNavigate } from 'react-router-dom'
 
 const API_BASE = '/api/v1/clusters'
 
@@ -38,6 +38,10 @@ function ClustersPage() {
   const [searchTerm, setSearchTerm] = useState('')
   const [deleteTargetCluster, setDeleteTargetCluster] = useState(null)
   const [deleteConfirmationText, setDeleteConfirmationText] = useState('')
+  const [nodepoolTargetCluster, setNodepoolTargetCluster] = useState(null)
+  const [nodepoolForm, setNodepoolForm] = useState({ name: '', replicas: 1, hypervisor: 'proxmox' })
+  const [resetTargetCluster, setResetTargetCluster] = useState(null)
+  const [resetConfirmationText, setResetConfirmationText] = useState('')
 
   async function loadClusters() {
     setLoading(true)
@@ -99,6 +103,56 @@ function ClustersPage() {
     }
   }
 
+  function openNodepoolModal(cluster) {
+    setNodepoolTargetCluster(cluster)
+    setNodepoolForm({ name: '', replicas: 1, hypervisor: 'proxmox' })
+  }
+
+  async function submitAddNodepool() {
+    if (!nodepoolTargetCluster || nodepoolForm.name.trim().length === 0) {
+      return
+    }
+    setError('')
+    try {
+      const response = await fetch(`${API_BASE}/${nodepoolTargetCluster.name}/nodepools`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          nodepool_name: nodepoolForm.name.trim(),
+          replicas: Number(nodepoolForm.replicas),
+          hypervisor_type: nodepoolForm.hypervisor,
+        }),
+      })
+      if (!response.ok) {
+        throw new Error('Add nodepool request failed')
+      }
+      setNodepoolTargetCluster(null)
+    } catch (nodepoolError) {
+      setError(nodepoolError instanceof Error ? nodepoolError.message : 'Add nodepool request failed')
+    }
+  }
+
+  function openResetModal(cluster) {
+    setResetTargetCluster(cluster)
+    setResetConfirmationText('')
+  }
+
+  async function confirmResetNodes() {
+    if (!resetTargetCluster || resetConfirmationText !== 'RESET') {
+      return
+    }
+    setError('')
+    try {
+      const response = await fetch(`${API_BASE}/${resetTargetCluster.name}/reset-nodes`, { method: 'POST' })
+      if (!response.ok) {
+        throw new Error('Reset nodes request failed')
+      }
+      setResetTargetCluster(null)
+    } catch (resetError) {
+      setError(resetError instanceof Error ? resetError.message : 'Reset nodes request failed')
+    }
+  }
+
   return (
     <section className="rounded border border-slate-700 bg-card-slate p-6" data-testid="page-clusters">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -152,7 +206,15 @@ function ClustersPage() {
             >
               <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-100">{cluster.name}</h3>
+                  <h3 className="text-lg font-semibold text-slate-100">
+                    <Link
+                      to={`/clusters/${cluster.name}`}
+                      className="hover:text-accent-teal"
+                      data-testid={`link-cluster-detail-${cluster.name}`}
+                    >
+                      {cluster.name}
+                    </Link>
+                  </h3>
                   <p className="mt-1 text-xs text-slate-400">{cluster.kubernetes_version}</p>
                 </div>
                 <span
@@ -182,7 +244,25 @@ function ClustersPage() {
                 MetalLB VIP Range: {cluster.metallb?.vip_range || 'Not configured'}
               </p>
 
-              <div className="mt-4 flex justify-end">
+              <div className="mt-4 flex flex-wrap justify-end gap-2">
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-200"
+                  onClick={() => openNodepoolModal(cluster)}
+                  data-testid={`btn-add-nodepool-${cluster.name}`}
+                >
+                  <Plus size={14} />
+                  Add Nodepool
+                </button>
+                <button
+                  type="button"
+                  className="inline-flex items-center gap-2 rounded bg-amber-700 px-3 py-1.5 text-xs font-medium text-white"
+                  onClick={() => openResetModal(cluster)}
+                  data-testid={`btn-reset-nodes-${cluster.name}`}
+                >
+                  <RotateCcw size={14} />
+                  Reset Nodes
+                </button>
                 <button
                   type="button"
                   className="inline-flex items-center gap-2 rounded bg-rose-700 px-3 py-1.5 text-xs font-medium text-white"
@@ -212,7 +292,15 @@ function ClustersPage() {
           <tbody className="divide-y divide-slate-800 text-slate-200">
             {filteredClusters.map((cluster) => (
               <tr key={`row-${cluster.name}`} data-testid={`row-cluster-${cluster.name}`}>
-                <td className="px-3 py-2">{cluster.name}</td>
+                <td className="px-3 py-2">
+                  <Link
+                    to={`/clusters/${cluster.name}`}
+                    className="hover:text-accent-teal"
+                    data-testid={`link-cluster-detail-${cluster.name}`}
+                  >
+                    {cluster.name}
+                  </Link>
+                </td>
                 <td className="px-3 py-2">{statusLabel(cluster.status)}</td>
                 <td className="px-3 py-2">{cluster.kubernetes_version}</td>
                 <td className="px-3 py-2">
@@ -258,6 +346,102 @@ function ClustersPage() {
                 data-testid="btn-confirm-cluster-delete"
               >
                 Delete Cluster
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {nodepoolTargetCluster ? (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/70">
+          <div
+            className="w-full max-w-md rounded border border-slate-700 bg-slate-900 p-5"
+            data-testid="modal-add-nodepool"
+          >
+            <h3 className="text-lg font-semibold text-slate-100">
+              Add Nodepool to {nodepoolTargetCluster.name}
+            </h3>
+            <input
+              className="mt-3 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+              placeholder="Nodepool name"
+              value={nodepoolForm.name}
+              onChange={(event) => setNodepoolForm({ ...nodepoolForm, name: event.target.value })}
+              data-testid="input-nodepool-name"
+            />
+            <input
+              type="number"
+              min="1"
+              className="mt-3 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+              value={nodepoolForm.replicas}
+              onChange={(event) => setNodepoolForm({ ...nodepoolForm, replicas: event.target.value })}
+              data-testid="input-nodepool-replicas"
+            />
+            <select
+              className="mt-3 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+              value={nodepoolForm.hypervisor}
+              onChange={(event) => setNodepoolForm({ ...nodepoolForm, hypervisor: event.target.value })}
+              data-testid="select-nodepool-hypervisor"
+            >
+              <option value="proxmox">Proxmox</option>
+              <option value="ahv">Nutanix AHV</option>
+            </select>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setNodepoolTargetCluster(null)}
+                className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200"
+                data-testid="btn-cancel-add-nodepool"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitAddNodepool}
+                disabled={nodepoolForm.name.trim().length === 0}
+                className="rounded bg-accent-teal px-3 py-2 text-sm font-medium text-slate-900 disabled:opacity-60"
+                data-testid="btn-submit-add-nodepool"
+              >
+                Add Nodepool
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {resetTargetCluster ? (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/70">
+          <div
+            className="w-full max-w-md rounded border border-slate-700 bg-slate-900 p-5"
+            data-testid="modal-confirm-reset-nodes"
+          >
+            <h3 className="text-lg font-semibold text-slate-100">Confirm Reset Nodes</h3>
+            <p className="mt-2 text-sm text-slate-300">
+              Type <span className="font-semibold text-rose-300">RESET</span> to reset all nodes of{' '}
+              {resetTargetCluster.name}.
+            </p>
+            <input
+              className="mt-3 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+              value={resetConfirmationText}
+              onChange={(event) => setResetConfirmationText(event.target.value)}
+              data-testid="input-confirm-reset-nodes"
+            />
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setResetTargetCluster(null)}
+                className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200"
+                data-testid="btn-cancel-reset-nodes"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={confirmResetNodes}
+                disabled={resetConfirmationText !== 'RESET'}
+                className="rounded bg-amber-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
+                data-testid="btn-confirm-reset-nodes"
+              >
+                Reset Nodes
               </button>
             </div>
           </div>

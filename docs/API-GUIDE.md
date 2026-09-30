@@ -254,6 +254,36 @@ Request schema:
 }
 ```
 
+Also updates the in-memory nodepool state, so an existing pool is rescaled and a new pool is appended.
+
+### `GET /api/v1/clusters/{name}/nodepools`
+
+Returns the cluster nodepools. Default seed: `worker-pool-1` (3 replicas) and `worker-pool-2` (2 replicas); pools created or scaled via `POST /nodepools` are reflected.
+
+Response schema (`ClusterNodepoolListResponse`):
+
+```json
+{
+  "nodepools": [
+    { "name": "worker-pool-1", "replicas": 3, "hypervisor_type": "proxmox", "status": "ready" }
+  ]
+}
+```
+
+### `POST /api/v1/clusters/{name}/reset-nodes`
+
+Queues `preprov-reset-nodes.sh` for the cluster and records a `cluster-reset-nodes` entry in the audit trail (`GET /api/v1/audit/logs`). Returns `202` with a `ClusterCommandResponse`.
+
+Optional request body (omit to reset all nodes):
+
+```json
+{ "node_names": ["worker-1", "worker-2"] }
+```
+
+```bash
+curl -s -X POST "http://127.0.0.1:8000/api/v1/clusters/amd-nkp1/reset-nodes"
+```
+
 ## Diagnostics & Audit API
 
 ### `POST /api/v1/diagnostics/capture`

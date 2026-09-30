@@ -85,6 +85,71 @@ describe('ClustersPage', () => {
     expect(screen.getByTestId('btn-confirm-cluster-delete')).toBeDisabled()
   })
 
+  test('opens add nodepool modal and submits nodepool request', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithRoutes()
+    await waitFor(() => expect(screen.getByTestId('btn-add-nodepool-nkp-prod-01')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByTestId('btn-add-nodepool-nkp-prod-01'))
+    expect(screen.getByTestId('modal-add-nodepool')).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('input-nodepool-name'), { target: { value: 'gpu-pool' } })
+    fireEvent.change(screen.getByTestId('input-nodepool-replicas'), { target: { value: '2' } })
+    fireEvent.change(screen.getByTestId('select-nodepool-hypervisor'), { target: { value: 'ahv' } })
+    fireEvent.click(screen.getByTestId('btn-submit-add-nodepool'))
+
+    await waitFor(() => expect(screen.queryByTestId('modal-add-nodepool')).not.toBeInTheDocument())
+    const postCall = fetchMock.mock.calls.find(([url]) => url === '/api/v1/clusters/nkp-prod-01/nodepools')
+    expect(JSON.parse(postCall[1].body)).toEqual({
+      nodepool_name: 'gpu-pool',
+      replicas: 2,
+      hypervisor_type: 'ahv',
+    })
+  })
+
+  test('add nodepool modal can be cancelled', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload)))
+
+    renderWithRoutes()
+    await waitFor(() => expect(screen.getByTestId('btn-add-nodepool-nkp-prod-01')).toBeInTheDocument())
+    fireEvent.click(screen.getByTestId('btn-add-nodepool-nkp-prod-01'))
+    fireEvent.click(screen.getByTestId('btn-cancel-add-nodepool'))
+
+    expect(screen.queryByTestId('modal-add-nodepool')).not.toBeInTheDocument()
+  })
+
+  test('reset nodes modal requires typing RESET before confirming', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithRoutes()
+    await waitFor(() => expect(screen.getByTestId('btn-reset-nodes-nkp-prod-01')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByTestId('btn-reset-nodes-nkp-prod-01'))
+    expect(screen.getByTestId('modal-confirm-reset-nodes')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-confirm-reset-nodes')).toBeDisabled()
+
+    fireEvent.change(screen.getByTestId('input-confirm-reset-nodes'), { target: { value: 'RESET' } })
+    expect(screen.getByTestId('btn-confirm-reset-nodes')).toBeEnabled()
+    fireEvent.click(screen.getByTestId('btn-confirm-reset-nodes'))
+
+    await waitFor(() => expect(screen.queryByTestId('modal-confirm-reset-nodes')).not.toBeInTheDocument())
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/clusters/nkp-prod-01/reset-nodes', { method: 'POST' })
+  })
+
+  test('cluster name links navigate to detail route', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload)))
+
+    renderWithRoutes()
+    await waitFor(() => expect(screen.getAllByTestId('link-cluster-detail-nkp-prod-01').length).toBe(2))
+
+    expect(screen.getAllByTestId('link-cluster-detail-nkp-prod-01')[0]).toHaveAttribute(
+      'href',
+      '/clusters/nkp-prod-01',
+    )
+  })
+
   test('opens deploy wizard route from primary button', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload)))
 

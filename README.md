@@ -108,6 +108,8 @@ Pages under `ui/src/pages/` expose deterministic `data-testid` selectors for aut
 - Search input (`data-testid="input-cluster-search"`), status badges, node readiness progress, and MetalLB VIP range display.
 - Cluster deployment launcher button (`data-testid="btn-open-deploy-cluster"`) that routes to `/clusters/deploy`.
 - Typed destructive confirmation modal (`data-testid="modal-confirm-cluster-delete"`) for `DELETE /api/v1/clusters/{name}`.
+- Add Nodepool modal (`modal-add-nodepool`) and 2-step Reset Nodes modal (`modal-confirm-reset-nodes`, type `RESET`) backed by `POST /api/v1/clusters/{name}/nodepools` and `POST /api/v1/clusters/{name}/reset-nodes`; `GET /api/v1/clusters/{name}/nodepools` lists pools.
+- Cluster names link to `ClusterDetailPage.jsx` (`/clusters/:name`) showing nodes, nodepools with scale controls, and Add/Reset/Delete actions.
 
 `FleetDashboardPage.jsx` now includes read-only multi-site telemetry with:
 

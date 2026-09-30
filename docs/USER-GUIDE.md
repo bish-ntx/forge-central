@@ -42,6 +42,7 @@ Current route pages:
 - `VmListPage.jsx` (`/vms`)
 - `ClustersPage.jsx` (`/clusters`)
 - `ClusterDeployPage.jsx` (`/clusters/deploy`)
+- `ClusterDetailPage.jsx` (`/clusters/:name`)
 - `DiagnosticsPage.jsx` (`/diagnostics`)
 - `FleetDashboardPage.jsx` (`/fleet`)
 - `IpamPage.jsx` (`/ipam`)
@@ -112,6 +113,15 @@ The Clusters page provides an NKP-focused cluster overview and lifecycle control
 - Safe destructive action:
   - Delete button (`data-testid="btn-cluster-delete-{clusterName}"`) opens a typed confirmation modal.
   - Modal (`data-testid="modal-confirm-cluster-delete"`) requires exact cluster name match before delete is enabled.
+- Nodepool management:
+  - **Add Nodepool** (`btn-add-nodepool-{clusterName}`) opens `modal-add-nodepool` with nodepool name, replicas, and hypervisor (Proxmox/AHV); Submit calls `POST /api/v1/clusters/{name}/nodepools`.
+- Reset Nodes (2-step safety):
+  - **Reset Nodes** (`btn-reset-nodes-{clusterName}`) opens `modal-confirm-reset-nodes`; the confirm button stays disabled until `RESET` is typed, then calls `POST /api/v1/clusters/{name}/reset-nodes`.
+- Cluster names in cards and table link to the Cluster Detail page.
+
+## Cluster Detail Page (`/clusters/:name`)
+
+Shows a single cluster (`page-cluster-detail`): name, status badge, Kubernetes version, ready/desired nodes, MetalLB VIP range, a nodes table (control-plane vs worker with status badges), and a nodepools section with **Scale +/-** buttons per pool. Header actions: **Back**, **Add Nodepool**, **Reset Nodes** (type `RESET` to confirm), and **Delete Cluster** (asks for confirmation). If the backend is offline, seed data is shown instead of an error.
 
 ## NKP Cluster Deploy Page (`/clusters/deploy`)
 

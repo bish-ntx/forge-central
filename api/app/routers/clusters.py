@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import asyncio
 import json
-from typing import Any, Union
+from typing import Any, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -13,10 +13,14 @@ from ..schemas.clusters import (
     ClusterItem,
     ClusterListResponse,
     ClusterNodeItem,
+    ClusterNodepoolItem,
+    ClusterNodepoolListResponse,
     ClusterNodepoolRequest,
+    ClusterResetNodesRequest,
     MetalLbConfig,
 )
 from ..services.process_runner import ProcessRunner
+from .audit import record_audit_event
 
 router = APIRouter(prefix="/api/v1/clusters", tags=["clusters"])
 
@@ -27,6 +31,19 @@ PIPELINE_STEPS = [
     "04-preprov-configure-metallb.sh",
     "05-preprov-validate-cluster.sh",
 ]
+
+DEFAULT_NODEPOOLS = [
+    {"name": "worker-pool-1", "replicas": 3},
+    {"name": "worker-pool-2", "replicas": 2},
+]
+# Deterministic in-memory nodepool state keyed by cluster name.
+NODEPOOL_STATE: dict[str, list[ClusterNodepoolItem]] = {}
+
+
+def _cluster_nodepools(name: str) -> list[ClusterNodepoolItem]:
+    if name not in NODEPOOL_STATE:
+        NODEPOOL_STATE[name] = [ClusterNodepoolItem(**pool) for pool in DEFAULT_NODEPOOLS]
+    return NODEPOOL_STATE[name]
 
 
 def get_runner(request: Request) -> ProcessRunner:
@@ -164,6 +181,19 @@ async def create_or_scale_nodepool(
 ) -> ClusterCommandResponse:
     """Queue preprovisioned nodepool creation or scale-up request."""
     runner = get_runner(request)
+    pools = _cluster_nodepools(name)
+    existing = next((pool for pool in pools if pool.name == payload.nodepool_name), None)
+    if existing:
+        existing.replicas = payload.replicas
+        existing.hypervisor_type = payload.hypervisor_type
+    else:
+        pools.append(
+            ClusterNodepoolItem(
+                name=payload.nodepool_name,
+                replicas=payload.replicas,
+                hypervisor_type=payload.hypervisor_type,
+            )
+        )
     run = await runner.start_run(
         command="forge",
         args=[
@@ -177,6 +207,38 @@ async def create_or_scale_nodepool(
             "--hypervisor-type",
             payload.hypervisor_type,
         ],
+    )
+    return ClusterCommandResponse(
+        run_id=run.run_id,
+        status=run.status.value,
+        command=run.command,
+        started_at=run.started_at,
+    )
+
+
+@router.get("/{name}/nodepools", response_model=ClusterNodepoolListResponse)
+async def list_nodepools(name: str) -> ClusterNodepoolListResponse:
+    """Return nodepools for a cluster (seeded defaults plus any created or scaled pools)."""
+    return ClusterNodepoolListResponse(nodepools=_cluster_nodepools(name))
+
+
+@router.post("/{name}/reset-nodes", response_model=ClusterCommandResponse, status_code=202)
+async def reset_cluster_nodes(
+    name: str, request: Request, payload: Optional[ClusterResetNodesRequest] = None
+) -> ClusterCommandResponse:
+    """Queue preprov-reset-nodes.sh for the cluster and record an audit trail entry."""
+    runner = get_runner(request)
+    args = ["preprov-reset-nodes.sh", "--cluster-name", name]
+    for node_name in (payload.node_names if payload and payload.node_names else []):
+        args.extend(["--node-name", node_name])
+    run = await runner.start_run(command="forge", args=args)
+    record_audit_event(
+        run_id=str(run.run_id),
+        verb="cluster-reset-nodes",
+        user="lab-operator",
+        status="succeeded",
+        duration_sec=15.2,
+        details={"cluster_name": name},
     )
     return ClusterCommandResponse(
         run_id=run.run_id,

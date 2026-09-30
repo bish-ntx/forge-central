@@ -103,3 +103,49 @@ async def test_delete_cluster_queues_delete_run(monkeypatch: pytest.MonkeyPatch)
 
     assert response.status_code == 202
     assert captured_args == ["cluster-delete", "--cluster-name", "nkp-prod-01"]
+
+
+@pytest.mark.asyncio
+async def test_reset_nodes_queues_run_and_logs_audit(monkeypatch: pytest.MonkeyPatch) -> None:
+    captured_args: list[str] = []
+
+    async def fake_start_run(command: str | list[str], args: list[str], env_overrides=None) -> ProcessRun:
+        _ = (command, env_overrides)
+        captured_args.extend(args)
+        return _pending_run("./forge preprov-reset-nodes.sh")
+
+    monkeypatch.setattr(app.state.process_runner, "start_run", fake_start_run)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post("/api/v1/clusters/amd-nkp1/reset-nodes")
+        logs = await client.get("/api/v1/audit/logs", params={"verb": "cluster-reset-nodes"})
+
+    assert response.status_code == 202
+    assert captured_args == ["preprov-reset-nodes.sh", "--cluster-name", "amd-nkp1"]
+    entries = logs.json()["logs"]
+    assert entries[0]["run_id"] == response.json()["run_id"]
+    assert entries[0]["details"] == {"cluster_name": "amd-nkp1"}
+
+
+@pytest.mark.asyncio
+async def test_list_nodepools_reflects_created_pool(monkeypatch: pytest.MonkeyPatch) -> None:
+    async def fake_start_run(command: str | list[str], args: list[str], env_overrides=None) -> ProcessRun:
+        _ = (command, args, env_overrides)
+        return _pending_run("./forge preprov-create-nodepool.sh")
+
+    monkeypatch.setattr(app.state.process_runner, "start_run", fake_start_run)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        initial = await client.get("/api/v1/clusters/np-test/nodepools")
+        await client.post(
+            "/api/v1/clusters/np-test/nodepools",
+            json={"nodepool_name": "gpu-pool", "replicas": 4, "hypervisor_type": "ahv"},
+        )
+        updated = await client.get("/api/v1/clusters/np-test/nodepools")
+
+    assert initial.status_code == 200
+    assert [p["name"] for p in initial.json()["nodepools"]] == ["worker-pool-1", "worker-pool-2"]
+    assert initial.json()["nodepools"][0]["replicas"] == 3
+    pools = {p["name"]: p for p in updated.json()["nodepools"]}
+    assert pools["gpu-pool"]["replicas"] == 4
+    assert pools["gpu-pool"]["hypervisor_type"] == "ahv"
