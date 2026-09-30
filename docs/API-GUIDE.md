@@ -603,3 +603,59 @@ Example response:
   ]
 }
 ```
+
+## Path Settings & State Migration API
+
+### `GET /api/v1/settings/paths`
+
+Inspects `FORGE_HOME`, `FORGE_DATA_DIR`, `FORGE_CENTRAL_DATA_DIR`, `FORGE_BACKUP_DIR` and `FORGE_LOG_DIR` (resolved from environment variables of the same name) and reports existence, permissions and disk usage (`shutil.disk_usage`).
+
+- `status` is `accessible` (exists and writable), `read-only`, or `missing`.
+
+Example response:
+
+```json
+{
+  "paths": [
+    {
+      "name": "FORGE_HOME",
+      "path": "/home/forge/forge",
+      "exists": true,
+      "accessible": true,
+      "writable": true,
+      "status": "accessible",
+      "free_bytes": 120000000000,
+      "total_bytes": 500000000000
+    }
+  ]
+}
+```
+
+### `POST /api/v1/settings/paths/migrate`
+
+Copies `*.ini`, `*.yaml`, `*.json` and `*.log` files (recursively) from `source_dir` to `target_dir`, creating the target if needed. The source is not modified. Records a `paths-migrated` audit event.
+
+Request:
+
+```json
+{ "source_dir": "~/forge-state", "target_dir": "~/forge-data", "dry_run": true }
+```
+
+- `dry_run=true` scans and reports only; nothing is written (`files_migrated` and `bytes_migrated` are `0`).
+- Returns `400` with `{"detail": "..."}` when the source directory does not exist or equals the target.
+
+Example response:
+
+```json
+{
+  "success": true,
+  "dry_run": true,
+  "source_dir": "/home/forge/forge-state",
+  "target_dir": "/home/forge/forge-data",
+  "files_scanned": 3,
+  "files_migrated": 0,
+  "bytes_migrated": 0,
+  "migrated_files": ["forge.ini", "sub/inv.yaml", "run.log"],
+  "message": "Would migrate 3 file(s) (42 bytes) from /home/forge/forge-state to /home/forge/forge-data"
+}
+```

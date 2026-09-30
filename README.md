@@ -20,6 +20,9 @@ It includes:
 - `api/app/routers/diagnostics.py`: Day-0 diagnostics capture APIs (`/api/v1/diagnostics`).
 - `api/app/routers/audit.py`: Operational audit trail APIs (`/api/v1/audit`).
 - `api/app/routers/fleet.py`: HQ read-only fleet aggregator APIs (`/api/v1/fleet`).
+- `api/app/routers/paths.py`: Path inspection and state directory migration APIs (`/api/v1/settings/paths`).
+- `api/app/schemas/paths.py`: Path status and migration request/response schemas.
+- `api/tests/test_paths.py`: Path settings router unit tests.
 - `api/app/schemas/cli.py`: Pydantic request/response models.
 - `api/app/schemas/pipeline.py`: Pydantic SSE event payload models.
 - `api/app/schemas/vms.py`: VM API request/response schemas.
@@ -89,7 +92,7 @@ For complete backend + UI testing flows, see `docs/TESTING-GUIDE.md`.
 
 The React shell in `ui/src/components/layout/` includes:
 
-- `Sidebar.jsx`: Left navigation for `/vms`, `/clusters`, `/diagnostics`, `/fleet`, `/ipam`, `/settings` with active route highlighting, lab-site badge, and mode switcher (`Console` vs `Fleet`).
+- `Sidebar.jsx`: Left navigation for `/vms`, `/clusters`, `/diagnostics`, `/fleet`, `/ipam`, `/settings`, `/settings/paths` with active route highlighting, lab-site badge, and mode switcher (`Console` vs `Fleet`).
 - `Header.jsx`: Control-plane mode badge (`Forge Central Console` or `Forge Fleet Dashboard`), system health indicator, and `⌘K` search trigger.
 - `Layout.jsx`: Shared shell that renders `Sidebar`, `Header`, and route content via React Router `<Outlet />`.
 

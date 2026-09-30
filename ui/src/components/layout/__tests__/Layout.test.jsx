@@ -6,6 +6,7 @@ import ClustersPage from '../../../pages/ClustersPage.jsx'
 import DiagnosticsPage from '../../../pages/DiagnosticsPage.jsx'
 import FleetDashboardPage from '../../../pages/FleetDashboardPage.jsx'
 import IpamPage from '../../../pages/IpamPage.jsx'
+import PathSettingsPage from '../../../pages/PathSettingsPage.jsx'
 import SettingsPage from '../../../pages/SettingsPage.jsx'
 import VmListPage from '../../../pages/VmListPage.jsx'
 
@@ -20,6 +21,7 @@ function renderLayout(initialEntry = '/vms') {
           <Route path="fleet" element={<FleetDashboardPage />} />
           <Route path="ipam" element={<IpamPage />} />
           <Route path="settings" element={<SettingsPage />} />
+          <Route path="settings/paths" element={<PathSettingsPage />} />
         </Route>
       </Routes>
     </MemoryRouter>,
@@ -44,6 +46,7 @@ describe('Layout', () => {
     expect(screen.getByTestId('link-diagnostics')).toBeInTheDocument()
     expect(screen.getByTestId('link-ipam')).toBeInTheDocument()
     expect(screen.getByTestId('link-settings')).toBeInTheDocument()
+    expect(screen.getByTestId('link-settings-paths')).toBeInTheDocument()
   })
 
   test('routes to each page through sidebar links', () => {
@@ -65,6 +68,9 @@ describe('Layout', () => {
 
     fireEvent.click(screen.getByTestId('link-settings'))
     expect(screen.getByTestId('page-settings')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('link-settings-paths'))
+    expect(screen.getByTestId('page-path-settings')).toBeInTheDocument()
   })
 
   test('switches between console and fleet mode badges', () => {

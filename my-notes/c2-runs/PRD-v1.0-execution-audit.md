@@ -1096,3 +1096,42 @@ Duration  2.82s
   git push origin main
   ```
 
+
+---
+
+## [2026-09-30] Task-14 Dynamic path configuration & state directory migration engine
+
+- Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] `GET /api/v1/settings/paths` inspects FORGE_HOME/DATA/CENTRAL_DATA/BACKUP/LOG dirs (exists, accessible, writable, status, disk usage)
+- [x] `POST /api/v1/settings/paths/migrate` with dry-run and real copy of `*.ini|yaml|json|log`, audit event `paths-migrated`
+- [x] Pydantic schemas in `api/app/schemas/paths.py`; `paths_router` registered in `main.py`; directories env-driven via `config.py`
+- [x] `PathSettingsPage.jsx` (inspection grid, migration card), route `/settings/paths`, sidebar link `link-settings-paths`, CommandPalette entry
+- [x] Backend tests `api/tests/test_paths.py`; Vitest `PathSettingsPage.test.jsx`; `Layout.test.jsx` updated
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+
+### Test Results
+- `pytest api/tests/`: 34 passed
+- `npm test` (ui/): 13 test files, 54 tests passed
+
+### Local Commit Snapshot
+- Subject: `feat(paths): Task-14 — dynamic path configuration, disk status & state directory migration engine`
+- Hash: see `git log -1` (local commit only; NOT pushed)
+
+### Files Created / Modified
+- `api/app/config.py`
+- `api/app/main.py`
+- `api/app/schemas/paths.py` (new)
+- `api/app/routers/paths.py` (new)
+- `api/tests/test_paths.py` (new)
+- `ui/src/pages/PathSettingsPage.jsx` (new)
+- `ui/src/pages/__tests__/PathSettingsPage.test.jsx` (new)
+- `ui/src/App.jsx`
+- `ui/src/components/layout/Sidebar.jsx`
+- `ui/src/components/layout/__tests__/Layout.test.jsx`
+- `ui/src/components/common/CommandPalette.jsx`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`

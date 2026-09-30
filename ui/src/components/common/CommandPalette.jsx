@@ -9,6 +9,7 @@ export const COMMAND_ITEMS = [
   { id: 'nav-diagnostics', title: 'Go to Diagnostics', category: 'Navigation', path: '/diagnostics' },
   { id: 'nav-ipam', title: 'Go to IPAM Subnets', category: 'Navigation', path: '/ipam' },
   { id: 'nav-settings', title: 'Go to Settings', category: 'Navigation', path: '/settings' },
+  { id: 'nav-settings-paths', title: 'Path Configuration & Migration', category: 'Navigation', path: '/settings/paths' },
   { id: 'action-deploy-cluster', title: 'Deploy NKP Cluster', category: 'Quick Action', path: '/clusters/deploy' },
   { id: 'action-create-vm', title: 'Create Virtual Machine', category: 'Quick Action', path: '/vms' },
   { id: 'action-capture-diagnostics', title: 'Capture Diagnostics', category: 'Quick Action', path: '/diagnostics' },

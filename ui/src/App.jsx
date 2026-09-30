@@ -7,6 +7,7 @@ import ClustersPage from './pages/ClustersPage.jsx'
 import DiagnosticsPage from './pages/DiagnosticsPage.jsx'
 import FleetDashboardPage from './pages/FleetDashboardPage.jsx'
 import IpamPage from './pages/IpamPage.jsx'
+import PathSettingsPage from './pages/PathSettingsPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
 import VmListPage from './pages/VmListPage.jsx'
 
@@ -23,6 +24,7 @@ function App() {
         <Route path="fleet" element={<FleetDashboardPage />} />
         <Route path="ipam" element={<IpamPage />} />
         <Route path="settings" element={<SettingsPage />} />
+        <Route path="settings/paths" element={<PathSettingsPage />} />
       </Route>
     </Routes>
   )

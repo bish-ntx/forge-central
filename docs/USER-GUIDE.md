@@ -47,6 +47,7 @@ Current route pages:
 - `FleetDashboardPage.jsx` (`/fleet`)
 - `IpamPage.jsx` (`/ipam`)
 - `SettingsPage.jsx` (`/settings`)
+- `PathSettingsPage.jsx` (`/settings/paths`)
 
 Each page container includes a stable `data-testid` to support automated tests and CI flows.
 
@@ -191,7 +192,7 @@ The `InventoryYamlViewer` component (`ui/src/components/cluster/InventoryYamlVie
 - **Open:** press `⌘K` (Mac) / `Ctrl+K`, or click the header button (`data-testid="btn-open-command-palette"`).
 - **Close:** press `Escape` or click outside the modal.
 - **Search:** type to filter by title or category (substring match). `Enter` selects the first result; clicking an item navigates and closes the palette.
-- **Items:** navigation (`Go to VMs`, `Go to Clusters`, `Go to Fleet Dashboard`, `Go to Diagnostics`, `Go to IPAM Subnets`, `Go to Settings`), quick actions (`Deploy NKP Cluster`, `Create Virtual Machine`, `Capture Diagnostics`), and seeded cluster/VM entries.
+- **Items:** navigation (`Go to VMs`, `Go to Clusters`, `Go to Fleet Dashboard`, `Go to Diagnostics`, `Go to IPAM Subnets`, `Go to Settings`, `Path Configuration & Migration`), quick actions (`Deploy NKP Cluster`, `Create Virtual Machine`, `Capture Diagnostics`), and seeded cluster/VM entries.
 - **Locators:** `command-palette-modal`, `input-command-palette`, `command-palette-results`, `command-item-{id}`.
 
 ## Error Remediation Cards
@@ -206,6 +207,14 @@ The `InventoryYamlViewer` component (`ui/src/components/cluster/InventoryYamlVie
 
 - `broadcastTabEvent(eventType, payload)` notifies other tabs (e.g. `vm_created`, `cluster_deleted`, `cluster_deployed`).
 - `useTabSync(eventType, callback)` runs `callback(payload)` when another tab broadcasts that event, typically to refetch data.
+
+## Path Settings & State Directory Migration (`/settings/paths`)
+
+Open via the sidebar (`Path Configuration`, `data-testid="link-settings-paths"`) or the Command Palette (`Path Configuration & Migration`).
+
+- **Path inspection grid:** one card per directory (`FORGE_HOME`, `FORGE_DATA_DIR`, `FORGE_CENTRAL_DATA_DIR`, `FORGE_BACKUP_DIR`, `FORGE_LOG_DIR`; `card-path-{NAME}`) showing the resolved path, a status pill (`accessible`, `read-only`, `missing`) and a disk usage bar. Locations are set with the matching environment variables; they are never hardcoded.
+- **State directory migration (`card-path-migration`):** enter a source (`input-migration-source`, default `~/forge-state`) and target (`input-migration-target`, default `~/forge-data`), then press the submit button (`btn-trigger-migration`). Tick **Dry run** (`checkbox-migration-dry-run`) to preview what would be copied without touching disk. Only `*.ini`, `*.yaml`, `*.json` and `*.log` files are copied; the source is left in place.
+- **Result banner (`alert-migration-result`):** shows scanned/migrated file counts and the outcome message. Each migration is recorded in the audit trail as `paths-migrated`.
 
 ## Frontend Validation Commands
 

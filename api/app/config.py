@@ -19,7 +19,11 @@ class Settings(BaseModel):
     app_name: str = "Forge Central API"
     control_plane_version: str = "1.0.0"
     forge_bin: Path = Path.cwd() / "forge"
+    forge_home: Path = Path("~/forge")
     forge_data_dir: Path = Path("~/forge-data")
+    forge_central_data_dir: Path = Path("~/forge-central-data")
+    forge_backup_dir: Path = Path("~/forge-backups")
+    forge_log_dir: Path = Path("~/forge-logs")
 
     @property
     def forge_bin_resolved(self) -> Path:
@@ -33,8 +37,19 @@ class Settings(BaseModel):
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:
     forge_bin = os.getenv("FORGE_BIN")
-    forge_data_dir = os.getenv("FORGE_DATA_DIR")
+    overrides = {
+        field: Path(value).expanduser()
+        for field, env in (
+            ("forge_home", "FORGE_HOME"),
+            ("forge_data_dir", "FORGE_DATA_DIR"),
+            ("forge_central_data_dir", "FORGE_CENTRAL_DATA_DIR"),
+            ("forge_backup_dir", "FORGE_BACKUP_DIR"),
+            ("forge_log_dir", "FORGE_LOG_DIR"),
+        )
+        for value in [os.getenv(env)]
+        if value
+    }
     return Settings(
         forge_bin=Path(forge_bin).expanduser() if forge_bin else Path.cwd() / "forge",
-        forge_data_dir=Path(forge_data_dir).expanduser() if forge_data_dir else Path("~/forge-data"),
+        **overrides,
     )

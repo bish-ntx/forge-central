@@ -1,6 +1,7 @@
 import React from 'react'
 import {
   FileText,
+  FolderCog,
   FolderKanban,
   Network,
   Server,
@@ -35,6 +36,12 @@ const NAV_ITEMS = [
     label: 'Settings',
     icon: Settings,
     testId: 'link-settings',
+  },
+  {
+    to: '/settings/paths',
+    label: 'Path Configuration',
+    icon: FolderCog,
+    testId: 'link-settings-paths',
   },
 ]
 
@@ -87,6 +94,7 @@ function Sidebar({ mode, onModeChange }) {
             key={to}
             to={to}
             data-testid={testId}
+            end
             className={({ isActive }) =>
               `flex items-center gap-3 rounded px-3 py-2 text-sm transition ${
                 isActive
