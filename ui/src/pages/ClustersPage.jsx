@@ -4,6 +4,29 @@ import { Link, useNavigate } from 'react-router-dom'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 
 const API_BASE = '/api/v1/clusters'
+const PREP_NODE_DEFAULTS = {
+  address: '',
+  sshUser: '',
+  conf: '',
+  nodeType: 'wk',
+  targetType: 'vm',
+  dryRun: false,
+}
+
+function buildPrepNodeCommand(form) {
+  const parts = [
+    './forge prep node',
+    `--address ${form.address.trim() || '<address>'}`,
+    `--ssh-user ${form.sshUser.trim() || '<ssh-user>'}`,
+    `--conf ${form.conf.trim() || '<conf>'}`,
+    `--node-type ${form.nodeType}`,
+    `--target-type ${form.targetType}`,
+  ]
+  if (form.dryRun) {
+    parts.push('--dry-run')
+  }
+  return parts.join(' ')
+}
 
 function statusBadgeClasses(status) {
   if (status === 'ready') {
@@ -43,6 +66,9 @@ function ClustersPage() {
   const [nodepoolForm, setNodepoolForm] = useState({ name: '', replicas: 1, hypervisor: 'proxmox' })
   const [resetTargetCluster, setResetTargetCluster] = useState(null)
   const [resetConfirmationText, setResetConfirmationText] = useState('')
+  const [prepNodeOpen, setPrepNodeOpen] = useState(false)
+  const [prepNodeForm, setPrepNodeForm] = useState(PREP_NODE_DEFAULTS)
+  const [notice, setNotice] = useState('')
 
   async function loadClusters() {
     setLoading(true)
@@ -133,6 +159,43 @@ function ClustersPage() {
     }
   }
 
+  function openPrepNodeModal() {
+    setPrepNodeForm(PREP_NODE_DEFAULTS)
+    setPrepNodeOpen(true)
+  }
+
+  const prepNodeIncomplete =
+    !prepNodeForm.address.trim() || !prepNodeForm.sshUser.trim() || !prepNodeForm.conf.trim()
+
+  async function submitPrepNode() {
+    if (prepNodeIncomplete) {
+      return
+    }
+    const form = prepNodeForm
+    setError('')
+    try {
+      const response = await fetch('/api/v1/nodes/prep', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          address: form.address.trim(),
+          ssh_user: form.sshUser.trim(),
+          conf: form.conf.trim(),
+          node_type: form.nodeType,
+          target_type: form.targetType,
+          dry_run: form.dryRun,
+        }),
+      })
+      if (!response.ok) {
+        throw new Error('Node prep request failed')
+      }
+      setPrepNodeOpen(false)
+      setNotice(`Node prep dispatched for ${form.address.trim()}`)
+    } catch (prepError) {
+      setError(prepError instanceof Error ? prepError.message : 'Node prep request failed')
+    }
+  }
+
   function openResetModal(cluster) {
     setResetTargetCluster(cluster)
     setResetConfirmationText('')
@@ -158,15 +221,31 @@ function ClustersPage() {
     <section className="rounded border border-slate-700 bg-card-slate p-6" data-testid="page-clusters">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h2 className="text-xl font-semibold text-slate-100">NKP Clusters</h2>
-        <button
-          type="button"
-          className="rounded bg-accent-teal px-4 py-2 text-sm font-medium text-slate-900"
-          onClick={() => navigate('/clusters/deploy')}
-          data-testid="btn-open-deploy-cluster"
-        >
-          Deploy NKP Cluster
-        </button>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            className="rounded border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200"
+            onClick={openPrepNodeModal}
+            data-testid="btn-open-prep-node-modal"
+          >
+            Prep Node over SSH
+          </button>
+          <button
+            type="button"
+            className="rounded bg-accent-teal px-4 py-2 text-sm font-medium text-slate-900"
+            onClick={() => navigate('/clusters/deploy')}
+            data-testid="btn-open-deploy-cluster"
+          >
+            Deploy NKP Cluster
+          </button>
+        </div>
       </div>
+
+      {notice ? (
+        <p className="mt-3 text-sm text-emerald-300" data-testid="banner-prep-node-success">
+          {notice}
+        </p>
+      ) : null}
 
       <div className="mt-4">
         <input
@@ -408,6 +487,101 @@ function ClustersPage() {
                 data-testid="btn-submit-add-nodepool"
               >
                 Add Nodepool
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
+      {prepNodeOpen ? (
+        <div className="fixed inset-0 z-30 flex items-center justify-center bg-slate-900/70">
+          <div
+            className="w-full max-w-md rounded border border-slate-700 bg-slate-900 p-5"
+            data-testid="modal-prep-node"
+          >
+            <h3 className="text-lg font-semibold text-slate-100">Prep Node over SSH</h3>
+            <label className="mt-3 block text-sm text-slate-300">
+              Host / IP
+              <input
+                className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                value={prepNodeForm.address}
+                onChange={(event) => setPrepNodeForm({ ...prepNodeForm, address: event.target.value })}
+                data-testid="input-prep-node-address"
+              />
+            </label>
+            <label className="mt-3 block text-sm text-slate-300">
+              SSH User
+              <input
+                className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                value={prepNodeForm.sshUser}
+                onChange={(event) => setPrepNodeForm({ ...prepNodeForm, sshUser: event.target.value })}
+                data-testid="input-prep-node-user"
+              />
+            </label>
+            <label className="mt-3 block text-sm text-slate-300">
+              Node Role
+              <select
+                className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                value={prepNodeForm.nodeType}
+                onChange={(event) => setPrepNodeForm({ ...prepNodeForm, nodeType: event.target.value })}
+                data-testid="select-prep-node-type"
+              >
+                <option value="wk">Worker</option>
+                <option value="cp">Control Plane</option>
+                <option value="gpu-wk">GPU Worker</option>
+                <option value="bastion">Bastion</option>
+              </select>
+            </label>
+            <label className="mt-3 block text-sm text-slate-300">
+              Target Infra
+              <select
+                className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                value={prepNodeForm.targetType}
+                onChange={(event) => setPrepNodeForm({ ...prepNodeForm, targetType: event.target.value })}
+                data-testid="select-prep-target-type"
+              >
+                <option value="vm">VM</option>
+                <option value="baremetal">Bare Metal</option>
+              </select>
+            </label>
+            <label className="mt-3 block text-sm text-slate-300">
+              Config file path
+              <input
+                className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                value={prepNodeForm.conf}
+                onChange={(event) => setPrepNodeForm({ ...prepNodeForm, conf: event.target.value })}
+                data-testid="input-prep-node-conf"
+              />
+            </label>
+            <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
+              <input
+                type="checkbox"
+                checked={prepNodeForm.dryRun}
+                onChange={(event) => setPrepNodeForm({ ...prepNodeForm, dryRun: event.target.checked })}
+                data-testid="checkbox-prep-node-dry-run"
+              />
+              Dry run
+            </label>
+            <div className="mt-3">
+              <CliSnippetCard command={buildPrepNodeCommand(prepNodeForm)} />
+            </div>
+            <div className="mt-4 flex justify-end gap-2">
+              <button
+                type="button"
+                onClick={() => setPrepNodeOpen(false)}
+                className="rounded border border-slate-600 px-3 py-2 text-sm text-slate-200"
+                data-testid="btn-close-prep-node-modal"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={submitPrepNode}
+                disabled={prepNodeIncomplete}
+                className="rounded bg-accent-teal px-3 py-2 text-sm font-medium text-slate-900 disabled:opacity-60"
+                data-testid="btn-submit-prep-node"
+              >
+                Prep Node
               </button>
             </div>
           </div>

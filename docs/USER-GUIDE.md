@@ -125,6 +125,11 @@ The Clusters page provides an NKP-focused cluster overview and lifecycle control
 - Reset Nodes (2-step safety):
   - **Reset Nodes** (`btn-reset-nodes-{clusterName}`) opens `modal-confirm-reset-nodes`; the confirm button stays disabled until `RESET` is typed, then calls `POST /api/v1/clusters/{name}/reset-nodes`.
 - Cluster names in cards and table link to the Cluster Detail page.
+- Node prep:
+  - **Prep Node over SSH** (`btn-open-prep-node-modal`) opens `modal-prep-node`. Enter the host/IP (`input-prep-node-address`), SSH user (`input-prep-node-user`), node role (`select-prep-node-type`: Worker, Control Plane, GPU Worker, Bastion), target infra (`select-prep-target-type`: VM or Bare Metal) and config file path (`input-prep-node-conf`). Tick **Dry run** (`checkbox-prep-node-dry-run`) to preview only.
+  - The **CLI Equivalent** card shows the matching `./forge prep node ...` command as you type.
+  - **Prep Node** (`btn-submit-prep-node`) calls `POST /api/v1/nodes/prep`, closes the modal and shows a success banner; **Cancel** (`btn-close-prep-node-modal`) closes it. The run is logged in the audit trail as `node-prep-dispatched`.
+  - NFS shares are managed through `POST /api/v1/shares/mount` and `GET /api/v1/shares/status` (see the API Guide); mounts are audited as `share-mount-dispatched`.
 
 ## Cluster Detail Page (`/clusters/:name`)
 

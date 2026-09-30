@@ -697,3 +697,42 @@ Response:
 { "verb": "create-cluster", "command": "./forge create cluster --cluster-name demo --control-plane-nodes 3" }
 ```
 
+## Node Prep & Share Management API
+
+### `POST /api/v1/nodes/prep`
+
+Dispatches `./forge prep node` (`forge-prep-node.sh`) through the process runner and records a `node-prep-dispatched` audit event. Returns `202`.
+
+Request:
+
+```json
+{
+  "address": "10.10.0.21",
+  "ssh_user": "nutanix",
+  "conf": "lab-config.ini",
+  "node_type": "gpu-wk",
+  "target_type": "baremetal",
+  "admin_key": null,
+  "dry_run": true
+}
+```
+
+- `node_type`: `wk` | `cp` | `gpu-wk` | `bastion`. `target_type`: `vm` (default) | `baremetal`. Invalid values return `422`.
+- `admin_key` (optional) adds `--admin-key`; `dry_run` adds `--dry-run`.
+
+Response: `{ "run_id": "<uuid>", "status": "PENDING", "command": "./forge prep node --address ...", "started_at": "<iso8601>" }`. Follow output with `GET /api/v1/pipeline/{run_id}/stream`.
+
+### `POST /api/v1/shares/mount`
+
+Dispatches `./forge share mount` (`forge-share.sh`) and records a `share-mount-dispatched` audit event. Returns `202` with the same response shape as node prep.
+
+Request: `{ "from_ip": "10.10.0.5", "path": "/srv/forge-share", "target_bastion": "bastion-01", "reboot": false, "dry_run": false }`. Only `from_ip` is required; `path`, `target_bastion`, `reboot` and `dry_run` add `--path`, `--target-bastion`, `--reboot` and `--dry-run`.
+
+### `GET /api/v1/shares/status`
+
+Returns configured NFS exports/mounts:
+
+```json
+{ "shares": [ { "export": "/srv/forge-share", "client": "bastion-01", "type": "nfs", "status": "mounted" } ] }
+```
+

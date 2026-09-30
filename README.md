@@ -22,6 +22,9 @@ It includes:
 - `api/app/routers/fleet.py`: HQ read-only fleet aggregator APIs (`/api/v1/fleet`).
 - `api/app/routers/cli.py`: Also exposes CLI schema reflection (`GET /api/v1/cli/schema/{verb}`) and snippet generation (`POST /api/v1/cli/generate-snippet`).
 - `api/app/routers/paths.py`: Path inspection and state directory migration APIs (`/api/v1/settings/paths`).
+- `api/app/routers/nodes.py`: Node prep and NFS share APIs (`POST /api/v1/nodes/prep`, `POST /api/v1/shares/mount`, `GET /api/v1/shares/status`).
+- `api/app/schemas/nodes.py`: Node prep and share request/response schemas.
+- `api/tests/test_nodes.py`: Node prep and share router unit tests.
 - `api/app/schemas/paths.py`: Path status and migration request/response schemas.
 - `api/tests/test_paths.py`: Path settings router unit tests.
 - `api/app/schemas/cli.py`: Pydantic request/response models.

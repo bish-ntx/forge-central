@@ -1219,3 +1219,56 @@ Duration  2.82s
   git push origin main
   ```
 
+## [2026-09-30] Task-16 Node prep, NFS share management & UI modal integration
+
+- Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] `NodePrepRequest`, `NodePrepResponse`, `ShareMountRequest`, `ShareStatusResponse` added to `api/app/schemas/nodes.py`
+- [x] `POST /api/v1/nodes/prep` dispatches `./forge prep node ...` via `ProcessRunner.start_run`; audit event `node-prep-dispatched`
+- [x] `POST /api/v1/shares/mount` dispatches `./forge share mount ...`; audit event `share-mount-dispatched`
+- [x] `GET /api/v1/shares/status` returns `ShareStatusResponse`
+- [x] `nodes_router` registered in `api/app/main.py` with prefix `/api/v1`
+- [x] "Prep Node over SSH" button + `modal-prep-node` (all required `data-testid` fields) with live `CliSnippetCard` in `ClustersPage.jsx`; submit calls `POST /api/v1/nodes/prep`
+- [x] Backend tests in `api/tests/test_nodes.py`; Vitest cases in `ClustersPage.test.jsx`
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+
+### Test Results
+- `pytest api/tests/`: 41 passed
+- `npm test` (ui/): 14 test files, 58 tests passed
+
+### Local Commit Snapshot
+- Subject: `feat(nodes): Task-16 — bare-metal node prep, NFS share management & UI modal integration`
+- Hash: see `git log -1` (local commit only; NOT pushed)
+
+### Files Created / Modified
+- `api/app/schemas/nodes.py` (new)
+- `api/app/routers/nodes.py` (new)
+- `api/app/main.py`
+- `api/tests/test_nodes.py` (new)
+- `ui/src/pages/ClustersPage.jsx`
+- `ui/src/pages/__tests__/ClustersPage.test.jsx`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### C1 Planner Verification Verdict
+- **Date/Time:** 2026-09-30 16:55 PDT / 23:55 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `4c5a24f` created cleanly (`feat(nodes): Task-16 — bare-metal node prep, NFS share management & UI modal integration`).
+  - Node preparation (`POST /api/v1/nodes/prep`) and share endpoints (`POST /api/v1/shares/mount`, `GET /api/v1/shares/status`) implemented in `api/app/routers/nodes.py`.
+  - Pydantic models `NodePrepRequest`, `NodePrepResponse`, `ShareMountRequest`, `ShareStatusResponse` created in `api/app/schemas/nodes.py`.
+  - Audit logging configured with `record_audit_event("node-prep-dispatched", ...)` and `record_audit_event("share-mount-dispatched", ...)`.
+  - UI modal "Prep Node over SSH" (`data-testid="modal-prep-node"`) implemented in `ClustersPage.jsx` with full parameter controls, real-time `CliSnippetCard` CLI preview, and API dispatch.
+  - Pytest suite passed 41/41 tests across all endpoints in `api/tests/`.
+  - Vitest component suite passed 58/58 tests across 14 test files in `ui/`.
+  - Documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+

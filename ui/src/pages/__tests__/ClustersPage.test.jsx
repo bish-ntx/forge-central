@@ -150,6 +150,56 @@ describe('ClustersPage', () => {
     )
   })
 
+  test('prep node modal shows live CLI snippet and submits to /api/v1/nodes/prep', async () => {
+    const fetchMock = vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload))
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithRoutes()
+    await waitFor(() => expect(screen.getByTestId('btn-open-prep-node-modal')).toBeInTheDocument())
+
+    fireEvent.click(screen.getByTestId('btn-open-prep-node-modal'))
+    expect(screen.getByTestId('modal-prep-node')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-submit-prep-node')).toBeDisabled()
+
+    fireEvent.change(screen.getByTestId('input-prep-node-address'), { target: { value: '10.10.0.21' } })
+    fireEvent.change(screen.getByTestId('input-prep-node-user'), { target: { value: 'nutanix' } })
+    fireEvent.change(screen.getByTestId('input-prep-node-conf'), { target: { value: 'lab-config.ini' } })
+    fireEvent.change(screen.getByTestId('select-prep-node-type'), { target: { value: 'gpu-wk' } })
+    fireEvent.change(screen.getByTestId('select-prep-target-type'), { target: { value: 'baremetal' } })
+    fireEvent.click(screen.getByTestId('checkbox-prep-node-dry-run'))
+
+    expect(
+      screen.getByText(
+        './forge prep node --address 10.10.0.21 --ssh-user nutanix --conf lab-config.ini --node-type gpu-wk --target-type baremetal --dry-run',
+      ),
+    ).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('btn-submit-prep-node'))
+
+    await waitFor(() => expect(screen.queryByTestId('modal-prep-node')).not.toBeInTheDocument())
+    const postCall = fetchMock.mock.calls.find(([url]) => url === '/api/v1/nodes/prep')
+    expect(JSON.parse(postCall[1].body)).toEqual({
+      address: '10.10.0.21',
+      ssh_user: 'nutanix',
+      conf: 'lab-config.ini',
+      node_type: 'gpu-wk',
+      target_type: 'baremetal',
+      dry_run: true,
+    })
+    expect(screen.getByTestId('banner-prep-node-success')).toBeInTheDocument()
+  })
+
+  test('prep node modal can be closed', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload)))
+
+    renderWithRoutes()
+    await waitFor(() => expect(screen.getByTestId('btn-open-prep-node-modal')).toBeInTheDocument())
+    fireEvent.click(screen.getByTestId('btn-open-prep-node-modal'))
+    fireEvent.click(screen.getByTestId('btn-close-prep-node-modal'))
+
+    expect(screen.queryByTestId('modal-prep-node')).not.toBeInTheDocument()
+  })
+
   test('opens deploy wizard route from primary button', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload)))
 
