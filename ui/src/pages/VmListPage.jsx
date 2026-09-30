@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 
 const API_BASE = '/api/v1/vms'
 
@@ -460,6 +461,9 @@ function VmListPage() {
                   data-testid="input-create-vm-disk"
                 />
               </div>
+              <CliSnippetCard
+                command={`./forge vm-create --name ${createForm.name || '<vm-name>'} --node ${createForm.node || '<node>'} --cores ${createForm.cores} --memory-mb ${createForm.memory_mb}`}
+              />
               <div className="flex justify-end gap-2">
                 <button
                   type="button"

@@ -216,6 +216,16 @@ Open via the sidebar (`Path Configuration`, `data-testid="link-settings-paths"`)
 - **State directory migration (`card-path-migration`):** enter a source (`input-migration-source`, default `~/forge-state`) and target (`input-migration-target`, default `~/forge-data`), then press the submit button (`btn-trigger-migration`). Tick **Dry run** (`checkbox-migration-dry-run`) to preview what would be copied without touching disk. Only `*.ini`, `*.yaml`, `*.json` and `*.log` files are copied; the source is left in place.
 - **Result banner (`alert-migration-result`):** shows scanned/migrated file counts and the outcome message. Each migration is recorded in the audit trail as `paths-migrated`.
 
+## Copy as CLI Snippet Cards
+
+Create dialogs and review steps show a **CLI Equivalent** card (`card-cli-snippet`) with the `./forge` command matching the current form values, so you can reproduce an action from a terminal.
+
+- **Cluster Deploy (Stage 4):** under the Deployment Configuration Summary.
+- **VM list → Create VM modal:** updates as you type the name, node, cores and memory.
+- **Clusters → Add Nodepool modal:** updates with the nodepool name and replicas.
+
+Press **Copy** (`btn-copy-cli-snippet`) to copy the command to the clipboard; the button briefly shows **Copied!**.
+
 ## Frontend Validation Commands
 
 ```bash

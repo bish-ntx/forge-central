@@ -1161,3 +1161,61 @@ Duration  2.82s
   git push origin main
   ```
 
+---
+
+## [2026-09-30] Task-15 Dynamic CLI schema reflection & Copy as CLI snippet engine
+
+- Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] `CliOptionSchema`, `CliVerbSchemaResponse`, `CliSnippetRequest`, `CliSnippetResponse` added to `api/app/schemas/cli.py`
+- [x] `GET /api/v1/cli/schema/{verb}` for provision-vms, create-cluster, reset-nodes, diagnose, share, secret; 404 for unknown verbs
+- [x] `POST /api/v1/cli/generate-snippet` returns deterministic bash command (`--flag` for true booleans, `--key value` otherwise)
+- [x] `CliSnippetCard.jsx` (`card-cli-snippet`, `btn-copy-cli-snippet`, clipboard copy with fallback, "Copied!" feedback)
+- [x] Integrated in `ClusterDeployPage.jsx` (Stage 4), `VmListPage.jsx` (Create VM modal), `ClustersPage.jsx` (Add Nodepool modal)
+- [x] Backend tests in `api/tests/test_cli_runner.py`; Vitest `CliSnippetCard.test.jsx`
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+
+### Test Results
+- `pytest api/tests/`: 37 passed
+- `npm test` (ui/): 14 test files, 56 tests passed
+
+### Local Commit Snapshot
+- Subject: `feat(cli): Task-15 — dynamic CLI schema reflection & Copy as CLI snippet card engine`
+- Hash: see `git log -1` (local commit only; NOT pushed)
+
+### Files Created / Modified
+- `api/app/schemas/cli.py`
+- `api/app/routers/cli.py`
+- `api/tests/test_cli_runner.py`
+- `ui/src/components/common/CliSnippetCard.jsx` (new)
+- `ui/src/components/common/__tests__/CliSnippetCard.test.jsx` (new)
+- `ui/src/pages/ClusterDeployPage.jsx`
+- `ui/src/pages/VmListPage.jsx`
+- `ui/src/pages/ClustersPage.jsx`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### C1 Planner Verification Verdict
+- **Date/Time:** 2026-09-30 16:42 PDT / 23:42 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `afbb808` created cleanly (`feat(cli): Task-15 — dynamic CLI schema reflection & Copy as CLI snippet card engine`).
+  - Dynamic schema reflection route `GET /api/v1/cli/schema/{verb}` implemented with 404 validation for unknown verbs in `api/app/routers/cli.py`.
+  - Snippet generator route `POST /api/v1/cli/generate-snippet` deterministic bash generator implemented in `api/app/routers/cli.py`.
+  - Pydantic models `CliOptionSchema`, `CliVerbSchemaResponse`, `CliSnippetRequest`, `CliSnippetResponse` implemented in `api/app/schemas/cli.py`.
+  - React component `CliSnippetCard.jsx` created with `card-cli-snippet` and `btn-copy-cli-snippet`, supporting one-click clipboard copying and fallback feedback.
+  - Snippet cards cleanly integrated into `ClusterDeployPage.jsx` (Stage 4 summary), `VmListPage.jsx` (Create VM modal), and `ClustersPage.jsx` (Add Nodepool modal).
+  - Pytest suite passed 37/37 tests across all endpoints in `api/tests/`.
+  - Vitest component suite passed 56/56 tests across 14 test files in `ui/`.
+  - Documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Checklist Updated:** Tasks 1.5, 3.5, 4.4 marked complete in `deliverables/END-TO-END-BUILD-CHECKLIST.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+

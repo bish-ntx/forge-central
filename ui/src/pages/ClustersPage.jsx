@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import { Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
+import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 
 const API_BASE = '/api/v1/clusters'
 
@@ -385,6 +386,11 @@ function ClustersPage() {
               <option value="proxmox">Proxmox</option>
               <option value="ahv">Nutanix AHV</option>
             </select>
+            <div className="mt-3">
+              <CliSnippetCard
+                command={`./forge preprov-create-nodepool.sh --cluster-name ${nodepoolTargetCluster?.name} --nodepool-name ${nodepoolForm.name || '<nodepool-name>'} --replicas ${nodepoolForm.replicas}`}
+              />
+            </div>
             <div className="mt-4 flex justify-end gap-2">
               <button
                 type="button"

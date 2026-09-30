@@ -10,15 +10,94 @@ from __future__ import annotations
 
 import asyncio
 import json
+import shlex
 
 from fastapi import APIRouter, HTTPException, Request
 from sse_starlette.sse import EventSourceResponse
 
 from ..config import get_settings
-from ..schemas.cli import CLIExecuteRequest, CLIExecuteResponse, HealthResponse, VersionResponse
+from ..schemas.cli import (
+    CLIExecuteRequest,
+    CLIExecuteResponse,
+    CliOptionSchema,
+    CliSnippetRequest,
+    CliSnippetResponse,
+    CliVerbSchemaResponse,
+    HealthResponse,
+    VersionResponse,
+)
 from ..services.process_runner import ProcessRunner
 
 router = APIRouter()
+
+
+def _opt(name: str, type_: str, description: str, default=None, required: bool = False) -> CliOptionSchema:
+    return CliOptionSchema(name=name, type=type_, default=default, description=description, required=required)
+
+
+# Core ./forge verbs: (CLI words, description, options, example)
+CLI_VERBS: dict[str, tuple[str, str, list[CliOptionSchema], str]] = {
+    "provision-vms": (
+        "provision vms",
+        "Provision one or more virtual machines from a template.",
+        [
+            _opt("--template-id", "int", "Source template VMID.", required=True),
+            _opt("--count", "int", "Number of VMs to create.", 1),
+            _opt("--node", "string", "Target hypervisor node."),
+            _opt("--base-name", "string", "Base name prefix for new VMs.", "forge-vm"),
+        ],
+        "./forge provision vms --template-id 9000 --count 3 --node pve1 --base-name nkp-worker",
+    ),
+    "create-cluster": (
+        "create cluster",
+        "Create a preprovisioned NKP cluster.",
+        [
+            _opt("--cluster-name", "string", "Cluster name.", required=True),
+            _opt("--control-plane-nodes", "int", "Number of control plane nodes.", 3),
+            _opt("--worker-nodes", "int", "Number of worker nodes.", 3),
+            _opt("--kubernetes-version", "string", "Kubernetes version.", "v1.31.1"),
+            _opt("--hypervisor-type", "string", "Hypervisor: proxmox or ahv.", "proxmox"),
+        ],
+        "./forge create cluster --cluster-name demo --control-plane-nodes 3 --worker-nodes 3 "
+        "--kubernetes-version v1.31.1 --hypervisor-type proxmox",
+    ),
+    "reset-nodes": (
+        "reset nodes",
+        "Reset nodes of a cluster back to a clean state.",
+        [
+            _opt("--cluster-name", "string", "Cluster name.", required=True),
+            _opt("--node-names", "string", "Comma-separated node names."),
+        ],
+        "./forge reset nodes --cluster-name demo --node-names node1,node2",
+    ),
+    "diagnose": (
+        "diagnose",
+        "Collect a diagnostics bundle for a cluster.",
+        [
+            _opt("--cluster-name", "string", "Cluster name.", required=True),
+            _opt("--include-logs", "boolean", "Include node logs in the bundle.", False),
+        ],
+        "./forge diagnose --cluster-name demo --include-logs",
+    ),
+    "share": (
+        "share",
+        "Share a directory with cluster nodes.",
+        [
+            _opt("--share-name", "string", "Share name.", required=True),
+            _opt("--mount-path", "string", "Mount path on nodes."),
+        ],
+        "./forge share --share-name data --mount-path /mnt/data",
+    ),
+    "secret": (
+        "secret",
+        "Manage stored secrets.",
+        [
+            _opt("--action", "string", "Action: set, get, delete or list.", required=True),
+            _opt("--secret-name", "string", "Secret name."),
+        ],
+        "./forge secret --action set --secret-name api-token",
+    ),
+}
 
 
 def get_runner(request: Request) -> ProcessRunner:
@@ -101,3 +180,30 @@ async def live_terminal_stream() -> EventSourceResponse:
         }
 
     return EventSourceResponse(event_generator())
+
+
+@router.get("/api/v1/cli/schema/{verb}", response_model=CliVerbSchemaResponse)
+async def get_cli_verb_schema(verb: str) -> CliVerbSchemaResponse:
+    """Return the option schema for a recognized ./forge CLI verb (404 if unknown)."""
+    entry = CLI_VERBS.get(verb)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Unknown CLI verb: {verb}")
+    _, description, options, example = entry
+    return CliVerbSchemaResponse(verb=verb, description=description, options=options, example=example)
+
+
+@router.post("/api/v1/cli/generate-snippet", response_model=CliSnippetResponse)
+async def generate_cli_snippet(payload: CliSnippetRequest) -> CliSnippetResponse:
+    """Build a deterministic bash `./forge` command from a verb and parameters."""
+    entry = CLI_VERBS.get(payload.verb)
+    if entry is None:
+        raise HTTPException(status_code=404, detail=f"Unknown CLI verb: {payload.verb}")
+    parts = ["./forge", entry[0]]
+    for key, value in payload.params.items():
+        flag = "--" + str(key).lstrip("-").replace("_", "-")
+        if isinstance(value, bool):
+            if value:
+                parts.append(flag)
+        elif value is not None:
+            parts.extend([flag, shlex.quote(str(value))])
+    return CliSnippetResponse(verb=payload.verb, command=" ".join(parts))

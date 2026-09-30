@@ -659,3 +659,41 @@ Example response:
   "message": "Would migrate 3 file(s) (42 bytes) from /home/forge/forge-state to /home/forge/forge-data"
 }
 ```
+
+## CLI Schema Reflection & Snippet API
+
+### `GET /api/v1/cli/schema/{verb}`
+
+Returns the option schema of a core `./forge` verb. Recognized verbs: `provision-vms`, `create-cluster`, `reset-nodes`, `diagnose`, `share`, `secret`. Unknown verbs return `404` with `{"detail": "Unknown CLI verb: <verb>"}`.
+
+Example response (`/api/v1/cli/schema/diagnose`):
+
+```json
+{
+  "verb": "diagnose",
+  "description": "Collect a diagnostics bundle for a cluster.",
+  "arguments": [],
+  "options": [
+    {"name": "--cluster-name", "type": "string", "default": null, "description": "Cluster name.", "required": true},
+    {"name": "--include-logs", "type": "boolean", "default": false, "description": "Include node logs in the bundle.", "required": false}
+  ],
+  "example": "./forge diagnose --cluster-name demo --include-logs"
+}
+```
+
+### `POST /api/v1/cli/generate-snippet`
+
+Builds a deterministic bash command for a verb. `params` keys are converted to flags (`cluster_name` becomes `--cluster-name`); `true` booleans render as a bare `--flag`, `false`/`null` values are omitted, other values render as `--key value` (shell-quoted). Unknown verbs return `404`.
+
+Request:
+
+```json
+{ "verb": "create-cluster", "params": { "cluster_name": "demo", "control_plane_nodes": 3 } }
+```
+
+Response:
+
+```json
+{ "verb": "create-cluster", "command": "./forge create cluster --cluster-name demo --control-plane-nodes 3" }
+```
+

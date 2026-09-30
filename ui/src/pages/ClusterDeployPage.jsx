@@ -1,4 +1,5 @@
 import React, { useState } from 'react'
+import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 import {
   ArrowLeft,
   CheckCircle2,
@@ -520,6 +521,10 @@ function ClusterDeployPage() {
               </div>
             </div>
           </div>
+
+          <CliSnippetCard
+            command={`./forge cluster-create --cluster-name ${formData.cluster_name} --control-plane-nodes ${formData.control_plane_nodes} --worker-nodes ${formData.worker_nodes} --kubernetes-version ${formData.kubernetes_version} --hypervisor-type ${formData.hypervisor_type}`}
+          />
         </div>
       )}
 

@@ -9,7 +9,7 @@
 from __future__ import annotations
 
 from datetime import datetime
-from typing import Union
+from typing import Any, Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field
@@ -37,3 +37,29 @@ class VersionResponse(BaseModel):
     control_plane_version: str
     forge_bin: str
     forge_version: str
+
+
+class CliOptionSchema(BaseModel):
+    name: str
+    type: str
+    default: Optional[Any] = None
+    description: str = ""
+    required: bool = False
+
+
+class CliVerbSchemaResponse(BaseModel):
+    verb: str
+    description: str
+    arguments: list[CliOptionSchema] = Field(default_factory=list)
+    options: list[CliOptionSchema] = Field(default_factory=list)
+    example: str = ""
+
+
+class CliSnippetRequest(BaseModel):
+    verb: str
+    params: dict[str, Any] = Field(default_factory=dict)
+
+
+class CliSnippetResponse(BaseModel):
+    verb: str
+    command: str

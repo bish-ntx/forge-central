@@ -70,3 +70,44 @@ async def test_cli_execute_endpoint_accepts_command_string(monkeypatch: pytest.M
     assert payload["status"] == "PENDING"
     assert "run_id" in payload
     assert payload["command"].startswith("./forge") or "forge" in payload["command"]
+
+
+@pytest.mark.asyncio
+async def test_cli_schema_returns_options_for_create_cluster() -> None:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/cli/schema/create-cluster")
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["verb"] == "create-cluster"
+    names = {option["name"] for option in payload["options"]}
+    assert {"--cluster-name", "--control-plane-nodes", "--hypervisor-type"} <= names
+
+
+@pytest.mark.asyncio
+async def test_cli_schema_unknown_verb_returns_404() -> None:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.get("/api/v1/cli/schema/unknown-verb")
+
+    assert response.status_code == 404
+    assert "detail" in response.json()
+
+
+@pytest.mark.asyncio
+async def test_cli_generate_snippet_formats_bash_command() -> None:
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/cli/generate-snippet",
+            json={
+                "verb": "create-cluster",
+                "params": {"cluster_name": "demo", "control_plane_nodes": 3},
+            },
+        )
+        flag_response = await client.post(
+            "/api/v1/cli/generate-snippet",
+            json={"verb": "diagnose", "params": {"cluster_name": "demo", "include_logs": True, "verbose": False}},
+        )
+
+    assert response.status_code == 200
+    assert response.json()["command"] == "./forge create cluster --cluster-name demo --control-plane-nodes 3"
+    assert flag_response.json()["command"] == "./forge diagnose --cluster-name demo --include-logs"
