@@ -1,5 +1,6 @@
-import React, { useEffect, useState } from 'react'
+import React, { useCallback, useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import CommandPalette from '../common/CommandPalette.jsx'
 import Header from './Header.jsx'
 import Sidebar from './Sidebar.jsx'
 
@@ -18,6 +19,9 @@ function applyThemeClass(themeMode) {
 
 function Layout() {
   const [mode, setMode] = useState('console')
+  const [paletteOpen, setPaletteOpen] = useState(false)
+  const openPalette = useCallback(() => setPaletteOpen(true), [])
+  const closePalette = useCallback(() => setPaletteOpen(false), [])
   const [themeMode, setThemeMode] = useState(
     () => window.localStorage.getItem(THEME_STORAGE_KEY) ?? 'dark',
   )
@@ -65,11 +69,13 @@ function Layout() {
           onToggleMode={toggleMode}
           themeMode={themeMode}
           onToggleThemeMode={toggleThemeMode}
+          onOpenCommandPalette={openPalette}
         />
         <main className="flex-1 p-6" data-testid="layout-main-content">
           <Outlet />
         </main>
       </div>
+      <CommandPalette open={paletteOpen} onOpen={openPalette} onClose={closePalette} />
     </div>
   )
 }

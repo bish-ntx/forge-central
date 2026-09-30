@@ -1,4 +1,5 @@
 import React from 'react'
+import { Search } from 'lucide-react'
 
 const THEME_MODE_LABELS = {
   dark: 'Dark',
@@ -6,7 +7,7 @@ const THEME_MODE_LABELS = {
   system: 'System',
 }
 
-function Header({ mode, onToggleMode, themeMode, onToggleThemeMode }) {
+function Header({ mode, onToggleMode, themeMode, onToggleThemeMode, onOpenCommandPalette }) {
   const modeLabel =
     mode === 'console' ? 'Forge Central Console' : 'Forge Fleet Dashboard'
 
@@ -39,17 +40,30 @@ function Header({ mode, onToggleMode, themeMode, onToggleThemeMode }) {
         </span>
       </div>
 
-      <button
-        type="button"
-        onClick={onToggleThemeMode}
-        data-testid="toggle-theme-mode"
-        className="w-72 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-left text-sm text-slate-400 hover:border-slate-600"
-      >
-        Theme: {THEME_MODE_LABELS[themeMode] ?? 'Dark'}
-        <span className="float-right rounded bg-slate-700 px-1.5 py-0.5 text-xs text-slate-300">
-          Toggle
-        </span>
-      </button>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={onOpenCommandPalette}
+          data-testid="btn-open-command-palette"
+          className="inline-flex items-center gap-2 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-sm text-slate-400 hover:border-slate-600"
+        >
+          <Search size={14} />
+          <span className="rounded bg-slate-700 px-1.5 py-0.5 text-xs text-slate-300">
+            ⌘K Search
+          </span>
+        </button>
+        <button
+          type="button"
+          onClick={onToggleThemeMode}
+          data-testid="toggle-theme-mode"
+          className="w-72 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-left text-sm text-slate-400 hover:border-slate-600"
+        >
+          Theme: {THEME_MODE_LABELS[themeMode] ?? 'Dark'}
+          <span className="float-right rounded bg-slate-700 px-1.5 py-0.5 text-xs text-slate-300">
+            Toggle
+          </span>
+        </button>
+      </div>
     </header>
   )
 }

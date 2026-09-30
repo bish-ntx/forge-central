@@ -184,6 +184,29 @@ The `InventoryYamlViewer` component (`ui/src/components/cluster/InventoryYamlVie
   - Displays pre-flight diagnostic status badges wrapping `POST /api/v1/inventory/validate` / `preprov-diagnose.sh` results.
   - Visual status color indicators for `PASS` (emerald), `WARN` (amber), and `FAIL` (rose) status checks.
 
+## Command Palette (`⌘K` / `Ctrl+K`)
+
+`ui/src/components/common/CommandPalette.jsx` is mounted in `Layout.jsx`, so it is available on every view.
+
+- **Open:** press `⌘K` (Mac) / `Ctrl+K`, or click the header button (`data-testid="btn-open-command-palette"`).
+- **Close:** press `Escape` or click outside the modal.
+- **Search:** type to filter by title or category (substring match). `Enter` selects the first result; clicking an item navigates and closes the palette.
+- **Items:** navigation (`Go to VMs`, `Go to Clusters`, `Go to Fleet Dashboard`, `Go to Diagnostics`, `Go to IPAM Subnets`, `Go to Settings`), quick actions (`Deploy NKP Cluster`, `Create Virtual Machine`, `Capture Diagnostics`), and seeded cluster/VM entries.
+- **Locators:** `command-palette-modal`, `input-command-palette`, `command-palette-results`, `command-item-{id}`.
+
+## Error Remediation Cards
+
+`ui/src/utils/errorRemediation.js` exports `getRemediation(errorMsgOrCode)`, returning `title`, `description`, `actionable_fix`, `severity` (`critical` | `warning` | `info`) and an optional `cli_command`. Recognized patterns: IPAM exhaustion, SSH connectivity failures, Helm/Kommander timeouts, and disk-full errors; anything else gets a generic fallback.
+
+`ErrorRemediationCard` (`data-testid="card-error-remediation"`, `ui/src/components/common/ErrorRemediationCard.jsx`) renders the result with a copyable CLI command: `<ErrorRemediationCard error={message} />`.
+
+## Multi-Tab State Sync
+
+`ui/src/hooks/useTabSync.js` uses a `BroadcastChannel` named `forge-central-events` (silently disabled where unsupported):
+
+- `broadcastTabEvent(eventType, payload)` notifies other tabs (e.g. `vm_created`, `cluster_deleted`, `cluster_deployed`).
+- `useTabSync(eventType, callback)` runs `callback(payload)` when another tab broadcasts that event, typically to refetch data.
+
 ## Frontend Validation Commands
 
 ```bash

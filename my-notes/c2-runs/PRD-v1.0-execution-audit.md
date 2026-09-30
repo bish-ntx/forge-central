@@ -1038,3 +1038,38 @@ Duration  2.82s
   git push origin main
   ```
 
+
+---
+
+## [2026-09-30] Task-13 Command Palette, error remediation dictionary & multi-tab state sync
+
+- Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] Global `CommandPalette` (⌘K / Ctrl+K / header button `btn-open-command-palette`), closes on Escape/backdrop, navigates via `useNavigate`
+- [x] Wired in `Layout.jsx`; `Header.jsx` search trigger with `⌘K Search` pill
+- [x] `getRemediation()` dictionary (IPAM, SSH, Helm timeout, storage, fallback) + `ErrorRemediationCard`
+- [x] `useTabSync` / `broadcastTabEvent` on `BroadcastChannel("forge-central-events")` with environment guard
+- [x] Vitest tests for palette, dictionary and tab sync
+- [x] `docs/USER-GUIDE.md` updated
+
+### Test Results
+- `pytest api/tests/`: 30 passed
+- `npm test` (ui/): 12 test files, 51 tests passed
+
+### Local Commit Snapshot
+- Subject: `feat(ux): Task-13 — global CommandPalette (⌘K), error remediation cards & multi-tab state sync`
+- Hash: see `git log -1` (local commit only; NOT pushed)
+
+### Files Created / Modified
+- `ui/src/components/common/CommandPalette.jsx` (new)
+- `ui/src/components/common/ErrorRemediationCard.jsx` (new)
+- `ui/src/utils/errorRemediation.js` (new)
+- `ui/src/hooks/useTabSync.js` (new)
+- `ui/src/components/layout/Layout.jsx`
+- `ui/src/components/layout/Header.jsx`
+- `ui/src/components/common/__tests__/CommandPalette.test.jsx` (new)
+- `ui/src/utils/__tests__/errorRemediation.test.js` (new)
+- `ui/src/hooks/__tests__/useTabSync.test.js` (new)
+- `docs/USER-GUIDE.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
