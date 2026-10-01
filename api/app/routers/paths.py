@@ -5,7 +5,7 @@ import shutil
 from pathlib import Path
 from uuid import uuid4
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
 from ..config import get_settings
 from ..schemas.paths import (
@@ -15,6 +15,7 @@ from ..schemas.paths import (
     PathStatusItem,
 )
 from .audit import record_audit_event
+from .auth import require_mutating_role
 
 router = APIRouter(prefix="/api/v1/settings/paths", tags=["settings"])
 
@@ -61,7 +62,7 @@ async def inspect_paths() -> PathsInspectionResponse:
     )
 
 
-@router.post("/migrate", response_model=PathMigrationResponse)
+@router.post("/migrate", response_model=PathMigrationResponse, dependencies=[Depends(require_mutating_role)])
 async def migrate_state_directory(payload: PathMigrationRequest) -> PathMigrationResponse:
     """Copy state files (*.ini, *.yaml, *.json, *.log) from a source to a target directory; supports dry-run."""
     source = Path(payload.source_dir).expanduser()

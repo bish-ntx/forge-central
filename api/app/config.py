@@ -26,6 +26,7 @@ class Settings(BaseModel):
     forge_log_dir: Path = Path("~/forge-logs")
     forge_mock_mode: bool = False
     forge_display_timezone: str = "America/Los_Angeles"  # local label for log headers only
+    forge_admin_password: str = "Nutanix.123"  # passphrase that unlocks the admin role
 
     @property
     def forge_bin_resolved(self) -> Path:
@@ -54,6 +55,7 @@ def get_settings() -> Settings:
     return Settings(
         forge_display_timezone=os.getenv("FORGE_DISPLAY_TZ", "").strip() or "America/Los_Angeles",
         forge_mock_mode=os.getenv("FORGE_MOCK_MODE", "").strip().lower() in {"1", "true", "yes", "on"},
+        forge_admin_password=os.getenv("FORGE_ADMIN_PASSWORD") or "Nutanix.123",
         forge_bin=Path(forge_bin).expanduser() if forge_bin else Path.cwd() / "forge",
         **overrides,
     )

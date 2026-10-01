@@ -139,7 +139,10 @@ describe('ClustersPage', () => {
     fireEvent.click(screen.getByTestId('btn-confirm-reset-nodes'))
 
     await waitFor(() => expect(screen.queryByTestId('modal-confirm-reset-nodes')).not.toBeInTheDocument())
-    expect(fetchMock).toHaveBeenCalledWith('/api/v1/clusters/nkp-prod-01/reset-nodes', { method: 'POST' })
+    expect(fetchMock).toHaveBeenCalledWith('/api/v1/clusters/nkp-prod-01/reset-nodes', {
+      method: 'POST',
+      headers: { 'X-Forge-Role': 'operator' },
+    })
   })
 
   test('cluster name links navigate to detail route', async () => {

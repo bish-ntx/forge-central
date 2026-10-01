@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 import SafetySnapshotNotice from '../components/common/SafetySnapshotNotice.jsx'
+import { roleHeaders, useRole } from '../context/RoleContext.jsx'
 
 const API_BASE = '/api/v1/vms'
 
@@ -14,6 +15,7 @@ const DEFAULT_CREATE_FORM = {
 }
 
 function VmListPage() {
+  const { mutationProps } = useRole()
   const [vms, setVms] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -86,7 +88,7 @@ function VmListPage() {
     try {
       const response = await fetch(`${API_BASE}/batch-action`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: roleHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ vmids: selectedVmids, action }),
       })
       if (!response.ok) {
@@ -224,6 +226,7 @@ function VmListPage() {
           onClick={openCreateVmModal}
           className="rounded bg-accent-teal px-3 py-2 text-sm font-medium text-slate-900"
           data-testid="btn-open-create-vm-modal"
+          {...mutationProps()}
         >
           Create VM
         </button>
@@ -248,6 +251,7 @@ function VmListPage() {
             onClick={() => runBatchAction('start')}
             className="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
             data-testid="btn-batch-start"
+            {...mutationProps()}
           >
             Start Selected
           </button>
@@ -256,6 +260,7 @@ function VmListPage() {
             onClick={() => runBatchAction('stop')}
             className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white"
             data-testid="btn-batch-stop"
+            {...mutationProps()}
           >
             Stop Selected
           </button>
@@ -264,6 +269,7 @@ function VmListPage() {
             onClick={() => runBatchAction('restart')}
             className="rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white"
             data-testid="btn-batch-restart"
+            {...mutationProps()}
           >
             Restart Selected
           </button>
@@ -272,6 +278,7 @@ function VmListPage() {
             onClick={() => setIsBatchDestroyOpen(true)}
             className="rounded bg-rose-700 px-2 py-1 text-xs font-medium text-white"
             data-testid="btn-batch-destroy"
+            {...mutationProps()}
           >
             Destroy Selected
           </button>
@@ -357,6 +364,7 @@ function VmListPage() {
                         onClick={() => handleVmAction(vm.vmid, 'start')}
                         className="rounded bg-emerald-600 px-2 py-1 text-xs font-medium text-white"
                         data-testid={`btn-vm-start-${vm.vmid}`}
+                        {...mutationProps()}
                       >
                         Start
                       </button>
@@ -365,6 +373,7 @@ function VmListPage() {
                         onClick={() => handleVmAction(vm.vmid, 'stop')}
                         className="rounded bg-amber-600 px-2 py-1 text-xs font-medium text-white"
                         data-testid={`btn-vm-stop-${vm.vmid}`}
+                        {...mutationProps()}
                       >
                         Stop
                       </button>
@@ -373,6 +382,7 @@ function VmListPage() {
                         onClick={() => handleVmAction(vm.vmid, 'restart')}
                         className="rounded bg-sky-600 px-2 py-1 text-xs font-medium text-white"
                         data-testid={`btn-vm-restart-${vm.vmid}`}
+                        {...mutationProps()}
                       >
                         Restart
                       </button>
@@ -381,6 +391,7 @@ function VmListPage() {
                         onClick={() => requestDestroy(vm)}
                         className="rounded bg-rose-700 px-2 py-1 text-xs font-medium text-white"
                         data-testid={`btn-vm-destroy-${vm.vmid}`}
+                        {...mutationProps()}
                       >
                         Destroy
                       </button>

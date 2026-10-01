@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import Any, Optional, Union
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..config import get_settings
 from ..schemas.clusters import (
@@ -24,6 +24,7 @@ from ..services.backup import create_safety_snapshot
 from ..services.mock_data import MOCK_CLUSTERS
 from ..services.process_runner import ProcessRunner
 from .audit import record_audit_event
+from .auth import require_mutating_role
 
 router = APIRouter(prefix="/api/v1/clusters", tags=["clusters"])
 
@@ -165,7 +166,12 @@ async def get_cluster(name: str, request: Request) -> ClusterDetailResponse:
     )
 
 
-@router.delete("/{name}", response_model=ClusterCommandResponse, status_code=202)
+@router.delete(
+    "/{name}",
+    response_model=ClusterCommandResponse,
+    status_code=202,
+    dependencies=[Depends(require_mutating_role)],
+)
 async def delete_cluster(name: str, request: Request) -> ClusterCommandResponse:
     """Queue cluster deletion after taking an automatic pre-mutation safety snapshot."""
     runner = get_runner(request)
@@ -230,7 +236,12 @@ async def list_nodepools(name: str) -> ClusterNodepoolListResponse:
     return ClusterNodepoolListResponse(nodepools=_cluster_nodepools(name))
 
 
-@router.post("/{name}/reset-nodes", response_model=ClusterCommandResponse, status_code=202)
+@router.post(
+    "/{name}/reset-nodes",
+    response_model=ClusterCommandResponse,
+    status_code=202,
+    dependencies=[Depends(require_mutating_role)],
+)
 async def reset_cluster_nodes(
     name: str, request: Request, payload: Optional[ClusterResetNodesRequest] = None
 ) -> ClusterCommandResponse:

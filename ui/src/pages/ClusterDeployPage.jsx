@@ -1,5 +1,6 @@
 import React, { useState } from 'react'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
+import { useRole } from '../context/RoleContext.jsx'
 import {
   ArrowLeft,
   CheckCircle2,
@@ -67,6 +68,7 @@ spec:
 }
 
 function ClusterDeployPage() {
+  const { mutationProps } = useRole()
   const navigate = useNavigate()
   const [currentStep, setCurrentStep] = useState(1)
   const [isSubmitting, setIsSubmitting] = useState(false)
@@ -594,9 +596,9 @@ function ClusterDeployPage() {
             <button
               type="button"
               onClick={launchDeployment}
-              disabled={isSubmitting || Boolean(runId)}
               className="inline-flex items-center gap-2 rounded bg-emerald-500 px-5 py-2 text-xs font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
               data-testid="btn-wizard-launch"
+              {...mutationProps(isSubmitting || Boolean(runId))}
             >
               {isSubmitting ? (
                 <>

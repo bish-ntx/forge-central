@@ -826,6 +826,43 @@ Returns configured NFS exports/mounts:
 { "shares": [ { "export": "/srv/forge-share", "client": "bastion-01", "type": "nfs", "status": "mounted" } ] }
 ```
 
+## Authentication & Role-Based Access Control (RBAC)
+
+Forge Central has three console roles: `viewer` (read-only demo mode), `operator` (default; routine cluster, nodepool and VM actions) and `admin` (adds Day-0 infrastructure setup such as state migration, backups and restores). The role is chosen in the web console header; `admin` is unlocked with a passphrase.
+
+### `POST /api/v1/auth/unlock-admin`
+
+Validates the admin passphrase against the `FORGE_ADMIN_PASSWORD` environment variable (default `Nutanix.123` — override it in every real deployment). The passphrase is never logged.
+
+Request:
+
+```json
+{ "passphrase": "Nutanix.123" }
+```
+
+Response `200`:
+
+```json
+{ "status": "authorized", "role": "admin" }
+```
+
+Returns `401` with `{"detail": "Invalid admin passphrase"}` when the passphrase does not match.
+
+### `X-Forge-Role` request header (viewer guard)
+
+The web console sends `X-Forge-Role: viewer|operator|admin` with destructive and Day-0 calls. Requests declaring `viewer` are rejected with `403` and `{"detail": "Viewer role cannot perform mutating actions"}` on:
+
+- `DELETE /api/v1/clusters/{name}`
+- `POST /api/v1/clusters/{name}/reset-nodes`
+- `POST /api/v1/vms/batch-action` (any action, including `destroy`)
+- `POST /api/v1/settings/paths/migrate`
+
+Omitting the header or sending `operator`/`admin` keeps the previous behaviour (CLI and scripted clients are unaffected). The header is a UI-driven safety guard, not a substitute for network-level access control.
+
+### Typed confirmation safeguards
+
+The web console requires an exact, uppercase keyword before any destructive request is sent: `DELETE` (cluster delete), `RESET` (reset nodes), `DESTROY` (batch VM destroy) and `RESTORE` (state restore). Each destructive call also takes an automatic safety snapshot (see `safety_backup_id`).
+
 ## Timestamps & Timezone Handling (UTC Storage Discipline)
 
 The backend, database/state records and audit events operate **exclusively in UTC**. Every timestamp field in every API response (`timestamp`, `created_at`, `started_at`, `captured_at`, `last_seen`, `last_updated_at`, `last_upgrade_at`, SSE `log` event `timestamp`) is serialized as ISO 8601 UTC with a `Z` suffix and no sub-seconds: `YYYY-MM-DDTHH:MM:SSZ` (e.g. `2026-10-01T01:15:30Z`).

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { Clock, Search } from 'lucide-react'
 import { useTimezone } from '../../context/TimezoneContext.jsx'
+import RoleSwitcher from './RoleSwitcher.jsx'
 
 const THEME_MODE_LABELS = {
   dark: 'Dark',
@@ -64,6 +65,7 @@ function Header({ mode, onToggleMode, themeMode, onToggleThemeMode, onOpenComman
       </div>
 
       <div className="flex items-center gap-3">
+        <RoleSwitcher />
         <button
           type="button"
           onClick={toggleTimezoneMode}

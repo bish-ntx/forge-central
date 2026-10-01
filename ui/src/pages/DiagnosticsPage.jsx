@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Timestamp from '../components/common/Timestamp.jsx'
+import { useRole } from '../context/RoleContext.jsx'
 
 const DIAGNOSTICS_BUNDLES_API = '/api/v1/diagnostics/bundles'
 const DIAGNOSTICS_CAPTURE_API = '/api/v1/diagnostics/capture'
@@ -74,6 +75,7 @@ function statusBadgeClasses(status) {
 }
 
 function DiagnosticsPage() {
+  const { mutationProps } = useRole()
   const [clusterName, setClusterName] = useState('amd-nkp1')
   const [bundles, setBundles] = useState([])
   const [auditLogs, setAuditLogs] = useState([])
@@ -165,7 +167,7 @@ function DiagnosticsPage() {
             onClick={() => void captureDiagnostics()}
             className="rounded bg-accent-teal px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-70"
             data-testid="btn-capture-diagnostics"
-            disabled={isCapturing || !clusterName.trim()}
+            {...mutationProps(isCapturing || !clusterName.trim())}
           >
             {isCapturing ? 'Capturing...' : 'Capture Bundle'}
           </button>

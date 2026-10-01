@@ -1600,3 +1600,38 @@ Duration  2.82s
   git push origin main
   ```
 
+
+---
+
+## Task 24 — 3-Tier Role-Based Access Control (Admin/Operator/Viewer) & Typed Destructive Guards
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] 1. `pytest api/tests/` passes 100% (77 passed)
+- [x] 2. `POST /api/v1/auth/unlock-admin` validates passphrase against `FORGE_ADMIN_PASSWORD` (default `Nutanix.123`, env-overridable; 401 on mismatch)
+- [x] 3. Header shows `badge-role-switcher` with `Demo (Viewer)` / `Operator` / `Admin` menu (persisted in `localStorage` key `forge_role`)
+- [x] 4. Viewer mode disables mutating buttons (Clusters, Cluster Detail, Deploy wizard, VMs, Diagnostics capture, Path Settings) with tooltip "Action disabled in Demo/Viewer mode"
+- [x] 5. Switching to Admin requires the passphrase in `modal-unlock-admin`; role changes only after server validation
+- [x] 6. Typed guards: `DELETE` (`modal-confirm-cluster-delete`, plus cluster detail panel), `RESET` (`modal-confirm-reset-nodes`), `DESTROY` (`modal-confirm-batch-destroy`); confirm buttons stay disabled until the exact uppercase keyword is typed
+- [x] 7. `npm test` passes 100% (18 files, 83 tests, incl. new `ui/src/context/__tests__/RoleContext.test.jsx`)
+- [x] 8. `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+- [x] 9. Local commit created: `feat(rbac): Task-24 — 3-tier role-based access control (admin/operator/viewer) & typed destructive guards`
+- [x] 10. NOT pushed
+- Notes:
+  - Backend guard: `X-Forge-Role: viewer` returns 403 "Viewer role cannot perform mutating actions" on `DELETE /clusters/{name}`, `POST /clusters/{name}/reset-nodes`, `POST /vms/batch-action` (any action) and `POST /settings/paths/migrate`. Missing header / operator / admin behave as before, so CLI clients are unaffected. The header is a UI-driven guard, not network-level auth.
+  - Operator is read-only on Day-0 controls in `/settings/paths` (migrate, backup, restore: disabled with an "requires Admin role" tooltip); `/settings/lab` does not exist yet and can reuse `adminProps()` from `useRole()`.
+  - Cluster delete previously required typing the cluster name; it now requires `DELETE` (list modal and detail page). Single-VM destroy still requires the VM name (unchanged).
+  - `useRole()` defaults to `operator` without a provider (fail-closed for Day-0). `PathSettingsPage.test.jsx` now renders under `RoleProvider` with the admin role; two reset-nodes assertions now expect the `X-Forge-Role` header.
+
+### Test Results
+- `pytest api/tests/`: 77 passed (10 new in `api/tests/test_auth_rbac.py`)
+- `npm test` (vitest): 18 files, 83 passed (10 new)
+- `npm run build`: succeeds
+
+### Files Created / Modified
+- Created: `api/app/routers/auth.py`, `api/app/schemas/auth.py`, `api/tests/test_auth_rbac.py`, `ui/src/context/RoleContext.jsx`, `ui/src/components/layout/RoleSwitcher.jsx`, `ui/src/context/__tests__/RoleContext.test.jsx`
+- Modified: `api/app/{config,main}.py`, `api/app/routers/{clusters,vms,paths}.py`, `ui/src/main.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/pages/{ClustersPage,ClusterDetailPage,ClusterDeployPage,VmListPage,DiagnosticsPage,PathSettingsPage}.jsx`, `ui/src/pages/__tests__/{ClustersPage,ClusterDetailPage,PathSettingsPage}.test.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only: `feat(rbac): Task-24 — 3-tier role-based access control (admin/operator/viewer) & typed destructive guards` (NOT pushed)

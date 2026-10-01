@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { ArrowLeft, Minus, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import SafetySnapshotNotice from '../components/common/SafetySnapshotNotice.jsx'
+import { roleHeaders, useRole } from '../context/RoleContext.jsx'
 
 const API_BASE = '/api/v1/clusters'
 
@@ -42,6 +43,7 @@ function badgeClasses(status) {
 function ClusterDetailPage() {
   const { name } = useParams()
   const navigate = useNavigate()
+  const { mutationProps } = useRole()
   const [cluster, setCluster] = useState(seedCluster(name))
   const [nodes, setNodes] = useState(SEED_NODES)
   const [nodepools, setNodepools] = useState(SEED_NODEPOOLS)
@@ -49,6 +51,7 @@ function ClusterDetailPage() {
   const [panel, setPanel] = useState(null)
   const [newPoolName, setNewPoolName] = useState('')
   const [resetText, setResetText] = useState('')
+  const [deleteText, setDeleteText] = useState('')
 
   useEffect(() => {
     async function load() {
@@ -122,14 +125,17 @@ function ClusterDetailPage() {
   }
 
   async function resetNodes() {
-    if (resetText === 'RESET' && (await postAction('/reset-nodes', { method: 'POST' }, 'Reset nodes request failed'))) {
+    if (resetText === 'RESET' && (await postAction('/reset-nodes', { method: 'POST', headers: roleHeaders() }, 'Reset nodes request failed'))) {
       setPanel(null)
       setResetText('')
     }
   }
 
   async function deleteCluster() {
-    if (await postAction('', { method: 'DELETE' }, 'Cluster deletion request failed')) {
+    if (
+      deleteText === 'DELETE' &&
+      (await postAction('', { method: 'DELETE', headers: roleHeaders() }, 'Cluster deletion request failed'))
+    ) {
       navigate('/clusters')
     }
   }
@@ -162,6 +168,7 @@ function ClusterDetailPage() {
             className="inline-flex items-center gap-2 rounded border border-slate-600 px-3 py-1.5 text-sm text-slate-200"
             onClick={() => setPanel('add')}
             data-testid="btn-detail-add-nodepool"
+            {...mutationProps()}
           >
             <Plus size={14} />
             Add Nodepool
@@ -171,6 +178,7 @@ function ClusterDetailPage() {
             className="inline-flex items-center gap-2 rounded bg-amber-700 px-3 py-1.5 text-sm text-white"
             onClick={() => setPanel('reset')}
             data-testid="btn-detail-reset-nodes"
+            {...mutationProps()}
           >
             <RotateCcw size={14} />
             Reset Nodes
@@ -180,6 +188,7 @@ function ClusterDetailPage() {
             className="inline-flex items-center gap-2 rounded bg-rose-700 px-3 py-1.5 text-sm text-white"
             onClick={() => setPanel('delete')}
             data-testid="btn-detail-delete-cluster"
+            {...mutationProps()}
           >
             <Trash2 size={14} />
             Delete Cluster
@@ -207,6 +216,7 @@ function ClusterDetailPage() {
             className="rounded bg-accent-teal px-3 py-2 text-sm font-medium text-slate-900"
             onClick={addNodepool}
             data-testid="btn-detail-submit-nodepool"
+            {...mutationProps()}
           >
             Create
           </button>
@@ -235,11 +245,20 @@ function ClusterDetailPage() {
       ) : null}
       {panel === 'delete' ? (
         <div className="mt-4 flex flex-wrap items-center gap-2" data-testid="panel-detail-delete-cluster">
-          <span className="text-sm text-slate-300">Delete {cluster.name}? This cannot be undone.</span>
+          <span className="text-sm text-slate-300">
+            Delete {cluster.name}? This cannot be undone. Type DELETE to confirm:
+          </span>
           <SafetySnapshotNotice />
+          <input
+            className="rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+            value={deleteText}
+            onChange={(event) => setDeleteText(event.target.value)}
+            data-testid="input-detail-confirm-delete"
+          />
           <button
             type="button"
-            className="rounded bg-rose-700 px-3 py-2 text-sm text-white"
+            className="rounded bg-rose-700 px-3 py-2 text-sm text-white disabled:opacity-60"
+            disabled={deleteText !== 'DELETE'}
             onClick={deleteCluster}
             data-testid="btn-detail-confirm-delete"
           >
@@ -310,9 +329,9 @@ function ClusterDetailPage() {
                       type="button"
                       className="rounded border border-slate-600 p-1"
                       aria-label={`Scale down ${pool.name}`}
-                      disabled={pool.replicas <= 0}
                       onClick={() => submitNodepool({ ...pool, replicas: pool.replicas - 1 })}
                       data-testid={`btn-scale-down-${pool.name}`}
+                      {...mutationProps(pool.replicas <= 0)}
                     >
                       <Minus size={14} />
                     </button>
@@ -322,6 +341,7 @@ function ClusterDetailPage() {
                       aria-label={`Scale up ${pool.name}`}
                       onClick={() => submitNodepool({ ...pool, replicas: pool.replicas + 1 })}
                       data-testid={`btn-scale-up-${pool.name}`}
+                      {...mutationProps()}
                     >
                       <Plus size={14} />
                     </button>

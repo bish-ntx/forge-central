@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 import Timestamp from '../components/common/Timestamp.jsx'
+import { roleHeaders, useRole } from '../context/RoleContext.jsx'
 
 const PATHS_API = '/api/v1/settings/paths'
 const MIGRATE_API = '/api/v1/settings/paths/migrate'
@@ -37,6 +38,7 @@ function formatGb(bytes) {
 }
 
 function PathSettingsPage() {
+  const { adminProps } = useRole()
   const [paths, setPaths] = useState([])
   const [error, setError] = useState('')
   const [sourceDir, setSourceDir] = useState('~/forge-state')
@@ -152,7 +154,7 @@ function PathSettingsPage() {
     try {
       const response = await fetch(MIGRATE_API, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: roleHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({ source_dir: sourceDir.trim(), target_dir: targetDir.trim(), dry_run: dryRun }),
       })
       const payload = await response.json()
@@ -243,7 +245,7 @@ function PathSettingsPage() {
             onClick={() => void triggerMigration()}
             className="rounded bg-accent-teal px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-70"
             data-testid="btn-trigger-migration"
-            disabled={isMigrating || !sourceDir.trim() || !targetDir.trim()}
+            {...adminProps(isMigrating || !sourceDir.trim() || !targetDir.trim())}
           >
             {isMigrating ? 'Migrating...' : dryRun ? 'Run Dry Migration' : 'Migrate'}
           </button>
@@ -275,7 +277,7 @@ function PathSettingsPage() {
             onClick={() => void createBackup()}
             className="rounded bg-accent-teal px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-70"
             data-testid="btn-create-backup"
-            disabled={isBackingUp}
+            {...adminProps(isBackingUp)}
           >
             {isBackingUp ? 'Creating...' : 'Create Instant Backup'}
           </button>
@@ -304,6 +306,7 @@ function PathSettingsPage() {
                       onClick={() => void openRestoreModal(backup)}
                       className="rounded border border-amber-500/50 px-3 py-1 text-xs font-medium text-amber-300"
                       data-testid={`btn-restore-${backup.backup_id}`}
+                      {...adminProps()}
                     >
                       Restore
                     </button>

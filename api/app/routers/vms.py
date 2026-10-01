@@ -4,7 +4,7 @@ import asyncio
 import json
 from typing import Any, Literal, Optional, Union
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Header, HTTPException, Query, Request
 
 from ..config import get_settings
 from ..schemas.vms import (
@@ -23,6 +23,7 @@ from ..services.backup import create_safety_snapshot
 from ..services.mock_data import MOCK_VMS
 from ..services.process_runner import ProcessRunner
 from .audit import record_audit_event
+from .auth import forbid_viewer
 
 router = APIRouter(prefix="/api/v1/vms", tags=["vms"])
 
@@ -123,8 +124,16 @@ async def create_vm(request: Request, payload: VmCreateRequest) -> VmCommandResp
 
 
 @router.post("/batch-action", response_model=VmBatchActionResponse, status_code=202)
-async def vm_batch_action(request: Request, payload: VmBatchActionRequest) -> VmBatchActionResponse:
-    """Queue a lifecycle action for multiple VMs; `destroy` first takes a safety snapshot."""
+async def vm_batch_action(
+    request: Request,
+    payload: VmBatchActionRequest,
+    x_forge_role: Optional[str] = Header(default=None),
+) -> VmBatchActionResponse:
+    """Queue a lifecycle action for multiple VMs; `destroy` first takes a safety snapshot.
+
+    Callers sending `X-Forge-Role: viewer` receive HTTP 403.
+    """
+    forbid_viewer(x_forge_role)
     runner = get_runner(request)
     snapshot = (
         create_safety_snapshot("vm-batch-destroy", f"{len(payload.vmids)}-vms")

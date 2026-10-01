@@ -1,6 +1,17 @@
 import React from 'react'
 import { fireEvent, render, screen, waitFor } from '@testing-library/react'
 import PathSettingsPage from '../PathSettingsPage.jsx'
+import { ROLE_STORAGE_KEY, RoleProvider } from '../../context/RoleContext.jsx'
+
+// Day-0 controls are admin-only, so render with the admin role persisted.
+function renderAsAdmin() {
+  window.localStorage.setItem(ROLE_STORAGE_KEY, 'admin')
+  return render(
+    <RoleProvider>
+      <PathSettingsPage />
+    </RoleProvider>,
+  )
+}
 
 const pathsPayload = {
   paths: [
@@ -21,7 +32,7 @@ describe('PathSettingsPage', () => {
 
   test('renders path cards with status badges', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(pathsPayload)))
-    render(<PathSettingsPage />)
+    renderAsAdmin()
 
     expect(await screen.findByTestId('card-path-FORGE_HOME')).toHaveTextContent('/srv/forge')
     expect(screen.getByTestId('badge-path-status-FORGE_HOME')).toHaveTextContent('accessible')
@@ -34,7 +45,7 @@ describe('PathSettingsPage', () => {
 
   test('falls back to seed data when the API fails', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
-    render(<PathSettingsPage />)
+    renderAsAdmin()
 
     expect(await screen.findByTestId('card-path-FORGE_LOG_DIR')).toBeInTheDocument()
   })
@@ -57,7 +68,7 @@ describe('PathSettingsPage', () => {
       return jsonResponse(pathsPayload)
     })
     vi.stubGlobal('fetch', fetchMock)
-    render(<PathSettingsPage />)
+    renderAsAdmin()
     await screen.findByTestId('card-path-FORGE_HOME')
 
     const checkbox = screen.getByTestId('checkbox-migration-dry-run')
@@ -99,7 +110,7 @@ describe('PathSettingsPage', () => {
       return jsonResponse(pathsPayload)
     })
     vi.stubGlobal('fetch', fetchMock)
-    render(<PathSettingsPage />)
+    renderAsAdmin()
 
     expect(await screen.findByTestId('section-backups')).toBeInTheDocument()
     expect(screen.getByTestId('table-backups')).toHaveTextContent('SHA-256 Checksum')
@@ -133,7 +144,7 @@ describe('PathSettingsPage', () => {
       return jsonResponse(pathsPayload)
     })
     vi.stubGlobal('fetch', fetchMock)
-    render(<PathSettingsPage />)
+    renderAsAdmin()
 
     fireEvent.click(await screen.findByTestId('btn-restore-forge-central-backup-1'))
     expect(screen.getByTestId('modal-confirm-restore')).toHaveTextContent('forge-central-backup-1.tar.gz')
@@ -159,7 +170,7 @@ describe('PathSettingsPage', () => {
       return jsonResponse(pathsPayload)
     })
     vi.stubGlobal('fetch', fetchMock)
-    render(<PathSettingsPage />)
+    renderAsAdmin()
 
     fireEvent.click(await screen.findByTestId('btn-restore-b1'))
     fireEvent.click(screen.getByTestId('btn-close-restore-modal'))

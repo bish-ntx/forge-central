@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
+from .routers.auth import router as auth_router
 from .routers.backup import router as backup_router
 from .routers.cli import router as cli_router
 from .routers.clusters import router as clusters_router
@@ -37,6 +38,7 @@ app.state.process_runner = ProcessRunner(
     forge_bin=settings.forge_bin_resolved,
     log_publisher=app.state.log_publisher,
 )
+app.include_router(auth_router)
 app.include_router(cli_router)
 app.include_router(pipeline_router)
 app.include_router(vms_router)

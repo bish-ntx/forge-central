@@ -4,6 +4,7 @@ import { Link, useNavigate } from 'react-router-dom'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 import SafetySnapshotNotice from '../components/common/SafetySnapshotNotice.jsx'
 import Timestamp from '../components/common/Timestamp.jsx'
+import { roleHeaders, useRole } from '../context/RoleContext.jsx'
 
 const API_BASE = '/api/v1/clusters'
 const PREP_NODE_DEFAULTS = {
@@ -58,6 +59,7 @@ function statusLabel(status) {
 
 function ClustersPage() {
   const navigate = useNavigate()
+  const { mutationProps } = useRole()
   const [clusters, setClusters] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -116,12 +118,12 @@ function ClustersPage() {
   }
 
   async function confirmDeleteCluster() {
-    if (!deleteTargetCluster || deleteConfirmationText !== deleteTargetCluster.name) {
+    if (!deleteTargetCluster || deleteConfirmationText !== 'DELETE') {
       return
     }
     setError('')
     try {
-      const response = await fetch(`${API_BASE}/${deleteTargetCluster.name}`, { method: 'DELETE' })
+      const response = await fetch(`${API_BASE}/${deleteTargetCluster.name}`, { method: 'DELETE', headers: roleHeaders() })
       if (!response.ok) {
         throw new Error('Cluster deletion request failed')
       }
@@ -209,7 +211,10 @@ function ClustersPage() {
     }
     setError('')
     try {
-      const response = await fetch(`${API_BASE}/${resetTargetCluster.name}/reset-nodes`, { method: 'POST' })
+      const response = await fetch(`${API_BASE}/${resetTargetCluster.name}/reset-nodes`, {
+        method: 'POST',
+        headers: roleHeaders(),
+      })
       if (!response.ok) {
         throw new Error('Reset nodes request failed')
       }
@@ -229,6 +234,7 @@ function ClustersPage() {
             className="rounded border border-slate-600 px-4 py-2 text-sm font-medium text-slate-200"
             onClick={openPrepNodeModal}
             data-testid="btn-open-prep-node-modal"
+            {...mutationProps()}
           >
             Prep Node over SSH
           </button>
@@ -237,6 +243,7 @@ function ClustersPage() {
             className="rounded bg-accent-teal px-4 py-2 text-sm font-medium text-slate-900"
             onClick={() => navigate('/clusters/deploy')}
             data-testid="btn-open-deploy-cluster"
+            {...mutationProps()}
           >
             Deploy NKP Cluster
           </button>
@@ -332,6 +339,7 @@ function ClustersPage() {
                   className="inline-flex items-center gap-2 rounded border border-slate-600 px-3 py-1.5 text-xs font-medium text-slate-200"
                   onClick={() => openNodepoolModal(cluster)}
                   data-testid={`btn-add-nodepool-${cluster.name}`}
+                  {...mutationProps()}
                 >
                   <Plus size={14} />
                   Add Nodepool
@@ -341,6 +349,7 @@ function ClustersPage() {
                   className="inline-flex items-center gap-2 rounded bg-amber-700 px-3 py-1.5 text-xs font-medium text-white"
                   onClick={() => openResetModal(cluster)}
                   data-testid={`btn-reset-nodes-${cluster.name}`}
+                  {...mutationProps()}
                 >
                   <RotateCcw size={14} />
                   Reset Nodes
@@ -350,6 +359,7 @@ function ClustersPage() {
                   className="inline-flex items-center gap-2 rounded bg-rose-700 px-3 py-1.5 text-xs font-medium text-white"
                   onClick={() => openDeleteModal(cluster)}
                   data-testid={`btn-cluster-delete-${cluster.name}`}
+                  {...mutationProps()}
                 >
                   <Trash2 size={14} />
                   Delete
@@ -407,8 +417,8 @@ function ClustersPage() {
           >
             <h3 className="text-lg font-semibold text-slate-100">Confirm Cluster Delete</h3>
             <p className="mt-2 text-sm text-slate-300">
-              Type <span className="font-semibold text-rose-300">{deleteTargetCluster.name}</span> to
-              confirm deletion.
+              Type <span className="font-semibold text-rose-300">DELETE</span> to confirm deletion of{' '}
+              {deleteTargetCluster.name}.
             </p>
             <SafetySnapshotNotice />
             <input
@@ -428,7 +438,7 @@ function ClustersPage() {
               <button
                 type="button"
                 onClick={confirmDeleteCluster}
-                disabled={deleteConfirmationText !== deleteTargetCluster.name}
+                disabled={deleteConfirmationText !== 'DELETE'}
                 className="rounded bg-rose-700 px-3 py-2 text-sm font-medium text-white disabled:opacity-60"
                 data-testid="btn-confirm-cluster-delete"
               >
