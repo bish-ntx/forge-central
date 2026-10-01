@@ -334,8 +334,28 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+# Strip leading and trailing whitespace and surrounding single/double quotes
+trim_whitespace_and_quotes() {
+  local val="$1"
+  # Trim leading whitespace
+  val="${val#"${val%%[![:space:]]*}"}"
+  # Trim trailing whitespace
+  val="${val%"${val##*[![:space:]]}"}"
+  # Strip matching outer double quotes
+  if [[ "${val}" =~ ^\"(.*)\"$ ]]; then
+    val="${BASH_REMATCH[1]}"
+  elif [[ "${val}" =~ ^\'(.*)\'$ ]]; then
+    val="${BASH_REMATCH[1]}"
+  fi
+  # Re-trim after removing quotes
+  val="${val#"${val%%[![:space:]]*}"}"
+  val="${val%"${val##*[![:space:]]}"}"
+  printf '%s' "${val}"
+}
+
 expand_tilde() {
-  local p="$1"
+  local p
+  p="$(trim_whitespace_and_quotes "$1")"
   printf '%s' "${p/#\~/${HOME}}"
 }
 
@@ -369,6 +389,7 @@ ask() {
     printf '%s: ' "${label}" >&2
   fi
   IFS= read -r ans || wizard_abort "Input closed"
+  ans="$(trim_whitespace_and_quotes "${ans}")"
   REPLY_VALUE="${ans:-${def}}"
 }
 
@@ -377,9 +398,13 @@ ask_file() {
   local label="$1" def="${2:-}" f
   while true; do
     ask "${label}" "${def}"
+    REPLY_VALUE="$(trim_whitespace_and_quotes "${REPLY_VALUE}")"
     if [[ -z "${REPLY_VALUE}" || "${REPLY_VALUE}" == "none" ]]; then REPLY_VALUE=""; return 0; fi
     f="$(expand_tilde "${REPLY_VALUE}")"
-    if [[ -r "${f}" ]]; then return 0; fi
+    if [[ -r "${f}" ]]; then
+      REPLY_VALUE="${f}"
+      return 0
+    fi
     echo "  File '${REPLY_VALUE}' not found or not readable. Enter another path, or leave blank to skip." >&2
     def=""
   done
@@ -417,6 +442,9 @@ run_wizard() {
   fi
   PVE_HOST="${REPLY_VALUE}"
   PVE_HOST_EXPLICIT=true
+
+  # Probe early connectivity right after host entry so operator doesn't fill out the whole form if unreachable
+  preflight_pve_connectivity
 
   ask "Proxmox SSH user" "${PVE_USER}"; PVE_USER="${REPLY_VALUE}"
   ask "Provisioning mode (clone|scratch|auto)" "${MODE}"; MODE="${REPLY_VALUE}"
@@ -528,6 +556,9 @@ print_wizard_summary() {
 
 # Pre-flight: probe key-based SSH to Proxmox; fall back to password / ssh-copy-id / sshpass.
 preflight_pve_connectivity() {
+  if [[ "${DRY_RUN}" == "true" ]]; then
+    return 0
+  fi
   local probe_opts=(-p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes)
   local target="${PVE_USER}@${PVE_HOST}" copy_ans keyA_file="" has_sshpass=false
   echo "Probing SSH connectivity to ${target} ..." >&2
@@ -542,8 +573,10 @@ preflight_pve_connectivity() {
   IFS= read -r -s PVE_PASSWORD || wizard_abort "Input closed"
   echo "" >&2
 
-  if [[ -n "${SSH_PUBKEY_FILE}" && -r "$(expand_tilde "${SSH_PUBKEY_FILE}")" ]]; then
-    keyA_file="$(expand_tilde "${SSH_PUBKEY_FILE}")"
+  if [[ -z "${keyA_file}" ]]; then
+    for cand in ~/.ssh/id_ed25519.pub ~/.ssh/id_ecdsa.pub ~/.ssh/id_rsa.pub; do
+      if [[ -r "${cand}" ]]; then keyA_file="${cand}"; break; fi
+    done
   fi
   if command -v ssh-copy-id >/dev/null 2>&1; then
     ask "Install your public key on ${target} with ssh-copy-id now? (yes/no)" "yes"
@@ -1127,8 +1160,8 @@ echo " DNS:           nameserver=${NAMESERVER:-(none)} searchdomain=${SEARCHDOMA
 echo " Dry Run:       ${DRY_RUN}"
 echo "================================================================================"
 
-# Wizard pre-flight: probe SSH to Proxmox (password / ssh-copy-id / sshpass fallback) after confirmation.
-if [[ "${WIZARD_RAN}" == "true" && "${DRY_RUN}" != "true" ]]; then
+# Wizard pre-flight: probe SSH to Proxmox (password / ssh-copy-id / sshpass fallback) if not already done.
+if [[ "${DRY_RUN}" != "true" && -z "${PVE_PASSWORD}" && "${PVE_USE_SSHPASS}" != "true" ]]; then
   preflight_pve_connectivity
 fi
 

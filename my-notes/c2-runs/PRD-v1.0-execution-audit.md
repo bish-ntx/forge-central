@@ -1911,15 +1911,19 @@ Duration  2.82s
 - Live Lab Validation Completed (2026-10-01):
   - Proxmox host: `10.117.50.111` (`nx-intel-inno-gnr-01-1`), Storage: `NTX-STORAGE-POOL`, Bridge: `vmbr263`
   - Mode: Option B Scratch Bring-Up from Ubuntu 24.04 LTS cloud image
-  - Provisioned Target: VMID `151` (`forge-central2`), 4 cores, 8192 MB RAM, 210G disk
-  - Network: DHCP lease assigned `10.123.238.75`
+  - Provisioned Target: VMID `151` (`ntx-forge-central1`), 4 cores, 8192 MB RAM, 210G disk
+  - Network: Static IP assigned `10.123.238.120/24`, Gateway `10.123.238.1`
+  - DNS: Primary `10.40.64.15`, Secondary `10.22.64.16`, Search domain `eng.nutanix.com`
   - In-Guest Verification:
+    - Hostname: `ntx-forge-central1` (matches VM name perfectly on first boot without manual intervention)
     - Root filesystem: 200 GB available (`df -kh` → 203G /dev/sda1)
-    - Cloud-init completion: `Finished cloud-final.service - Cloud-init: Final Stage (54.94s)`
-    - Packages verified: Docker 29.8.2, Docker Compose v5.5.1, kubectl v1.37.1, Helm v3.22.0
-    - Key staging: `~/ssh-key/id_nkpadmin_ecdsa` auto-generated inside VM
-    - DNS resolved: `10.40.64.16 10.22.64.16` search `eng.nutanix.com`
+    - Cloud-init completion: `Finished cloud-final.service - Cloud-init: Final Stage (57.73s)`
+    - SSH Key Staging: Operator-supplied Key B `~/ssh-key/id_nkpadmin_ecdsa` staged with public half `nkpadmin@nutanix.com`
+    - Workstation Key A: Passwordless SSH login working with `~/.ssh/id_ed25519.pub`
+    - Runtime: Docker engine running (`docker ps`), kubectl, helm, and directory skeleton (`cacrt`, `forge-central`, `forge-state`, `ssh-key`) verified
   - Fixes applied & committed:
     - Default disk size updated to 210G (`DISK="${VM_DISK:-${DISK_SIZE:-210G}}"`)
-    - Added cloud-init `meta` snippet (`local-hostname: ${VM_NAME}`) so scratch bring-up assigns hostname accurately on first boot
+    - Added cloud-init `meta` snippet (`local-hostname: ${VM_NAME}`) and in-guest hostname enforcement so scratch bring-up assigns hostname accurately on first boot
+    - Interactive input sanitization: auto-trim whitespace & quotes (`trim_whitespace_and_quotes`) on all user answers and file paths
+    - Early Proxmox connectivity pre-flight right after host entry with auto-fallback to password / `ssh-copy-id` / `sshpass`
 - Bookkeeping: `C1-CONTEXT-NOTES.md`, `END-TO-END-BUILD-CHECKLIST.md` Task 15.7, `CURSOR-PROMPTS` criteria, `SESSION-HANDOFF` updated

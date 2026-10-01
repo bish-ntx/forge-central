@@ -450,3 +450,33 @@ def test_cluster_pubkey_requires_private_key(tmp_path):
     res = run_script("--dry-run", "--ssh-cluster-pubkey-file", str(pub))
     assert res.returncode != 0
     assert "--ssh-cluster-pubkey-file requires a private key" in res.stderr
+
+
+def test_wizard_trims_whitespace_and_quotes(tmp_path):
+    """Accidental leading/trailing spaces or quotes in interactive answers are cleanly stripped."""
+    key = tmp_path / "test_key"
+    key.write_text("dummy")
+    answers = "\n".join([
+        "  10.9.9.9  ",        # whitespace around host
+        " root ",             # whitespace around user
+        " scratch ",          # whitespace around mode
+        " 155 ",              # whitespace around vmid
+        " 'forge-central-trimmed' ", # quotes and spaces around name
+        " 4 ",                # cores
+        " 8192 ",             # memory
+        " 210G ",             # disk
+        " local-lvm ",        # storage
+        " vmbr0 ",            # bridge
+        " dhcp ",             # ip
+        "",                   # dns nameservers
+        "",                   # dns searchdomain
+        "",                   # key a
+        f"  \"{str(key)}\"  ",# key b with quotes and spaces
+        "",                   # key b pub
+        " y ",                # confirmation with spaces
+    ]) + "\n"
+    res = run_script_stdin(answers, "--interactive", "--dry-run")
+    assert res.returncode == 0, res.stderr
+    assert "155 / forge-central-trimmed" in res.stdout + res.stderr
+    assert "local-lvm:vm-155-disk-0" in res.stdout
+
