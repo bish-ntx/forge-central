@@ -174,9 +174,18 @@ Forge Central includes an automated Proxmox VM provisioner `scripts/bootstrap-fo
 # Supply your own SSH keypair (or env FORGE_SSH_KEY_FILE / FORGE_SSH_PUBKEY_FILE)
 ./scripts/bootstrap-forge-central-vm.sh --ssh-key-file ~/.ssh/id_nkpadmin_ecdsa --ssh-pubkey-file ~/.ssh/id_nkpadmin_ecdsa.pub
 
+# Interactive wizard (also starts when run with no arguments on a TTY)
+./scripts/bootstrap-forge-central-vm.sh --interactive
+
+# Static IP + DNS, fully non-interactive
+./scripts/bootstrap-forge-central-vm.sh --pve-host 10.123.238.110 --ip 10.123.238.150/24,gw=10.123.238.1 \
+  --nameserver "10.40.64.15 8.8.8.8" --searchdomain nutanix.com --non-interactive
+
 # Print copy-pasteable manual Proxmox CLI runbook with interpolated variables
 ./scripts/bootstrap-forge-central-vm.sh --print-manual-steps
 ```
+
+**Interactive wizard.** `--interactive` (`-i`) or running the script with no arguments on a TTY walks you through host, sizing, DHCP/static IP, DNS (`--nameserver`, `--searchdomain`) and two SSH keys: **Key A** (your workstation public key, authorized for `nkpadmin`) and optional **Key B** (a shared inter-VM cluster keypair; blank = the VM generates one and stages it in `/home/nkpadmin/ssh-key/`). Safety stops: the Proxmox host has no default (blank aborts), and a summary table requires an explicit `yes`/`y` (default `no`) before anything runs. If key-based SSH to Proxmox fails, it offers a masked password prompt with `ssh-copy-id` or `sshpass`. Flags (`--non-interactive`, `--dry-run`, `--print-manual-steps`) never prompt.
 
 No SSH key material is stored in the script. Keys come from `--ssh-key-file`, `--ssh-pubkey-file`, `--ssh-private-key`, `--ssh-public-key` (or `FORGE_SSH_KEY_FILE`, `FORGE_SSH_PUBKEY_FILE`, `FORGE_SSH_PRIVATE_KEY`, `FORGE_SSH_PUBLIC_KEY`). With no public key the script authorizes your local `~/.ssh/id_ed25519.pub`, `id_ecdsa.pub` or `id_rsa.pub`; with no private key the VM generates its own ECDSA keypair on first boot. Password login (`nkpadmin` / `Nutanix.123`) and `ssh-copy-id` keep working.
 

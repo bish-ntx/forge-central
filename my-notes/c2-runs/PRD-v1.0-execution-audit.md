@@ -1869,3 +1869,34 @@ Duration  2.82s
 
 ### Git
 - Local commit: `fix(ops): Task-29 — dynamic SSH key injection, secret hygiene & portable documentation paths` (NOT pushed; hash via `git log -1`)
+
+---
+
+## Task 30 (C2-P30-Agent01) — Interactive Bootstrap Wizard, Dual SSH Key Architecture & DNS Configuration
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] 1. `scripts/bootstrap-forge-central-vm.sh` starts the interactive wizard via `-i`/`--interactive`, or automatically when run with no arguments on a TTY (`[ -t 0 ] && [ -t 1 ]`); `--non-interactive`, `--dry-run`, `--print-manual-steps` never trigger it automatically.
+- [x] 2. Proxmox host has no auto-proceed default in the wizard (a `--pve-host`/`PVE_CLUSTER_HOST` value is only offered for confirmation); blank input aborts with exit 1 (tested).
+- [x] 3. Summary table + `Are you sure you want to proceed with deployment on <target>? (yes/no) [no]:`; only `yes`/`y` proceeds, default aborts (tested).
+- [x] 4. Dual SSH keys: Key A operator public key (default `~/.ssh/id_ed25519.pub`) -> `authorized_keys`; optional Key B shared cluster private key (+ public key prompt, new `--ssh-cluster-pubkey-file` / `FORGE_SSH_CLUSTER_PUBKEY_FILE`); blank Key B => VM generates ECDSA keypair staged to `/home/nkpadmin/ssh-key/`.
+- [x] 5. `--nameserver` / `--searchdomain` (env `VM_NAMESERVER` / `VM_SEARCHDOMAIN`) and wizard prompts (DHCP and static) add `--nameserver "<ns>" --searchdomain "<sd>"` before `--ipconfig0` in `qm set` (clone + scratch + manual runbook); inputs validated; unchanged output when unset.
+- [x] 6. Non-interactive/`--dry-run` flows never block on `read`; all original tests pass unchanged.
+- [x] 7. Tests pass: bootstrap script, backend, frontend (below).
+- [x] 8. `docs/BOOTSTRAP-FORGE-CENTRAL-VM.md` (Interactive Wizard + DNS sections, key table) and `README.md` updated. `docs/API-GUIDE.md` / `docs/USER-GUIDE.md` not relevant (no API/UI change).
+- [x] 9. Local commit created with the exact required message (NOT pushed).
+
+### Proxmox connectivity (pre-flight, after confirmation, skipped on dry-run)
+- `ssh -o BatchMode=yes` probe; on failure a masked `read -s` password prompt, offer `ssh-copy-id` (via `sshpass` when installed), else session-only `sshpass` auth. All remote calls now go through a `pve_ssh` helper. Not exercised against a live Proxmox host (no host available); logic verified by `bash -n` and wizard dry-run flows.
+
+### Test Results
+- `pytest tests/scripts/test_bootstrap_script.py`: 30 passed (18 pre-existing + 12 new)
+- `pytest api/tests/`: 148 passed
+- `npm test` (run in `ui/`; repo root has no package.json): 22 test files, 127 tests passed
+
+### Files Created / Modified
+- Modified: `scripts/bootstrap-forge-central-vm.sh`, `tests/scripts/test_bootstrap_script.py`, `README.md`, `docs/BOOTSTRAP-FORGE-CENTRAL-VM.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit: `feat(ops): Task-30 — interactive bootstrap wizard, dual SSH key architecture & DNS configuration` (NOT pushed; hash via `git log -1`)

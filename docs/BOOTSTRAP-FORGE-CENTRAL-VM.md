@@ -85,7 +85,41 @@ From the operator workstation or runner:
 
 # 6. Print verbatim copy-pasteable manual shell commands for an operator
 ./scripts/bootstrap-forge-central-vm.sh --print-manual-steps
+
+# 7. Interactive wizard (see "Interactive Wizard" below)
+./scripts/bootstrap-forge-central-vm.sh --interactive
+
+# 8. Static IP with DNS, non-interactive
+./scripts/bootstrap-forge-central-vm.sh --pve-host 10.123.238.110 \
+  --ip 10.123.238.150/24,gw=10.123.238.1 \
+  --nameserver "10.40.64.15 8.8.8.8" --searchdomain nutanix.com --non-interactive
 ```
+
+### Interactive Wizard
+
+Start it with `-i` / `--interactive`, or by running the script with **no arguments** on a TTY (`[ -t 0 ]`). Any other flag run (`--dry-run`, `--print-manual-steps`, `--non-interactive`, or plain flags) never prompts, so CI and the pytest suite are unaffected. `--interactive --dry-run` previews the wizard and the command stream without touching Proxmox. Values given on the command line or in env vars become the prompt defaults, except for the host (below).
+
+Walkthrough:
+
+1. **Proxmox host (safety stop).** There is no default. Enter the IP/hostname explicitly (a host passed via `--pve-host` / `PVE_CLUSTER_HOST` is only offered as a value to confirm). Blank input aborts immediately.
+2. **Sizing.** SSH user, mode (`clone|scratch|auto`), template VMID, VMID, VM name, cores, memory, disk, storage pool, bridge.
+3. **Networking & DNS.** `dhcp` or `static`. Static asks for IPv4/CIDR and gateway. Both modes then ask for nameserver(s) (e.g. `10.40.64.15 8.8.8.8`) and search domain (e.g. `nutanix.com`); blank means none.
+4. **Key A, operator access.** `Operator workstation public key for passwordless login [~/.ssh/id_ed25519.pub]:`. Injected into `/home/nkpadmin/.ssh/authorized_keys` for workstation-to-VM login.
+5. **Key B, shared inter-VM cluster keypair (optional).** `Shared cluster private key file for inter-VM orchestration (leave blank to auto-generate inside VM):`. If given, you are also asked for its public key file. If blank, the VM generates a fresh ECDSA keypair on first boot and stages it in `/home/nkpadmin/ssh-key/` for the `./forge` scripts.
+6. **Final confirmation (safety stop).** A summary table is shown, then `Are you sure you want to proceed with deployment on <target>? (yes/no) [no]:`. Only `yes` / `y` proceeds; anything else, including Enter, aborts with nothing changed.
+7. **Proxmox connectivity pre-flight** (after confirmation, skipped for dry-run). The wizard probes `ssh -o BatchMode=yes root@<host>`. If key-based SSH fails it asks for the Proxmox password (hidden with `read -s`) and offers `ssh-copy-id` to install Key A. If `sshpass` is installed the password is passed through it; otherwise `ssh-copy-id` prompts itself. If the key still fails and `sshpass` exists, the password is used for this run only (kept in memory, never printed or written to disk).
+
+Equivalent flags for scripted runs: `--ssh-pubkey-file` (Key A), `--ssh-key-file` plus `--ssh-cluster-pubkey-file` (Key B; env `FORGE_SSH_CLUSTER_PUBKEY_FILE`).
+
+### DNS Configuration
+
+`--nameserver` (space or comma separated IPs; env `VM_NAMESERVER`) and `--searchdomain` (env `VM_SEARCHDOMAIN`) are added to the VM's `qm set` call, for example:
+
+```bash
+qm set 150 --ide2 local-lvm:cloudinit --nameserver "10.40.64.15 8.8.8.8" --searchdomain "nutanix.com" --ipconfig0 ip=10.123.238.150/24,gw=10.123.238.1
+```
+
+When neither is given, the `qm set` commands are unchanged. Values are validated (IP addresses / domain characters only) before use.
 
 ### SSH Key Handling
 
@@ -94,7 +128,8 @@ No SSH key material is stored in the script or this guide. Keys are supplied at 
 | CLI option | Environment variable | Purpose |
 | :--- | :--- | :--- |
 | `--ssh-key-file <path>` | `FORGE_SSH_KEY_FILE` | Private key file staged in the VM as `~/.ssh/id_nkpadmin_ecdsa` |
-| `--ssh-pubkey-file <path>` | `FORGE_SSH_PUBKEY_FILE` | Public key file authorized in the VM |
+| `--ssh-pubkey-file <path>` | `FORGE_SSH_PUBKEY_FILE` | Key A: operator public key file authorized in the VM |
+| `--ssh-cluster-pubkey-file <path>` | `FORGE_SSH_CLUSTER_PUBKEY_FILE` | Key B public half, when it differs from Key A (requires a private key) |
 | `--ssh-private-key "<content>"` | `FORGE_SSH_PRIVATE_KEY` | Inline private key content |
 | `--ssh-public-key "<content>"` | `FORGE_SSH_PUBLIC_KEY` | Inline public key content |
 

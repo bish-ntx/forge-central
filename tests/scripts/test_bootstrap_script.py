@@ -305,3 +305,148 @@ def test_invalid_public_key_rejected():
     res = run_script("--dry-run", "--ssh-public-key", "not-a-key")
     assert res.returncode != 0
     assert "OpenSSH public key" in res.stderr
+
+
+# ---------------------------------------------------------------------------
+# Task-30: interactive wizard, dual SSH keys, DNS
+# ---------------------------------------------------------------------------
+def run_script_stdin(stdin: str, *args: str) -> subprocess.CompletedProcess[str]:
+    """Run the script feeding scripted answers on stdin (no real TTY needed with --interactive)."""
+    return subprocess.run(
+        [str(SCRIPT_PATH), *args],
+        input=stdin,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+
+def test_help_lists_interactive_and_dns_flags():
+    res = run_script("--help")
+    assert res.returncode == 0
+    for opt in ("--interactive", "--non-interactive", "--nameserver", "--searchdomain", "--ssh-cluster-pubkey-file"):
+        assert opt in res.stdout
+
+
+def test_nameserver_searchdomain_interpolation_dry_run():
+    res = run_script(
+        "--dry-run", "--mode", "scratch",
+        "--ip", "10.123.238.150/24,gw=10.123.238.1",
+        "--nameserver", "10.40.64.15 8.8.8.8",
+        "--searchdomain", "nutanix.com",
+    )
+    assert res.returncode == 0
+    assert (
+        "qm set 150 --ide2 local-lvm:cloudinit --nameserver \"10.40.64.15 8.8.8.8\" "
+        "--searchdomain \"nutanix.com\" --ipconfig0 ip=10.123.238.150/24,gw=10.123.238.1"
+    ) in res.stdout
+
+
+def test_nameserver_searchdomain_clone_and_manual_steps():
+    res = run_script("--dry-run", "--mode", "clone", "--nameserver", "10.40.64.15,8.8.8.8", "--searchdomain", "nutanix.com")
+    assert res.returncode == 0
+    assert "--agent enabled=1 --nameserver \"10.40.64.15 8.8.8.8\" --searchdomain \"nutanix.com\" --ipconfig0 ip=dhcp" in res.stdout
+    res = run_script("--print-manual-steps", "--nameserver", "10.40.64.15", "--searchdomain", "nutanix.com")
+    assert res.returncode == 0
+    assert "--nameserver \"10.40.64.15\" --searchdomain \"nutanix.com\"" in res.stdout
+
+
+def test_no_dns_flags_leaves_qm_set_unchanged():
+    res = run_script("--dry-run", "--mode", "scratch")
+    assert res.returncode == 0
+    assert "--nameserver" not in res.stdout.replace("DNS:", "")
+    assert "--ide2 local-lvm:cloudinit --ipconfig0 ip=dhcp" in res.stdout
+
+
+def test_invalid_dns_rejected():
+    res = run_script("--dry-run", "--nameserver", "8.8.8.8; rm -rf /")
+    assert res.returncode != 0
+    assert "--nameserver" in res.stderr
+    res = run_script("--dry-run", "--searchdomain", "bad domain;x")
+    assert res.returncode != 0
+    assert "--searchdomain" in res.stderr
+
+
+def test_wizard_blank_host_aborts():
+    res = run_script_stdin("\n", "--interactive")
+    assert res.returncode != 0
+    assert "No Proxmox host provided" in res.stderr
+    assert "Starting Forge Central VM Bootstrap" not in res.stdout
+
+
+def test_wizard_default_confirmation_is_no():
+    # host, then Enter for every remaining prompt (including the final confirmation)
+    res = run_script_stdin("10.9.9.9\n" + "\n" * 25, "--interactive", "--dry-run")
+    assert res.returncode != 0
+    assert "Are you sure you want to proceed with deployment on root@10.9.9.9? (yes/no) [no]:" in res.stderr
+    assert "DEPLOYMENT SUMMARY" in res.stdout + res.stderr
+    assert "Deployment not confirmed" in res.stderr
+    assert "[dry-run] ssh" not in res.stdout
+
+
+def test_wizard_explicit_no_aborts():
+    res = run_script_stdin("10.9.9.9\n" + "\n" * 13 + "no\n", "--interactive", "--dry-run", "--ssh-pubkey-file", "/dev/null")
+    assert res.returncode != 0
+    assert "[dry-run] ssh" not in res.stdout
+
+
+def test_wizard_full_flow_dual_keys_and_dns(tmp_path):
+    key_a = tmp_path / "a.pub"
+    key_a.write_text("ssh-ed25519 AAAAOPERATORKEY operator@mac\n")
+    key_b = tmp_path / "cluster"
+    key_b.write_text("-----BEGIN FAKE KEY-----\nSECRETPAYLOAD\n-----END FAKE KEY-----\n")
+    key_b_pub = tmp_path / "cluster.pub"
+    key_b_pub.write_text("ecdsa-sha2-nistp256 AAAACLUSTERKEY cluster@vm\n")
+    answers = "\n".join([
+        "10.9.9.9",            # host
+        "",                    # user
+        "scratch",             # mode
+        "151",                 # vmid
+        "fc2",                 # name
+        "", "", "", "", "",    # cores, memory, disk, storage, bridge
+        "static",
+        "10.9.9.50/24",
+        "10.9.9.1",
+        "10.40.64.15 8.8.8.8",
+        "nutanix.com",
+        str(key_a),            # Key A
+        str(key_b),            # Key B private
+        "",                    # Key B public (default <priv>.pub)
+        "yes",
+    ]) + "\n"
+    res = run_script_stdin(answers, "--interactive", "--dry-run")
+    assert res.returncode == 0, res.stderr
+    assert "Operator workstation public key for passwordless login" in res.stderr
+    assert "Shared cluster private key file for inter-VM orchestration (leave blank to auto-generate inside VM):" in res.stderr
+    assert (
+        "[dry-run] ssh root@10.9.9.9 'qm set 151 --ide2 local-lvm:cloudinit --nameserver \"10.40.64.15 8.8.8.8\" "
+        "--searchdomain \"nutanix.com\" --ipconfig0 ip=10.9.9.50/24,gw=10.9.9.1'"
+    ) in res.stdout
+    assert f"file:{key_a}" in res.stdout
+    assert "operator-supplied (content not printed)" in res.stdout
+    assert "SECRETPAYLOAD" not in res.stdout + res.stderr
+
+
+def test_wizard_key_b_blank_generates_in_vm():
+    answers = "\n".join(["10.9.9.9", "", "scratch", "", "", "", "", "", "", "", "dhcp", "", "", "", "", "y"]) + "\n"
+    res = run_script_stdin(answers, "--interactive", "--dry-run")
+    assert res.returncode == 0, res.stderr
+    assert "auto-generate ECDSA inside VM" in res.stdout + res.stderr
+    assert "will generate ECDSA keypair in guest" in res.stdout
+
+
+def test_non_interactive_flag_never_prompts():
+    res = subprocess.run(
+        [str(SCRIPT_PATH), "--non-interactive", "--dry-run", "--mode", "scratch"],
+        stdin=subprocess.DEVNULL, capture_output=True, text=True, check=False, timeout=30,
+    )
+    assert res.returncode == 0
+    assert "Interactive Bootstrap Wizard" not in res.stdout + res.stderr
+
+
+def test_cluster_pubkey_requires_private_key(tmp_path):
+    pub = tmp_path / "c.pub"
+    pub.write_text("ecdsa-sha2-nistp256 AAAACLUSTERKEY c@vm\n")
+    res = run_script("--dry-run", "--ssh-cluster-pubkey-file", str(pub))
+    assert res.returncode != 0
+    assert "--ssh-cluster-pubkey-file requires a private key" in res.stderr

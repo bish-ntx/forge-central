@@ -29,8 +29,26 @@ DRY_RUN=false
 PRINT_MANUAL_STEPS=false
 GUEST_AGENT_TIMEOUT="${GUEST_AGENT_TIMEOUT:-900}"
 
+# DNS (optional). Applied via 'qm set --nameserver/--searchdomain' only when provided.
+NAMESERVER="${VM_NAMESERVER:-}"
+SEARCHDOMAIN="${VM_SEARCHDOMAIN:-}"
+DNS_OPTS=""
+
+# Interactive wizard: auto (TTY + no arguments) | true (--interactive) | false (--non-interactive)
+INTERACTIVE="auto"
+WIZARD_RAN=false
+ORIG_ARGC=$#
+# The built-in PVE_HOST default is only used by non-interactive runs; the wizard never auto-proceeds on it.
+PVE_HOST_EXPLICIT=false
+if [[ -n "${PVE_CLUSTER_HOST:-}" ]]; then PVE_HOST_EXPLICIT=true; fi
+PVE_PASSWORD=""
+PVE_USE_SSHPASS=false
+
 # SSH key inputs (all optional). Inline content wins over file path; CLI wins over env.
+# Key A (operator access)  : SSH_PUBKEY_FILE / SSH_PUBLIC_KEY  -> nkpadmin authorized_keys
+# Key B (shared inter-VM)  : SSH_KEY_FILE / SSH_PRIVATE_KEY (+ SSH_PAIR_PUBKEY_FILE) -> ~/ssh-key/ staging
 SSH_KEY_FILE="${FORGE_SSH_KEY_FILE:-}"
+SSH_PAIR_PUBKEY_FILE="${FORGE_SSH_CLUSTER_PUBKEY_FILE:-}"
 SSH_PUBKEY_FILE="${FORGE_SSH_PUBKEY_FILE:-}"
 SSH_PRIVATE_KEY="${FORGE_SSH_PRIVATE_KEY:-}"
 SSH_PUBLIC_KEY="${FORGE_SSH_PUBLIC_KEY:-}"
@@ -61,7 +79,12 @@ usage() {
 "  ./scripts/bootstrap-forge-central-vm.sh [OPTIONS]" \
 "" \
 "OPTIONS:" \
-"  --pve-host <ip|hostname>  Target Proxmox host IP/hostname (default: 10.123.238.110 or PVE_CLUSTER_HOST)" \
+"  -i, --interactive         Run the interactive wizard (also starts automatically when run with no arguments on a TTY)" \
+"  --non-interactive         Never prompt; use flags/env/defaults only (default whenever any flag is given)" \
+"  --pve-host <ip|hostname>  Target Proxmox host IP/hostname (default: 10.123.238.110 or PVE_CLUSTER_HOST;" \
+"                            the wizard has NO default host and aborts if none is entered)" \
+"  --nameserver <list>       DNS nameserver(s), space/comma separated, e.g. '10.40.64.15 8.8.8.8' (env: VM_NAMESERVER)" \
+"  --searchdomain <domain>   DNS search domain, e.g. 'nutanix.com' (env: VM_SEARCHDOMAIN)" \
 "  --pve-user <user>         SSH user for Proxmox (default: root or PVE_USER)" \
 "  --mode <clone|scratch|auto>" \
 "                            Provisioning mode:" \
@@ -77,8 +100,10 @@ usage() {
 "  --storage <pool>          Proxmox storage pool (default: local-lvm or STORAGE_POOL)" \
 "  --bridge <bridge>         Proxmox virtual network bridge (default: vmbr0 or NETWORK_BRIDGE)" \
 "  --ip <cidr_or_dhcp>       IP configuration, e.g. 'dhcp' or '10.123.238.150/24,gw=10.123.238.1' (default: dhcp)" \
-"  --ssh-key-file <path>     Local SSH private key to stage in the VM as ~/.ssh/id_nkpadmin_ecdsa (env: FORGE_SSH_KEY_FILE)" \
-"  --ssh-pubkey-file <path>  Local SSH public key to authorize in the VM (env: FORGE_SSH_PUBKEY_FILE)" \
+"  --ssh-key-file <path>     Key B: shared cluster private key to stage in the VM as ~/.ssh/id_nkpadmin_ecdsa and ~/ssh-key/ (env: FORGE_SSH_KEY_FILE)" \
+"  --ssh-cluster-pubkey-file <path>" \
+"                            Key B public half, when it differs from --ssh-pubkey-file (env: FORGE_SSH_CLUSTER_PUBKEY_FILE)" \
+"  --ssh-pubkey-file <path>  Key A: operator workstation public key to authorize in the VM (env: FORGE_SSH_PUBKEY_FILE)" \
 "  --ssh-private-key <text>  Inline SSH private key content (env: FORGE_SSH_PRIVATE_KEY)" \
 "  --ssh-public-key <text>   Inline SSH public key content (env: FORGE_SSH_PUBLIC_KEY)" \
 "                            Without a public key, ~/.ssh/id_ed25519.pub, id_ecdsa.pub, id_rsa.pub is auto-detected." \
@@ -107,6 +132,13 @@ usage() {
 "  # Dry-run inspection" \
 "  ./scripts/bootstrap-forge-central-vm.sh --dry-run --mode scratch" \
 "" \
+"  # Interactive wizard (no default host; final yes/no confirmation defaults to no)" \
+"  ./scripts/bootstrap-forge-central-vm.sh --interactive" \
+"" \
+"  # Static IP with DNS, non-interactive" \
+"  ./scripts/bootstrap-forge-central-vm.sh --pve-host 10.123.238.110 --ip 10.123.238.150/24,gw=10.123.238.1 \\" \
+"      --nameserver '10.40.64.15 8.8.8.8' --searchdomain nutanix.com --non-interactive" \
+"" \
 "  # Print copy-pasteable manual SOP commands" \
 "  ./scripts/bootstrap-forge-central-vm.sh --print-manual-steps --mode clone"
 }
@@ -116,12 +148,44 @@ usage() {
 # -----------------------------------------------------------------------------
 while [[ $# -gt 0 ]]; do
   case "$1" in
+    -i|--interactive)
+      INTERACTIVE="true"
+      shift
+      ;;
+    --non-interactive)
+      INTERACTIVE="false"
+      shift
+      ;;
     --pve-host)
-      PVE_HOST="${2:?--pve-host requires a value}"
+      PVE_HOST="${2:?--pve-host requires a value}"; PVE_HOST_EXPLICIT=true
       shift 2
       ;;
     --pve-host=*)
-      PVE_HOST="${1#--pve-host=}"
+      PVE_HOST="${1#--pve-host=}"; PVE_HOST_EXPLICIT=true
+      shift
+      ;;
+    --nameserver)
+      NAMESERVER="${2:?--nameserver requires a value}"
+      shift 2
+      ;;
+    --nameserver=*)
+      NAMESERVER="${1#--nameserver=}"
+      shift
+      ;;
+    --searchdomain)
+      SEARCHDOMAIN="${2:?--searchdomain requires a value}"
+      shift 2
+      ;;
+    --searchdomain=*)
+      SEARCHDOMAIN="${1#--searchdomain=}"
+      shift
+      ;;
+    --ssh-cluster-pubkey-file)
+      SSH_PAIR_PUBKEY_FILE="${2:?--ssh-cluster-pubkey-file requires a value}"
+      shift 2
+      ;;
+    --ssh-cluster-pubkey-file=*)
+      SSH_PAIR_PUBKEY_FILE="${1#--ssh-cluster-pubkey-file=}"
       shift
       ;;
     --pve-user)
@@ -264,6 +328,259 @@ while [[ $# -gt 0 ]]; do
   esac
 done
 
+expand_tilde() {
+  local p="$1"
+  printf '%s' "${p/#\~/${HOME}}"
+}
+
+# -----------------------------------------------------------------------------
+# Proxmox SSH helper (key-based by default; sshpass only after the operator opts in)
+# -----------------------------------------------------------------------------
+pve_ssh() {
+  local -a opts=(-p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o "ConnectTimeout=${PVE_SSH_TIMEOUT:-10}")
+  if [[ "${PVE_USE_SSHPASS}" == "true" ]]; then
+    SSHPASS="${PVE_PASSWORD}" sshpass -e ssh "${opts[@]}" "${PVE_USER}@${PVE_HOST}" "$@"
+  else
+    ssh "${opts[@]}" "${PVE_USER}@${PVE_HOST}" "$@"
+  fi
+}
+
+# -----------------------------------------------------------------------------
+# Interactive Wizard
+# -----------------------------------------------------------------------------
+wizard_abort() {
+  echo "" >&2
+  echo "ABORTED: ${1:-Wizard cancelled}. Nothing was changed." >&2
+  exit 1
+}
+
+# ask <label> [default] -> sets REPLY_VALUE (default used on blank input). Prompts go to stderr.
+ask() {
+  local label="$1" def="${2:-}" ans=""
+  if [[ -n "${def}" ]]; then
+    printf '%s [%s]: ' "${label}" "${def}" >&2
+  else
+    printf '%s: ' "${label}" >&2
+  fi
+  IFS= read -r ans || wizard_abort "Input closed"
+  REPLY_VALUE="${ans:-${def}}"
+}
+
+# ask_file <label> [default] -> sets REPLY_VALUE; re-asks until readable, blank, or 'none'.
+ask_file() {
+  local label="$1" def="${2:-}" f
+  while true; do
+    ask "${label}" "${def}"
+    if [[ -z "${REPLY_VALUE}" || "${REPLY_VALUE}" == "none" ]]; then REPLY_VALUE=""; return 0; fi
+    f="$(expand_tilde "${REPLY_VALUE}")"
+    if [[ -r "${f}" ]]; then return 0; fi
+    echo "  File '${REPLY_VALUE}' not found or not readable. Enter another path, or leave blank to skip." >&2
+    def=""
+  done
+}
+
+should_run_wizard() {
+  if [[ "${PRINT_MANUAL_STEPS}" == "true" ]]; then return 1; fi
+  case "${INTERACTIVE}" in
+    true)  return 0 ;;
+    false) return 1 ;;
+  esac
+  # auto: only when launched with no arguments at all on a real terminal
+  [[ "${ORIG_ARGC}" -eq 0 && -t 0 && -t 1 ]]
+}
+
+run_wizard() {
+  local static_ip static_gw
+
+  echo "================================================================================" >&2
+  echo " Forge Central — Interactive Bootstrap Wizard" >&2
+  echo " Press Enter to accept a [default]. Nothing is changed until you confirm at the end." >&2
+  echo "================================================================================" >&2
+
+  # --- Safety stop: Proxmox host must be entered/confirmed explicitly; blank aborts ---
+  if [[ "${PVE_HOST_EXPLICIT}" == "true" ]]; then
+    ask "Proxmox host IP/hostname (confirm or enter)" "${PVE_HOST}"
+  else
+    ask "Proxmox host IP/hostname (required, no default)" ""
+  fi
+  if [[ -z "${REPLY_VALUE}" ]]; then
+    wizard_abort "No Proxmox host provided"
+  fi
+  if ! [[ "${REPLY_VALUE}" =~ ^[A-Za-z0-9._:-]+$ ]]; then
+    wizard_abort "Invalid Proxmox host '${REPLY_VALUE}'"
+  fi
+  PVE_HOST="${REPLY_VALUE}"
+  PVE_HOST_EXPLICIT=true
+
+  ask "Proxmox SSH user" "${PVE_USER}"; PVE_USER="${REPLY_VALUE}"
+  ask "Provisioning mode (clone|scratch|auto)" "${MODE}"; MODE="${REPLY_VALUE}"
+  case "${MODE}" in clone|scratch|auto) ;; *) wizard_abort "Invalid mode '${MODE}'" ;; esac
+  if [[ "${MODE}" != "scratch" ]]; then
+    ask "Golden template VMID" "${TEMPLATE_VMID}"; TEMPLATE_VMID="${REPLY_VALUE}"
+  fi
+  ask "Target VMID" "${VMID}"; VMID="${REPLY_VALUE}"
+  ask "VM name" "${VM_NAME}"; VM_NAME="${REPLY_VALUE}"
+  ask "vCPU cores" "${CORES}"; CORES="${REPLY_VALUE}"
+  ask "Memory (MB)" "${MEMORY}"; MEMORY="${REPLY_VALUE}"
+  ask "Disk size" "${DISK}"; DISK="${REPLY_VALUE}"
+  ask "Storage pool" "${STORAGE}"; STORAGE="${REPLY_VALUE}"
+  ask "Network bridge" "${BRIDGE}"; BRIDGE="${REPLY_VALUE}"
+
+  # --- Networking: DHCP or static IPv4 ---
+  local net_default="dhcp"
+  if [[ "${IP_CONFIG}" != "dhcp" ]]; then net_default="static"; fi
+  ask "IP addressing (dhcp|static)" "${net_default}"
+  case "${REPLY_VALUE}" in
+    dhcp)
+      IP_CONFIG="dhcp"
+      ;;
+    static)
+      ask "VM IPv4 address (CIDR, e.g. 10.123.238.150/24)" ""
+      static_ip="${REPLY_VALUE}"
+      if ! [[ "${static_ip}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}(/[0-9]{1,2})?$ ]]; then
+        wizard_abort "Invalid IPv4 address '${static_ip}'"
+      fi
+      if [[ "${static_ip}" != */* ]]; then static_ip="${static_ip}/24"; echo "  No prefix given; assuming /24." >&2; fi
+      ask "Gateway IPv4" ""
+      static_gw="${REPLY_VALUE}"
+      if [[ -n "${static_gw}" ]] && ! [[ "${static_gw}" =~ ^[0-9]{1,3}(\.[0-9]{1,3}){3}$ ]]; then
+        wizard_abort "Invalid gateway '${static_gw}'"
+      fi
+      IP_CONFIG="${static_ip}${static_gw:+,gw=${static_gw}}"
+      ;;
+    *)
+      wizard_abort "IP addressing must be 'dhcp' or 'static'"
+      ;;
+  esac
+  ask "DNS nameserver(s), space separated, e.g. 10.40.64.15 8.8.8.8 (blank = none)" "${NAMESERVER}"; NAMESERVER="${REPLY_VALUE}"
+  ask "DNS search domain, e.g. nutanix.com (blank = none)" "${SEARCHDOMAIN}"; SEARCHDOMAIN="${REPLY_VALUE}"
+
+  # --- Key A: operator workstation public key (-> /home/nkpadmin/.ssh/authorized_keys) ---
+  local keyA_def="${SSH_PUBKEY_FILE:-~/.ssh/id_ed25519.pub}"
+  if [[ -n "${SSH_PUBLIC_KEY}" ]]; then
+    echo "  Key A: using inline public key supplied via flag/env." >&2
+  else
+    if [[ ! -r "$(expand_tilde "${keyA_def}")" ]]; then
+      echo "  Note: ${keyA_def} not found; enter another public key path or leave blank to auto-detect/skip." >&2
+      keyA_def=""
+    fi
+    ask_file "Operator workstation public key for passwordless login" "${keyA_def}"
+    SSH_PUBKEY_FILE="${REPLY_VALUE}"
+  fi
+
+  # --- Key B: optional shared inter-VM cluster keypair ---
+  if [[ -n "${SSH_PRIVATE_KEY}" ]]; then
+    echo "  Key B: using inline cluster private key supplied via flag/env (content not printed)." >&2
+  else
+    ask_file "Shared cluster private key file for inter-VM orchestration (leave blank to auto-generate inside VM)" "${SSH_KEY_FILE}"
+    SSH_KEY_FILE="${REPLY_VALUE}"
+    SSH_PAIR_PUBKEY_FILE=""
+    if [[ -n "${SSH_KEY_FILE}" ]]; then
+      local pair_def=""
+      if [[ -r "$(expand_tilde "${SSH_KEY_FILE}").pub" ]]; then pair_def="${SSH_KEY_FILE}.pub"; fi
+      ask_file "Public key file for the shared cluster private key (blank = derive inside VM)" "${pair_def}"
+      SSH_PAIR_PUBKEY_FILE="${REPLY_VALUE}"
+    fi
+  fi
+
+  # --- Final confirmation guard ---
+  print_wizard_summary >&2
+  ask "Are you sure you want to proceed with deployment on ${PVE_USER}@${PVE_HOST}? (yes/no)" "no"
+  case "$(printf '%s' "${REPLY_VALUE}" | tr '[:upper:]' '[:lower:]')" in
+    yes|y) ;;
+    *) wizard_abort "Deployment not confirmed" ;;
+  esac
+  WIZARD_RAN=true
+}
+
+print_wizard_summary() {
+  local keyA keyB
+  if [[ -n "${SSH_PUBLIC_KEY}" ]]; then keyA="inline"
+  elif [[ -n "${SSH_PUBKEY_FILE}" ]]; then keyA="${SSH_PUBKEY_FILE}"
+  else keyA="auto-detect from ~/.ssh (or none)"; fi
+  if [[ -n "${SSH_PRIVATE_KEY}" ]]; then keyB="inline (content not printed)"
+  elif [[ -n "${SSH_KEY_FILE}" ]]; then keyB="${SSH_KEY_FILE} (pub: ${SSH_PAIR_PUBKEY_FILE:-derived in VM})"
+  else keyB="auto-generate ECDSA inside VM -> ~/ssh-key/"; fi
+  printf '\n'
+  printf '%s\n' "================================== DEPLOYMENT SUMMARY =================================="
+  printf '  %-22s %s\n' \
+    "Proxmox host" "${PVE_USER}@${PVE_HOST}:${PVE_SSH_PORT}" \
+    "Mode" "${MODE}$([[ "${MODE}" != "scratch" ]] && echo " (template VMID ${TEMPLATE_VMID})")" \
+    "VMID / Name" "${VMID} / ${VM_NAME}" \
+    "Resources" "${CORES} vCPU, ${MEMORY} MB RAM, ${DISK} disk" \
+    "Storage / Bridge" "${STORAGE} / ${BRIDGE}" \
+    "IP configuration" "${IP_CONFIG}" \
+    "DNS nameserver(s)" "${NAMESERVER:-(none)}" \
+    "DNS search domain" "${SEARCHDOMAIN:-(none)}" \
+    "Key A (operator)" "${keyA}" \
+    "Key B (inter-VM)" "${keyB}" \
+    "Dry run" "${DRY_RUN}"
+  printf '%s\n\n' "========================================================================================"
+}
+
+# Pre-flight: probe key-based SSH to Proxmox; fall back to password / ssh-copy-id / sshpass.
+preflight_pve_connectivity() {
+  local probe_opts=(-p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 -o BatchMode=yes)
+  local target="${PVE_USER}@${PVE_HOST}" copy_ans keyA_file="" has_sshpass=false
+  echo "Probing SSH connectivity to ${target} ..." >&2
+  if ssh "${probe_opts[@]}" "${target}" true >/dev/null 2>&1; then
+    echo "  OK: key-based SSH to ${target} works." >&2
+    return 0
+  fi
+  echo "  Key-based SSH to ${target} failed (no accepted key, or host unreachable)." >&2
+  if command -v sshpass >/dev/null 2>&1; then has_sshpass=true; fi
+
+  printf 'Proxmox password for %s (input hidden; blank to skip): ' "${target}" >&2
+  IFS= read -r -s PVE_PASSWORD || wizard_abort "Input closed"
+  echo "" >&2
+
+  if [[ -n "${SSH_PUBKEY_FILE}" && -r "$(expand_tilde "${SSH_PUBKEY_FILE}")" ]]; then
+    keyA_file="$(expand_tilde "${SSH_PUBKEY_FILE}")"
+  fi
+  if command -v ssh-copy-id >/dev/null 2>&1; then
+    ask "Install your public key on ${target} with ssh-copy-id now? (yes/no)" "yes"
+    copy_ans="$(printf '%s' "${REPLY_VALUE}" | tr '[:upper:]' '[:lower:]')"
+    if [[ "${copy_ans}" == "yes" || "${copy_ans}" == "y" ]]; then
+      local -a copy_cmd=(ssh-copy-id -p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no)
+      if [[ -n "${keyA_file}" ]]; then copy_cmd+=(-i "${keyA_file}"); fi
+      if [[ "${has_sshpass}" == "true" && -n "${PVE_PASSWORD}" ]]; then
+        SSHPASS="${PVE_PASSWORD}" sshpass -e "${copy_cmd[@]}" "${target}" >/dev/null 2>&1 || true
+      else
+        echo "  ssh-copy-id will prompt for the password itself." >&2
+        "${copy_cmd[@]}" "${target}" || true
+      fi
+      if ssh "${probe_opts[@]}" "${target}" true >/dev/null 2>&1; then
+        echo "  OK: key installed; key-based SSH now works." >&2
+        PVE_PASSWORD=""
+        return 0
+      fi
+      echo "  Key-based SSH still failing after ssh-copy-id." >&2
+    fi
+  else
+    echo "  ssh-copy-id not found on this workstation." >&2
+  fi
+
+  if [[ "${has_sshpass}" == "true" && -n "${PVE_PASSWORD}" ]]; then
+    PVE_USE_SSHPASS=true
+    if PVE_SSH_TIMEOUT=10 pve_ssh true >/dev/null 2>&1; then
+      echo "  OK: using password authentication via sshpass for this run only." >&2
+      return 0
+    fi
+    PVE_USE_SSHPASS=false
+    PVE_PASSWORD=""
+    wizard_abort "Password authentication to ${target} failed"
+  fi
+  PVE_PASSWORD=""
+  if [[ "${has_sshpass}" != "true" ]]; then
+    echo "  Tip: install sshpass (e.g. 'brew install sshpass') to use password auth for this run." >&2
+  fi
+  wizard_abort "Cannot reach ${target} with SSH"
+}
+
+if should_run_wizard; then
+  run_wizard
+fi
+
 # -----------------------------------------------------------------------------
 # Validation
 # -----------------------------------------------------------------------------
@@ -295,14 +612,22 @@ if ! [[ "${MEMORY}" =~ ^[0-9]+$ ]]; then
   exit 1
 fi
 
+# DNS: normalise commas to spaces, validate (values are interpolated into remote shell commands).
+NAMESERVER="$(printf '%s' "${NAMESERVER}" | tr ',' ' ' | xargs)"
+if [[ -n "${NAMESERVER}" ]] && ! [[ "${NAMESERVER}" =~ ^[0-9A-Fa-f:.]+( [0-9A-Fa-f:.]+)*$ ]]; then
+  echo "ERROR: --nameserver must be one or more IP addresses, got '${NAMESERVER}'." >&2
+  exit 1
+fi
+if [[ -n "${SEARCHDOMAIN}" ]] && ! [[ "${SEARCHDOMAIN}" =~ ^[A-Za-z0-9._-]+$ ]]; then
+  echo "ERROR: --searchdomain must be a DNS domain name, got '${SEARCHDOMAIN}'." >&2
+  exit 1
+fi
+if [[ -n "${NAMESERVER}" ]]; then DNS_OPTS+=" --nameserver \"${NAMESERVER}\""; fi
+if [[ -n "${SEARCHDOMAIN}" ]]; then DNS_OPTS+=" --searchdomain \"${SEARCHDOMAIN}\""; fi
+
 # -----------------------------------------------------------------------------
 # SSH Key Resolution (no secrets are ever embedded in this script)
 # -----------------------------------------------------------------------------
-expand_tilde() {
-  local p="$1"
-  printf '%s' "${p/#\~/${HOME}}"
-}
-
 b64_stdin() {
   base64 | tr -d '\n'
 }
@@ -357,6 +682,24 @@ resolve_ssh_keys() {
       fi
     done
   fi
+
+  # Key B public half (shared inter-VM keypair) may differ from the operator's Key A.
+  if [[ -n "${SSH_PAIR_PUBKEY_FILE}" && -n "${SSH_PRIVATE_KEY_B64}" ]]; then
+    f="$(expand_tilde "${SSH_PAIR_PUBKEY_FILE}")"
+    if [[ ! -r "${f}" ]]; then
+      echo "ERROR: --ssh-cluster-pubkey-file '${SSH_PAIR_PUBKEY_FILE}' not found or not readable." >&2
+      exit 1
+    fi
+    pub="$(head -n1 "${f}")"
+    if ! [[ "${pub}" =~ ^(ssh-|ecdsa-|sk-) ]]; then
+      echo "ERROR: --ssh-cluster-pubkey-file does not look like an OpenSSH public key." >&2
+      exit 1
+    fi
+    SSH_PAIR_PUB_B64="$(printf '%s\n' "${pub}" | b64_stdin)"
+  elif [[ -n "${SSH_PAIR_PUBKEY_FILE}" ]]; then
+    echo "ERROR: --ssh-cluster-pubkey-file requires a private key (--ssh-key-file or --ssh-private-key)." >&2
+    exit 1
+  fi
 }
 
 resolve_ssh_keys
@@ -370,7 +713,7 @@ run_ssh() {
     echo "[dry-run] ssh ${PVE_USER}@${PVE_HOST} '${cmd}'"
     return 0
   fi
-  ssh -p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "${PVE_USER}@${PVE_HOST}" "${cmd}"
+  pve_ssh "${cmd}"
 }
 
 upload_snippet() {
@@ -380,7 +723,7 @@ upload_snippet() {
     echo "[dry-run] ssh ${PVE_USER}@${PVE_HOST} 'cat > ${remote_path}'"
     return 0
   fi
-  printf '%s' "${content}" | ssh -p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "${PVE_USER}@${PVE_HOST}" \
+  printf '%s' "${content}" | pve_ssh \
     "mkdir -p \$(dirname '${remote_path}') && cat > '${remote_path}' && chmod +x '${remote_path}'"
 }
 
@@ -602,6 +945,7 @@ print_manual_runbook() {
 " Target VMID:         ${VMID} (${VM_NAME})" \
 " Resources:           ${CORES} vCPU, ${MEMORY} MB RAM, ${DISK} Disk, ${STORAGE} Storage" \
 " Network:             Bridge ${BRIDGE}, IP: ${IP_CONFIG}" \
+" DNS:                 nameserver=${NAMESERVER:-(none)} searchdomain=${SEARCHDOMAIN:-(none)}" \
 "================================================================================" \
 "" \
 "SSH KEY OPTIONS (no keys are hardcoded in this script; pick one):" \
@@ -632,7 +976,7 @@ print_manual_runbook() {
 "   qm clone ${TEMPLATE_VMID} ${VMID} --name ${VM_NAME} --full 1 --storage ${STORAGE}" \
 "" \
 "3. Configure hardware, network, and QEMU guest agent:" \
-"   qm set ${VMID} --cores ${CORES} --memory ${MEMORY} --net0 virtio,bridge=${BRIDGE} --agent enabled=1 --ipconfig0 ip=${IP_CONFIG}" \
+"   qm set ${VMID} --cores ${CORES} --memory ${MEMORY} --net0 virtio,bridge=${BRIDGE} --agent enabled=1${DNS_OPTS} --ipconfig0 ip=${IP_CONFIG}" \
 "" \
 "4. Create the bastion overlay snippet at ${OVERLAY_SNIPPET_PATH}:" \
 "   mkdir -p ${SNIPPET_DIR}" \
@@ -673,7 +1017,7 @@ print_manual_runbook() {
 "4. Attach disk and cloud-init drive:" \
 "   qm set ${VMID} --scsihw virtio-scsi-single --scsi0 ${STORAGE}:vm-${VMID}-disk-0,discard=on,ssd=1" \
 "   qm resize ${VMID} scsi0 ${DISK}" \
-"   qm set ${VMID} --ide2 ${STORAGE}:cloudinit --ipconfig0 ip=${IP_CONFIG}" \
+"   qm set ${VMID} --ide2 ${STORAGE}:cloudinit${DNS_OPTS} --ipconfig0 ip=${IP_CONFIG}" \
 "" \
 "5. Create unified cloud-init initialization snippet at ${UNIFIED_SNIPPET_PATH}:" \
 "   mkdir -p ${SNIPPET_DIR}" \
@@ -739,8 +1083,14 @@ if [[ -n "${SSH_PRIVATE_KEY_B64}" ]]; then
 else
   echo " SSH Privkey:   none supplied; will generate ECDSA keypair in guest"
 fi
+echo " DNS:           nameserver=${NAMESERVER:-(none)} searchdomain=${SEARCHDOMAIN:-(none)}"
 echo " Dry Run:       ${DRY_RUN}"
 echo "================================================================================"
+
+# Wizard pre-flight: probe SSH to Proxmox (password / ssh-copy-id / sshpass fallback) after confirmation.
+if [[ "${WIZARD_RAN}" == "true" && "${DRY_RUN}" != "true" ]]; then
+  preflight_pve_connectivity
+fi
 
 # Resolve Mode if Auto
 SELECTED_MODE="${MODE}"
@@ -751,7 +1101,7 @@ if [[ "${MODE}" == "auto" ]]; then
     SELECTED_MODE="clone"
   else
     echo "Auto-detecting golden template VMID ${TEMPLATE_VMID} on ${PVE_HOST}..."
-    if ssh -p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "${PVE_USER}@${PVE_HOST}" "qm status ${TEMPLATE_VMID}" >/dev/null 2>&1; then
+    if pve_ssh "qm status ${TEMPLATE_VMID}" >/dev/null 2>&1; then
       echo "Golden template VMID ${TEMPLATE_VMID} found. Using Option A (clone)."
       SELECTED_MODE="clone"
     else
@@ -765,7 +1115,7 @@ fi
 if [[ "${DRY_RUN}" == "true" ]]; then
   echo "[dry-run] Checking target VMID ${VMID} availability via: ssh ${PVE_USER}@${PVE_HOST} 'qm status ${VMID}'"
 else
-  if ssh -p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "${PVE_USER}@${PVE_HOST}" "qm status ${VMID}" >/dev/null 2>&1; then
+  if pve_ssh "qm status ${VMID}" >/dev/null 2>&1; then
     echo "ERROR: Target VMID ${VMID} already exists on ${PVE_HOST}. Refusing to overwrite existing VM." >&2
     echo "Fix: Pass a different --vmid or destroy VM ${VMID} manually on Proxmox first." >&2
     exit 1
@@ -780,7 +1130,7 @@ if [[ "${SELECTED_MODE}" == "clone" ]]; then
   if [[ "${DRY_RUN}" == "true" ]]; then
     echo "[dry-run] ssh ${PVE_USER}@${PVE_HOST} 'qm status ${TEMPLATE_VMID}'"
   else
-    if ! ssh -p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o ConnectTimeout=10 "${PVE_USER}@${PVE_HOST}" "qm status ${TEMPLATE_VMID}" >/dev/null 2>&1; then
+    if ! pve_ssh "qm status ${TEMPLATE_VMID}" >/dev/null 2>&1; then
       echo "ERROR: Golden template VMID ${TEMPLATE_VMID} does not exist on ${PVE_HOST}." >&2
       exit 1
     fi
@@ -790,7 +1140,7 @@ if [[ "${SELECTED_MODE}" == "clone" ]]; then
   run_ssh "qm clone ${TEMPLATE_VMID} ${VMID} --name ${VM_NAME} --full 1 --storage ${STORAGE}"
 
   echo "--- Step 3: Configuring VM hardware and network ---"
-  run_ssh "qm set ${VMID} --cores ${CORES} --memory ${MEMORY} --net0 virtio,bridge=${BRIDGE} --agent enabled=1 --ipconfig0 ip=${IP_CONFIG}"
+  run_ssh "qm set ${VMID} --cores ${CORES} --memory ${MEMORY} --net0 virtio,bridge=${BRIDGE} --agent enabled=1${DNS_OPTS} --ipconfig0 ip=${IP_CONFIG}"
 
   echo "--- Step 4: Generating and uploading bastion overlay snippet ---"
   OVERLAY_CONTENT="$(get_bastion_overlay_snippet)"
@@ -818,7 +1168,7 @@ if [[ "${SELECTED_MODE}" == "scratch" ]]; then
   echo "--- Step 4: Attaching disk and cloud-init drive ---"
   run_ssh "qm set ${VMID} --scsihw virtio-scsi-single --scsi0 ${STORAGE}:vm-${VMID}-disk-0,discard=on,ssd=1"
   run_ssh "qm resize ${VMID} scsi0 ${DISK}"
-  run_ssh "qm set ${VMID} --ide2 ${STORAGE}:cloudinit --ipconfig0 ip=${IP_CONFIG}"
+  run_ssh "qm set ${VMID} --ide2 ${STORAGE}:cloudinit${DNS_OPTS} --ipconfig0 ip=${IP_CONFIG}"
 
   echo "--- Step 5: Generating and uploading unified cloud-init snippet ---"
   UNIFIED_CONTENT="$(get_unified_init_snippet)"
@@ -845,8 +1195,8 @@ else
   echo "Polling guest agent on VM ${VMID} (timeout: ${GUEST_AGENT_TIMEOUT}s)..."
 
   while true; do
-    if ssh -p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${PVE_USER}@${PVE_HOST}" "qm guest cmd ${VMID} ping" >/dev/null 2>&1; then
-      ASSIGNED_IP=$(ssh -p "${PVE_SSH_PORT}" -o StrictHostKeyChecking=no -o ConnectTimeout=5 "${PVE_USER}@${PVE_HOST}" "qm guest cmd ${VMID} network-get-interfaces" 2>/dev/null \
+    if PVE_SSH_TIMEOUT=5 pve_ssh "qm guest cmd ${VMID} ping" >/dev/null 2>&1; then
+      ASSIGNED_IP=$(PVE_SSH_TIMEOUT=5 pve_ssh "qm guest cmd ${VMID} network-get-interfaces" 2>/dev/null \
         | grep -Eo '\"ip-address\" *: *\"[0-9.]+\"' \
         | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+' \
         | grep -v '^127\.' \
