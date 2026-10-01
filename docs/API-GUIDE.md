@@ -676,6 +676,29 @@ Example response:
 }
 ```
 
+## State Backup API
+
+### `POST /api/v1/backup/create`
+
+Bundles the Forge Central data directory (`FORGE_CENTRAL_DATA_DIR`, falling back to `~/forge-state`), `~/cacrt/` and `forge-central.db` (when present) into `forge-central-backup-{timestamp}-{short_uuid}.tar.gz` inside `FORGE_BACKUP_DIR` (created if missing). `*.log` files are excluded. A companion `.sha256` file is written and a `backup-created` audit event is recorded.
+
+Example response:
+
+```json
+{
+  "backup_id": "forge-central-backup-20260930T170000Z-1a2b3c4d",
+  "filename": "forge-central-backup-20260930T170000Z-1a2b3c4d.tar.gz",
+  "file_size_bytes": 20480,
+  "created_at": "2026-09-30T17:00:00Z",
+  "checksum_sha256": "9f86d081884c7d659a2feaa0c55ad015a3bf4f1b2b0b822cd15d6c15b0f00a08",
+  "status": "completed"
+}
+```
+
+### `GET /api/v1/backup/list`
+
+Lists `*.tar.gz` archives in `FORGE_BACKUP_DIR`, newest first, as `{"backups": [ ...same fields as above without status... ]}`.
+
 ## Air-Gapped Upgrade API
 
 ### `GET /api/v1/upgrade/status`

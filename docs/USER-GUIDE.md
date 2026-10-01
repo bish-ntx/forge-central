@@ -222,6 +222,8 @@ Open via the sidebar (`Path Configuration`, `data-testid="link-settings-paths"`)
 - **State directory migration (`card-path-migration`):** enter a source (`input-migration-source`, default `~/forge-state`) and target (`input-migration-target`, default `~/forge-data`), then press the submit button (`btn-trigger-migration`). Tick **Dry run** (`checkbox-migration-dry-run`) to preview what would be copied without touching disk. Only `*.ini`, `*.yaml`, `*.json` and `*.log` files are copied; the source is left in place.
 - **Result banner (`alert-migration-result`):** shows scanned/migrated file counts and the outcome message. Each migration is recorded in the audit trail as `paths-migrated`.
 
+- **State Backup & Archives (`section-backups`):** press **Create Instant Backup** (`btn-create-backup`) before destructive operations (migrations, upgrades, deletions) to export a compressed `.tar.gz` of state, CA certificates (`~/cacrt/`) and the SQLite database into `FORGE_BACKUP_DIR`; `*.log` files are excluded. The table (`table-backups`) lists Filename, Size, Created At and SHA-256 Checksum, newest first, and a CLI snippet shows `./forge backup create`. Each backup is recorded in the audit trail as `backup-created`.
+
 ## Air-Gapped Upgrade (`/settings/upgrade`)
 
 Open via the sidebar (`Upgrade`, `data-testid="link-settings-upgrade"`) or the Command Palette (`Air-Gapped Upgrade`).

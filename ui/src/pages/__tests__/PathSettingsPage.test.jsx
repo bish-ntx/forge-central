@@ -78,4 +78,37 @@ describe('PathSettingsPage', () => {
       dry_run: false,
     })
   })
+
+  test('renders backups section and creates a backup', async () => {
+    const backup = {
+      backup_id: 'forge-central-backup-1',
+      filename: 'forge-central-backup-1.tar.gz',
+      file_size_bytes: 2048,
+      created_at: '2026-09-30T00:00:00Z',
+      checksum_sha256: 'abc123',
+    }
+    let created = false
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      if (url === '/api/v1/backup/create') {
+        created = true
+        return jsonResponse({ ...backup, status: 'completed' })
+      }
+      if (url === '/api/v1/backup/list') {
+        return jsonResponse({ backups: created ? [backup] : [] })
+      }
+      return jsonResponse(pathsPayload)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<PathSettingsPage />)
+
+    expect(await screen.findByTestId('section-backups')).toBeInTheDocument()
+    expect(screen.getByTestId('table-backups')).toHaveTextContent('SHA-256 Checksum')
+    expect(screen.getByTestId('btn-create-backup')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('btn-create-backup'))
+
+    await waitFor(() => expect(screen.getByTestId('table-backups')).toHaveTextContent('forge-central-backup-1.tar.gz'))
+    expect(screen.getByTestId('table-backups')).toHaveTextContent('abc123')
+    expect(fetchMock.mock.calls.find(([url]) => url === '/api/v1/backup/create')[1].method).toBe('POST')
+  })
 })

@@ -1422,3 +1422,47 @@ Duration  2.82s
   cd ~/work/git/forge-central
   git push origin main
   ```
+
+## Task 20 — Atomic State Backup Engine & Archive Generation
+
+### Execution Status
+- **SUCCESS**
+
+### Acceptance Criteria Matrix
+- [x] `api/app/schemas/backup.py` (`BackupItem`, `BackupCreateResponse`, `BackupListResponse`)
+- [x] `api/app/services/backup.py` (`create_backup`, `list_backups`): `.tar.gz` of data dir (fallback `~/forge-state`), `~/cacrt/`, `forge-central.db`; `*.log` excluded; SHA-256 + companion `.sha256`; `backup-created` audit event
+- [x] `POST /api/v1/backup/create` and `GET /api/v1/backup/list` registered under `/api/v1` in `main.py`
+- [x] `PathSettingsPage.jsx`: `section-backups`, `btn-create-backup`, `table-backups`, `CliSnippetCard` (`./forge backup create`); list fetched on mount and after creation
+- [x] `api/tests/test_backup.py` (2 tests) and `PathSettingsPage.test.jsx` (+1 test)
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+- [ ] `./forge backup create` in nkp-forge CLI (snippet only; out of scope)
+
+### Test Results
+- `pytest api/tests/`: 54 passed
+- `npm test` (vitest): 16 files, 63 passed
+
+### Files Created / Modified
+- Created: `api/app/schemas/backup.py`, `api/app/services/backup.py`, `api/app/routers/backup.py`, `api/tests/test_backup.py`
+- Modified: `api/app/main.py`, `ui/src/pages/PathSettingsPage.jsx`, `ui/src/pages/__tests__/PathSettingsPage.test.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only: `feat(backup): Task-20 — atomic state backup engine & archive generation` (NOT pushed; hash reported in C2 hand-off)
+
+### C1 Planner Verification Verdict
+- **Date/Time:** 2026-09-30 17:26 PDT / 24:26 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `ea2c7fc` created cleanly (`feat(backup): Task-20 — atomic state backup engine & archive generation`).
+  - Backup creation endpoint `POST /api/v1/backup/create` implemented in `api/app/routers/backup.py` and `api/app/services/backup.py`, archiving state configs, certs, DB files, and computing SHA-256 checksums while filtering out ephemeral `*.log` files.
+  - Backup listing endpoint `GET /api/v1/backup/list` implemented returning sorted backup metadata.
+  - Audit event `backup-created` recorded in `/api/v1/audit/logs`.
+  - Frontend controls implemented in `PathSettingsPage.jsx` (`section-backups`, `btn-create-backup`, `table-backups`, `<CliSnippetCard />`).
+  - Pytest suite passed 54/54 tests across all endpoints in `api/tests/`.
+  - Vitest component suite passed 63/63 tests across 16 test files in `ui/`.
+  - Documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```

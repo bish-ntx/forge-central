@@ -1,7 +1,10 @@
 import React, { useEffect, useState } from 'react'
+import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 
 const PATHS_API = '/api/v1/settings/paths'
 const MIGRATE_API = '/api/v1/settings/paths/migrate'
+const BACKUP_LIST_API = '/api/v1/backup/list'
+const BACKUP_CREATE_API = '/api/v1/backup/create'
 
 const FALLBACK_PATHS = [
   { name: 'FORGE_HOME', path: '~/forge', exists: true, accessible: true, writable: true, status: 'accessible', free_bytes: 120000000000, total_bytes: 500000000000 },
@@ -21,6 +24,11 @@ function statusPillClasses(status) {
   return 'bg-rose-500/20 text-rose-300'
 }
 
+function formatSize(bytes) {
+  const value = Number(bytes || 0)
+  return value >= 1024 ** 2 ? `${(value / 1024 ** 2).toFixed(1)} MB` : `${(value / 1024).toFixed(1)} KB`
+}
+
 function formatGb(bytes) {
   return `${(Number(bytes || 0) / 1024 ** 3).toFixed(1)} GB`
 }
@@ -33,6 +41,21 @@ function PathSettingsPage() {
   const [dryRun, setDryRun] = useState(true)
   const [isMigrating, setIsMigrating] = useState(false)
   const [result, setResult] = useState(null)
+  const [backups, setBackups] = useState([])
+  const [isBackingUp, setIsBackingUp] = useState(false)
+
+  async function loadBackups() {
+    try {
+      const response = await fetch(BACKUP_LIST_API)
+      if (!response.ok) {
+        throw new Error('Failed to load backups')
+      }
+      const payload = await response.json()
+      setBackups(payload.backups ?? [])
+    } catch (fetchError) {
+      setError(fetchError instanceof Error ? fetchError.message : 'Failed to load backups')
+    }
+  }
 
   useEffect(() => {
     async function loadPaths() {
@@ -49,7 +72,25 @@ function PathSettingsPage() {
       }
     }
     void loadPaths()
+    void loadBackups()
   }, [])
+
+  async function createBackup() {
+    setIsBackingUp(true)
+    setError('')
+    try {
+      const response = await fetch(BACKUP_CREATE_API, { method: 'POST' })
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.detail ?? 'Backup creation failed')
+      }
+      await loadBackups()
+    } catch (backupError) {
+      setError(backupError instanceof Error ? backupError.message : 'Backup creation failed')
+    } finally {
+      setIsBackingUp(false)
+    }
+  }
 
   async function triggerMigration() {
     setIsMigrating(true)
@@ -165,6 +206,51 @@ function PathSettingsPage() {
             </p>
           </div>
         ) : null}
+      </article>
+
+      <article className="rounded border border-slate-700 bg-slate-900/70 p-4" data-testid="section-backups">
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-lg font-semibold text-slate-100">State Backup &amp; Archives</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Export a compressed archive of state, CA certificates and the database (logs excluded) before destructive operations.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={() => void createBackup()}
+            className="rounded bg-accent-teal px-4 py-2 text-sm font-medium text-slate-900 disabled:opacity-70"
+            data-testid="btn-create-backup"
+            disabled={isBackingUp}
+          >
+            {isBackingUp ? 'Creating...' : 'Create Instant Backup'}
+          </button>
+        </div>
+        <div className="mt-4 overflow-x-auto">
+          <table className="w-full text-left text-sm text-slate-200" data-testid="table-backups">
+            <thead className="text-xs uppercase text-slate-400">
+              <tr>
+                <th className="py-2 pr-3">Filename</th>
+                <th className="py-2 pr-3">Size</th>
+                <th className="py-2 pr-3">Created At</th>
+                <th className="py-2">SHA-256 Checksum</th>
+              </tr>
+            </thead>
+            <tbody>
+              {backups.map((backup) => (
+                <tr key={backup.backup_id} className="border-t border-slate-700" data-testid={`row-backup-${backup.backup_id}`}>
+                  <td className="py-2 pr-3 font-mono text-xs">{backup.filename}</td>
+                  <td className="py-2 pr-3">{formatSize(backup.file_size_bytes)}</td>
+                  <td className="py-2 pr-3">{new Date(backup.created_at).toLocaleString()}</td>
+                  <td className="break-all py-2 font-mono text-xs text-slate-400">{backup.checksum_sha256}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+        <div className="mt-4">
+          <CliSnippetCard command="./forge backup create" />
+        </div>
       </article>
 
       {error ? <p className="text-xs text-amber-300">{error}</p> : null}

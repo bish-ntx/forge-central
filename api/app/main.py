@@ -14,6 +14,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
+from .routers.backup import router as backup_router
 from .routers.cli import router as cli_router
 from .routers.clusters import router as clusters_router
 from .routers.audit import router as audit_router
@@ -46,6 +47,7 @@ app.include_router(fleet_router)
 app.include_router(paths_router)
 app.include_router(nodes_router, prefix="/api/v1")
 app.include_router(upgrade_router, prefix="/api/v1")
+app.include_router(backup_router, prefix="/api/v1")
 
 
 def mount_ui_static(application: FastAPI, ui_dist_path: Path | None = None) -> bool:
