@@ -1693,3 +1693,39 @@ Duration  2.82s
 
 ### Git
 - Local commit only: `feat(lab): Task-25 — Day-0 lab infrastructure wizard, secrets vault & gateway login screen` (NOT pushed)
+
+---
+
+## Task 26 — Live Proxmox-Backed IPAM Ledger & Subnet Manager
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] 1. `pytest api/tests/` passes 100% (106 passed)
+- [x] 2. `GET /api/v1/ipam` returns the structured ledger with allocated, free, VIP and gateway slots (mock pool `10.0.0.10`-`10.0.0.40`, 31 slots)
+- [x] 3. `POST /api/v1/ipam/release` releases a cluster's reservation (`./forge ipam release --cluster <name> --force`) after a safety snapshot and records audit event `ipam-released`; viewer gets 403, unknown cluster 404, unsafe names 422
+- [x] 4. `IpamPage.jsx` renders KPI cards (`card-ipam-total|allocated|free`) and the interactive `table-ipam` with search + status filter
+- [x] 5. Release requires typing `RELEASE` (`input-confirm-release`); `btn-confirm-release` stays disabled otherwise
+- [x] 6. `npm test` passes 100% (21 files, 105 tests); `npm run build` succeeds
+- [x] 7. `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+- [x] 8. Local commit: `feat(ipam): Task-26 — live Proxmox-backed IPAM ledger & subnet manager`
+- [x] 9. NOT pushed
+- Notes:
+  - Live mode runs `./forge ipam <list|free|release|reconcile-vmids> --conf <FORGE_HOME>/labs/<lab>/<lab>-infra.ini` (first discovered lab; `--conf` omitted when none) via `asyncio.create_subprocess_exec` using the configured forge binary, and parses the CLI table output. No ledger logic is re-implemented in Python. CLI failures surface as HTTP 500 with the CLI stderr.
+  - The CLI ledger is slot-based (one row = control-plane VIP + MetalLB range). The parser maps each in-use row to a `vip` slot plus an `allocated` MetalLB-range slot, and each free row to a `free` slot. Per-node IPs/VMIDs/gateway appear only in the mock ledger, as the CLI does not report them.
+  - `--force` is passed on release because the API is non-interactive; the typed `RELEASE` modal replaces the CLI's y/N prompt. Release does a pre-check via `ipam list` and returns 404 if the cluster holds nothing.
+  - `allocated_slots` = every non-free slot (`allocated + vip + gateway`), so KPI cards always sum to the total. `IpamReleaseResponse` gains an optional `safety_backup_id`. `GET /ipam/free` returns a plain `IpamSlot[]`.
+  - `reconcile` is read-only and open to all roles (viewer gets a disabled button in the UI); `release` uses `require_mutating_role` (operator/admin).
+  - Release button is rendered once per cluster, on the first visible row the cluster holds.
+
+### Test Results
+- `pytest api/tests/`: 106 passed (13 new in `api/tests/test_ipam.py`, incl. live mode against a fake `forge` script)
+- `npm test` (vitest): 21 files, 105 passed (10 new in `ui/src/pages/__tests__/IpamPage.test.jsx`)
+- `npm run build`: succeeds
+
+### Files Created / Modified
+- Created: `api/app/{routers,services,schemas}/ipam.py`, `api/tests/test_ipam.py`, `ui/src/pages/__tests__/IpamPage.test.jsx`
+- Modified: `api/app/main.py`, `ui/src/pages/IpamPage.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only: `feat(ipam): Task-26 — live Proxmox-backed IPAM ledger & subnet manager` (NOT pushed; hash via `git log -1`)

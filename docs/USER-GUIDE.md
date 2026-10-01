@@ -254,6 +254,19 @@ Both tabs are visible to everyone, but every save/stage/delete button needs the 
 
 Before **Delete Cluster**, **Reset Nodes** (cluster list and detail pages) and **Destroy Selected** (VM batch destroy) run, Forge Central automatically archives its state, CA certificates and database into `FORGE_BACKUP_DIR` as `safety-<operation>-<resource>-<timestamp>-<id>.tar.gz` (with a `.sha256` companion). The confirmation dialogs show a teal notice (`banner-safety-snapshot-notice`) and the API returns the snapshot ID as `safety_backup_id`. If something goes wrong, restore it from Path Settings (`/settings/paths`). Safety snapshots appear in the audit trail as `safety-snapshot-created`.
 
+## IPAM Ledger & Subnet Manager (`/ipam`)
+
+Open via the sidebar (`link-ipam`). The page mirrors `./forge ipam list` so you can see which lab IPs are taken without a terminal.
+
+- **KPI cards:** Total IPs (`card-ipam-total`), Allocated IPs (`card-ipam-allocated`) and Free IPs (`card-ipam-free`); the header shows the lab IP pool and when the ledger was last read. **Refresh** (`btn-refresh-ipam`) re-reads it.
+- **Search & status filter:** `input-ipam-search` matches IP, cluster, hostname, role or status; `select-ipam-status` narrows to `all`, `allocated`, `free`, `vip` or `gateway`.
+- **Ledger table (`table-ipam`):** IP address, status badge (`ALLOCATED`, `FREE`, `VIP`, `GATEWAY`), cluster, hostname / role and VMID.
+- **Release Reservation (`btn-release-<cluster>`):** one button per cluster that holds IPs (Operator or Admin; disabled in Viewer mode). A confirmation dialog (`modal-confirm-release`) takes a safety snapshot first and enables **Confirm Release** (`btn-confirm-release`) only after you type `RELEASE` (`input-confirm-release`). The cluster's slots return to the free pool and an `ipam-released` event is added to the audit trail.
+- **Reconcile VMIDs (`btn-reconcile-ipam`):** runs the read-only VMID drift check and lists `claimed-but-not-live` (stale reservations) and `live-but-not-claimed` (collision risks) VMIDs, or reports that the ledger is in sync. Nothing is modified.
+- **Copy as CLI:** snippet cards for `./forge ipam list` and `./forge ipam free`.
+
+With `FORGE_MOCK_MODE=true` the page shows a synthetic ledger for `10.0.0.10`-`10.0.0.40`.
+
 ## Air-Gapped Upgrade (`/settings/upgrade`)
 
 Open via the sidebar (`Upgrade`, `data-testid="link-settings-upgrade"`) or the Command Palette (`Air-Gapped Upgrade`).

@@ -24,6 +24,7 @@ It includes:
 - `api/app/routers/paths.py`: Path inspection and state directory migration APIs (`/api/v1/settings/paths`).
 - `api/app/routers/backup.py` / `api/app/services/backup.py`: Atomic state backup archives (`POST /api/v1/backup/create`, `GET /api/v1/backup/list`).
 - `api/app/routers/restore.py` / `api/app/services/restore.py`: Archive integrity verification and 1-click state restore (`POST /api/v1/restore/verify`, `POST /api/v1/restore/execute`).
+- `api/app/routers/ipam.py` / `api/app/services/ipam.py`: IPAM ledger & subnet manager wrapping `./forge ipam` (`GET /api/v1/ipam`, `GET /api/v1/ipam/free`, `POST /api/v1/ipam/release`, `POST /api/v1/ipam/reconcile`). UI: `ui/src/pages/IpamPage.jsx` (`/ipam`).
 - `api/app/routers/lab.py` / `api/app/services/lab.py`: Day-0 lab wizard (`GET /api/v1/lab/config`, `POST /api/v1/lab/init`, admin only) writing `FORGE_HOME/labs/<lab>/<lab>-infra.ini`.
 - `api/app/routers/secrets.py` / `api/app/services/secrets.py`: Registry secrets vault (`GET /api/v1/secrets`, `POST /api/v1/secrets/save`, `DELETE /api/v1/secrets/{sec_type}`; mutations admin only) staging chmod 600 INIs under `FORGE_CACRT_DIR`.
 - `ui/src/components/auth/LoginGatewayModal.jsx`: first-visit gateway (Operator/Viewer quick entry or Admin passphrase unlock).

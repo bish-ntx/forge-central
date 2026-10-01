@@ -723,6 +723,57 @@ Request: `{"backup_id": "..."}`. Re-runs verification (`400` with `{"detail": "B
 {"restore_id": "restore-1a2b3c4d", "restored_files_count": 12, "safety_backup_id": "forge-central-backup-20260930T171000Z-5e6f7a8b", "status": "completed"}
 ```
 
+## IPAM Ledger & Subnet Manager API (`/api/v1/ipam`)
+
+Wraps the `./forge ipam` CLI (`list`, `free`, `release`, `reconcile-vmids`). Live mode passes `--conf <FORGE_HOME>/labs/<lab>/<lab>-infra.ini` (the first discovered lab) and parses the CLI table output; the Proxmox-notes ledger stays the source of truth. With `FORGE_MOCK_MODE=true` a deterministic in-memory ledger for the pool `10.0.0.10-10.0.0.40` is served (gateway, control-plane VIPs, node IPs and free slots), and releases mutate it in memory. CLI failures return `500` with the CLI's stderr in `detail`.
+
+### `GET /api/v1/ipam`
+
+Full ledger. `status` is one of `allocated`, `free`, `vip`, `gateway`; `allocated_slots` counts every non-free slot, so `allocated_slots + free_slots == total_slots`.
+
+```json
+{
+  "total_slots": 31,
+  "allocated_slots": 8,
+  "free_slots": 23,
+  "ip_pool": "10.0.0.10-10.0.0.40",
+  "slots": [
+    {"ip": "10.0.0.10", "status": "gateway", "cluster": null, "vmid": null, "hostname": "lab-gateway", "role": "gateway"},
+    {"ip": "10.0.0.11", "status": "vip", "cluster": "amd-nkp1", "vmid": null, "hostname": null, "role": "control-plane-vip"},
+    {"ip": "10.0.0.12", "status": "allocated", "cluster": "amd-nkp1", "vmid": 1001, "hostname": "amd-nkp1-cp-01", "role": "control-plane"},
+    {"ip": "10.0.0.15", "status": "free", "cluster": null, "vmid": null, "hostname": null, "role": null}
+  ],
+  "updated_at": "2026-09-30T20:00:00Z"
+}
+```
+
+### `GET /api/v1/ipam/free`
+
+Returns a JSON array of only the unassigned slots (same `IpamSlot` shape, `status: "free"`), backed by `forge ipam free`.
+
+### `POST /api/v1/ipam/release`
+
+Request: `{"cluster_name": "amd-nkp1"}` (1-63 chars of letters, digits, `.`, `_`, `-`; anything else is `422`). Requires the Operator or Admin role: `X-Forge-Role: viewer` gets `403`. Takes a pre-mutation safety snapshot, runs `./forge ipam release --cluster <cluster_name> --force` (the typed `RELEASE` confirmation in the UI replaces the CLI's y/N prompt), and records an `ipam-released` audit event. `404` if the cluster holds no reservation.
+
+```json
+{"released_count": 4, "cluster_name": "amd-nkp1", "status": "released", "safety_backup_id": "safety-ipam-release-amd-nkp1-20260930T200000Z-1a2b3c4d"}
+```
+
+### `POST /api/v1/ipam/reconcile`
+
+Runs the read-only `./forge ipam reconcile-vmids` diff of the VMID ledger against live Proxmox state; nothing is modified. `status` is `in-sync` or `drift-detected`.
+
+```json
+{
+  "discrepancies_found": 2,
+  "details": [
+    {"type": "claimed-but-not-live", "vmid": 1004, "hostname": "amd-nkp1-wk-03"},
+    {"type": "live-but-not-claimed", "vmid": 1201, "hostname": "orphan-vm-01"}
+  ],
+  "status": "drift-detected"
+}
+```
+
 ## Air-Gapped Upgrade API
 
 ### `GET /api/v1/upgrade/status`
