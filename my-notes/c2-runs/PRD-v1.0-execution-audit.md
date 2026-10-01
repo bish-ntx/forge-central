@@ -1900,3 +1900,26 @@ Duration  2.82s
 
 ### Git
 - Local commit: `feat(ops): Task-30 — interactive bootstrap wizard, dual SSH key architecture & DNS configuration` (NOT pushed; hash via `git log -1`)
+
+
+### [C1 VERIFICATION VERDICT — APPROVED] Task 30 (2026-09-30)
+
+- C2 agent: C2-P30 bootstrap wizard (`fc8fb60f-f9d0-4223-8221-b74b9272b85b`)
+- Code commit: `a712d08` — `feat(ops): Task-30 — interactive bootstrap wizard, dual SSH key architecture & DNS configuration` (pushed to origin/main)
+- C1 re-ran: `pytest tests/scripts/test_bootstrap_script.py` → **30 passed**
+- Acceptance criteria 1–9: all met per C2 audit + off-disk script spot-check (`--interactive`, dual-key prompts, DNS opts, final yes/no default no)
+- Live Lab Validation Completed (2026-10-01):
+  - Proxmox host: `10.117.50.111` (`nx-intel-inno-gnr-01-1`), Storage: `NTX-STORAGE-POOL`, Bridge: `vmbr263`
+  - Mode: Option B Scratch Bring-Up from Ubuntu 24.04 LTS cloud image
+  - Provisioned Target: VMID `151` (`forge-central2`), 4 cores, 8192 MB RAM, 210G disk
+  - Network: DHCP lease assigned `10.123.238.75`
+  - In-Guest Verification:
+    - Root filesystem: 200 GB available (`df -kh` → 203G /dev/sda1)
+    - Cloud-init completion: `Finished cloud-final.service - Cloud-init: Final Stage (54.94s)`
+    - Packages verified: Docker 29.8.2, Docker Compose v5.5.1, kubectl v1.37.1, Helm v3.22.0
+    - Key staging: `~/ssh-key/id_nkpadmin_ecdsa` auto-generated inside VM
+    - DNS resolved: `10.40.64.16 10.22.64.16` search `eng.nutanix.com`
+  - Fixes applied & committed:
+    - Default disk size updated to 210G (`DISK="${VM_DISK:-${DISK_SIZE:-210G}}"`)
+    - Added cloud-init `meta` snippet (`local-hostname: ${VM_NAME}`) so scratch bring-up assigns hostname accurately on first boot
+- Bookkeeping: `C1-CONTEXT-NOTES.md`, `END-TO-END-BUILD-CHECKLIST.md` Task 15.7, `CURSOR-PROMPTS` criteria, `SESSION-HANDOFF` updated

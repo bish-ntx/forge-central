@@ -16,8 +16,8 @@ Forge Central operates as the centralized orchestration control plane, web conso
 | :--- | :--- | :--- | :--- |
 | **vCPU** | 2 cores | **4 cores** (`--cores 4`) | Host CPU passthrough (`--cpu host`) |
 | **RAM** | 4096 MB | **8192 MB** (`--memory 8192`) | Accommodates Docker engine, local cache, and concurrent CLI runs |
-| **Disk** | 40 GB | **60 GB** (`--disk 60G`) | High-speed SSD/NVMe pool (`local-lvm`), SCSI with discard/TRIM |
-| **Network** | 1 Gbps | **Bridge `vmbr0`** | VirtIO NIC (`virtio`), DHCP or pinned static IP |
+| **Disk** | 40 GB | **210 GB** (`--disk 210G`) | High-speed SSD/NVMe pool (`NTX-STORAGE-POOL` or `local-lvm`), SCSI with discard/TRIM |
+| **Network** | 1 Gbps | **Bridge `vmbr263` / `vmbr0`** | VirtIO NIC (`virtio`), DHCP or pinned static IP |
 | **OS** | Ubuntu 22.04 LTS | **Ubuntu 24.04 LTS (Noble Numbat)** | Official cloud image (`noble-server-cloudimg-amd64.img`) |
 | **QEMU Agent**| Required | **Enabled (`agent=1`)** | Enables IP discovery, shutdown control, and health checks |
 
@@ -235,12 +235,17 @@ echo "=== Bastion cloud-init overlay complete ==="
 EOF
 
 chmod +x /var/lib/vz/snippets/nkp-bastion-overlay.sh
+
+cat << 'EOF_META' > /var/lib/vz/snippets/forge-central-meta.yaml
+instance-id: forge-central
+local-hostname: forge-central
+EOF_META
 ```
 
 #### Step A5: Attach Cloud-Init Snippet and Boot VM
 ```bash
-# Attach snippet to user cloud-init data
-qm set 150 --cicustom user=local:snippets/nkp-bastion-overlay.sh
+# Attach user overlay and metadata snippets
+qm set 150 --cicustom user=local:snippets/nkp-bastion-overlay.sh,meta=local:snippets/forge-central-meta.yaml
 
 # Start VM
 qm start 150
@@ -456,11 +461,16 @@ echo "=== Unified cloud-init initialization complete ==="
 EOF
 
 chmod +x /var/lib/vz/snippets/forge-central-unified-init.sh
+
+cat << 'EOF_META' > /var/lib/vz/snippets/forge-central-meta.yaml
+instance-id: forge-central
+local-hostname: forge-central
+EOF_META
 ```
 
 #### Step B5: Attach Unified Snippet & Boot VM
 ```bash
-qm set 150 --cicustom user=local:snippets/forge-central-unified-init.sh
+qm set 150 --cicustom user=local:snippets/forge-central-unified-init.sh,meta=local:snippets/forge-central-meta.yaml
 qm start 150
 ```
 

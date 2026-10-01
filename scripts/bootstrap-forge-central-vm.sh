@@ -21,7 +21,7 @@ VMID="${FORGE_CENTRAL_VMID:-150}"
 VM_NAME="${VM_NAME:-forge-central}"
 CORES="${VM_CORES:-${CORES:-4}}"
 MEMORY="${VM_MEMORY:-${MEMORY:-8192}}"
-DISK="${VM_DISK:-${DISK_SIZE:-60G}}"
+DISK="${VM_DISK:-${DISK_SIZE:-210G}}"
 STORAGE="${STORAGE_POOL:-local-lvm}"
 BRIDGE="${NETWORK_BRIDGE:-vmbr0}"
 IP_CONFIG="${VM_IP:-dhcp}"
@@ -67,6 +67,8 @@ OVERLAY_SNIPPET_NAME="nkp-bastion-overlay.sh"
 OVERLAY_SNIPPET_PATH="${SNIPPET_DIR}/${OVERLAY_SNIPPET_NAME}"
 UNIFIED_SNIPPET_NAME="forge-central-unified-init.sh"
 UNIFIED_SNIPPET_PATH="${SNIPPET_DIR}/${UNIFIED_SNIPPET_NAME}"
+META_SNIPPET_NAME="${VM_NAME}-meta.yaml"
+META_SNIPPET_PATH="${SNIPPET_DIR}/${META_SNIPPET_NAME}"
 
 # -----------------------------------------------------------------------------
 # Usage / Help
@@ -96,7 +98,7 @@ usage() {
 "  --vm-name <name>          VM name in Proxmox (default: forge-central or VM_NAME)" \
 "  --cores <n>               vCPU cores allocated to VM (default: 4 or VM_CORES)" \
 "  --memory <mb>             RAM allocated to VM in MB (default: 8192 or VM_MEMORY)" \
-"  --disk <size>             Disk size for VM (default: 60G or VM_DISK)" \
+"  --disk <size>             Disk size for VM (default: 210G or VM_DISK)" \
 "  --storage <pool>          Proxmox storage pool (default: local-lvm or STORAGE_POOL)" \
 "  --bridge <bridge>         Proxmox virtual network bridge (default: vmbr0 or NETWORK_BRIDGE)" \
 "  --ip <cidr_or_dhcp>       IP configuration, e.g. 'dhcp' or '10.123.238.150/24,gw=10.123.238.1' (default: dhcp)" \
@@ -222,10 +224,14 @@ while [[ $# -gt 0 ]]; do
       ;;
     --vm-name)
       VM_NAME="${2:?--vm-name requires a value}"
+      META_SNIPPET_NAME="${VM_NAME}-meta.yaml"
+      META_SNIPPET_PATH="${SNIPPET_DIR}/${META_SNIPPET_NAME}"
       shift 2
       ;;
     --vm-name=*)
       VM_NAME="${1#--vm-name=}"
+      META_SNIPPET_NAME="${VM_NAME}-meta.yaml"
+      META_SNIPPET_PATH="${SNIPPET_DIR}/${META_SNIPPET_NAME}"
       shift
       ;;
     --cores)
@@ -420,6 +426,8 @@ run_wizard() {
   fi
   ask "Target VMID" "${VMID}"; VMID="${REPLY_VALUE}"
   ask "VM name" "${VM_NAME}"; VM_NAME="${REPLY_VALUE}"
+  META_SNIPPET_NAME="${VM_NAME}-meta.yaml"
+  META_SNIPPET_PATH="${SNIPPET_DIR}/${META_SNIPPET_NAME}"
   ask "vCPU cores" "${CORES}"; CORES="${REPLY_VALUE}"
   ask "Memory (MB)" "${MEMORY}"; MEMORY="${REPLY_VALUE}"
   ask "Disk size" "${DISK}"; DISK="${REPLY_VALUE}"
@@ -613,7 +621,7 @@ if ! [[ "${MEMORY}" =~ ^[0-9]+$ ]]; then
 fi
 
 # DNS: normalise commas to spaces, validate (values are interpolated into remote shell commands).
-NAMESERVER="$(printf '%s' "${NAMESERVER}" | tr ',' ' ' | xargs)"
+NAMESERVER="$(printf '%s' "${NAMESERVER}" | tr ',' ' ' | awk '{$1=$1;print}')"
 if [[ -n "${NAMESERVER}" ]] && ! [[ "${NAMESERVER}" =~ ^[0-9A-Fa-f:.]+( [0-9A-Fa-f:.]+)*$ ]]; then
   echo "ERROR: --nameserver must be one or more IP addresses, got '${NAMESERVER}'." >&2
   exit 1
@@ -736,6 +744,16 @@ get_bastion_overlay_snippet() {
 'set -euo pipefail' \
 'export DEBIAN_FRONTEND=noninteractive' \
 '' \
+"TARGET_HOSTNAME='${VM_NAME}'" \
+'if [ -n "${TARGET_HOSTNAME}" ]; then' \
+'  echo "=== [0/5] Setting guest hostname to ${TARGET_HOSTNAME} ==="' \
+'  hostnamectl set-hostname "${TARGET_HOSTNAME}" || hostname "${TARGET_HOSTNAME}"' \
+'  sed -i "s/127\.0\.1\.1.*/127.0.1.1 ${TARGET_HOSTNAME}/" /etc/hosts || true' \
+'  if ! grep -q "127.0.1.1" /etc/hosts; then' \
+'    echo "127.0.1.1 ${TARGET_HOSTNAME}" >> /etc/hosts' \
+'  fi' \
+'fi' \
+'' \
 'NKP_USER="nkpadmin"' \
 'NKP_HOME="/home/${NKP_USER}"' \
 '' \
@@ -798,6 +816,16 @@ get_unified_init_snippet() {
 '#!/usr/bin/env bash' \
 'set -euo pipefail' \
 'export DEBIAN_FRONTEND=noninteractive' \
+'' \
+"TARGET_HOSTNAME='${VM_NAME}'" \
+'if [ -n "${TARGET_HOSTNAME}" ]; then' \
+'  echo "=== [0/8] Setting guest hostname to ${TARGET_HOSTNAME} ==="' \
+'  hostnamectl set-hostname "${TARGET_HOSTNAME}" || hostname "${TARGET_HOSTNAME}"' \
+'  sed -i "s/127\.0\.1\.1.*/127.0.1.1 ${TARGET_HOSTNAME}/" /etc/hosts || true' \
+'  if ! grep -q "127.0.1.1" /etc/hosts; then' \
+'    echo "127.0.1.1 ${TARGET_HOSTNAME}" >> /etc/hosts' \
+'  fi' \
+'fi' \
 '' \
 'NKP_USER="nkpadmin"' \
 'NKP_PASS="Nutanix.123"' \
@@ -934,6 +962,12 @@ get_unified_init_snippet() {
 'echo "=== Unified cloud-init initialization complete ==="'
 }
 
+get_cloudinit_meta_snippet() {
+  printf '%s\n' \
+"instance-id: ${VM_NAME}" \
+"local-hostname: ${VM_NAME}"
+}
+
 # -----------------------------------------------------------------------------
 # Print Manual Steps
 # -----------------------------------------------------------------------------
@@ -978,15 +1012,18 @@ print_manual_runbook() {
 "3. Configure hardware, network, and QEMU guest agent:" \
 "   qm set ${VMID} --cores ${CORES} --memory ${MEMORY} --net0 virtio,bridge=${BRIDGE} --agent enabled=1${DNS_OPTS} --ipconfig0 ip=${IP_CONFIG}" \
 "" \
-"4. Create the bastion overlay snippet at ${OVERLAY_SNIPPET_PATH}:" \
+"4. Create the bastion overlay snippet at ${OVERLAY_SNIPPET_PATH} and meta snippet at ${META_SNIPPET_PATH}:" \
 "   mkdir -p ${SNIPPET_DIR}" \
 "   cat << 'EOF_OVERLAY' > ${OVERLAY_SNIPPET_PATH}" \
 "$(get_bastion_overlay_snippet)" \
 "EOF_OVERLAY" \
 "   chmod +x ${OVERLAY_SNIPPET_PATH}" \
+"   cat << 'EOF_META' > ${META_SNIPPET_PATH}" \
+"$(get_cloudinit_meta_snippet)" \
+"EOF_META" \
 "" \
-"5. Attach snippet to VM ${VMID} cloud-init:" \
-"   qm set ${VMID} --cicustom user=local:snippets/${OVERLAY_SNIPPET_NAME}" \
+"5. Attach snippets to VM ${VMID} cloud-init:" \
+"   qm set ${VMID} --cicustom user=local:snippets/${OVERLAY_SNIPPET_NAME},meta=local:snippets/${META_SNIPPET_NAME}" \
 "" \
 "6. Power on the VM:" \
 "   qm start ${VMID}" \
@@ -1019,15 +1056,18 @@ print_manual_runbook() {
 "   qm resize ${VMID} scsi0 ${DISK}" \
 "   qm set ${VMID} --ide2 ${STORAGE}:cloudinit${DNS_OPTS} --ipconfig0 ip=${IP_CONFIG}" \
 "" \
-"5. Create unified cloud-init initialization snippet at ${UNIFIED_SNIPPET_PATH}:" \
+"5. Create unified cloud-init initialization snippet at ${UNIFIED_SNIPPET_PATH} and meta snippet at ${META_SNIPPET_PATH}:" \
 "   mkdir -p ${SNIPPET_DIR}" \
 "   cat << 'EOF_UNIFIED' > ${UNIFIED_SNIPPET_PATH}" \
 "$(get_unified_init_snippet mask)" \
 "EOF_UNIFIED" \
 "   chmod +x ${UNIFIED_SNIPPET_PATH}" \
+"   cat << 'EOF_META' > ${META_SNIPPET_PATH}" \
+"$(get_cloudinit_meta_snippet)" \
+"EOF_META" \
 "" \
-"6. Attach unified snippet to VM ${VMID} cloud-init:" \
-"   qm set ${VMID} --cicustom user=local:snippets/${UNIFIED_SNIPPET_NAME}" \
+"6. Attach snippets to VM ${VMID} cloud-init:" \
+"   qm set ${VMID} --cicustom user=local:snippets/${UNIFIED_SNIPPET_NAME},meta=local:snippets/${META_SNIPPET_NAME}" \
 "" \
 "7. Power on the VM:" \
 "   qm start ${VMID}" \
@@ -1142,10 +1182,12 @@ if [[ "${SELECTED_MODE}" == "clone" ]]; then
   echo "--- Step 3: Configuring VM hardware and network ---"
   run_ssh "qm set ${VMID} --cores ${CORES} --memory ${MEMORY} --net0 virtio,bridge=${BRIDGE} --agent enabled=1${DNS_OPTS} --ipconfig0 ip=${IP_CONFIG}"
 
-  echo "--- Step 4: Generating and uploading bastion overlay snippet ---"
+  echo "--- Step 4: Generating and uploading bastion overlay and meta snippets ---"
   OVERLAY_CONTENT="$(get_bastion_overlay_snippet)"
   upload_snippet "${OVERLAY_SNIPPET_PATH}" "${OVERLAY_CONTENT}"
-  run_ssh "qm set ${VMID} --cicustom user=local:snippets/${OVERLAY_SNIPPET_NAME}"
+  META_CONTENT="$(get_cloudinit_meta_snippet)"
+  upload_snippet "${META_SNIPPET_PATH}" "${META_CONTENT}"
+  run_ssh "qm set ${VMID} --cicustom user=local:snippets/${OVERLAY_SNIPPET_NAME},meta=local:snippets/${META_SNIPPET_NAME}"
 
   echo "--- Step 5: Powering on VM ${VMID} ---"
   run_ssh "qm start ${VMID}"
@@ -1170,10 +1212,12 @@ if [[ "${SELECTED_MODE}" == "scratch" ]]; then
   run_ssh "qm resize ${VMID} scsi0 ${DISK}"
   run_ssh "qm set ${VMID} --ide2 ${STORAGE}:cloudinit${DNS_OPTS} --ipconfig0 ip=${IP_CONFIG}"
 
-  echo "--- Step 5: Generating and uploading unified cloud-init snippet ---"
+  echo "--- Step 5: Generating and uploading unified cloud-init and meta snippets ---"
   UNIFIED_CONTENT="$(get_unified_init_snippet)"
   upload_snippet "${UNIFIED_SNIPPET_PATH}" "${UNIFIED_CONTENT}"
-  run_ssh "qm set ${VMID} --cicustom user=local:snippets/${UNIFIED_SNIPPET_NAME}"
+  META_CONTENT="$(get_cloudinit_meta_snippet)"
+  upload_snippet "${META_SNIPPET_PATH}" "${META_CONTENT}"
+  run_ssh "qm set ${VMID} --cicustom user=local:snippets/${UNIFIED_SNIPPET_NAME},meta=local:snippets/${META_SNIPPET_NAME}"
 
   echo "--- Step 6: Powering on VM ${VMID} ---"
   run_ssh "qm start ${VMID}"

@@ -48,7 +48,7 @@ def test_print_manual_steps_default():
     assert "qm status 100" in stdout
     assert "qm clone 100 150 --name forge-central --full 1 --storage local-lvm" in stdout
     assert "qm set 150 --cores 4 --memory 8192 --net0 virtio,bridge=vmbr0" in stdout
-    assert "qm set 150 --cicustom user=local:snippets/nkp-bastion-overlay.sh" in stdout
+    assert "qm set 150 --cicustom user=local:snippets/nkp-bastion-overlay.sh,meta=local:snippets/forge-central-meta.yaml" in stdout
     assert "qm start 150" in stdout
 
     # Option B validation
@@ -57,8 +57,8 @@ def test_print_manual_steps_default():
     assert "qm create 150 --name forge-central" in stdout
     assert "qm importdisk 150" in stdout
     assert "qm set 150 --scsihw virtio-scsi-single" in stdout
-    assert "qm resize 150 scsi0 60G" in stdout
-    assert "qm set 150 --cicustom user=local:snippets/forge-central-unified-init.sh" in stdout
+    assert "qm resize 150 scsi0 210G" in stdout
+    assert "qm set 150 --cicustom user=local:snippets/forge-central-unified-init.sh,meta=local:snippets/forge-central-meta.yaml" in stdout
 
     # Post-bootstrap verification
     assert "DAY-1 POST-BOOTSTRAP VERIFICATION" in stdout
@@ -107,7 +107,7 @@ def test_dry_run_clone_stream():
     assert "[dry-run] ssh root@10.123.238.110 'qm clone 100 150 --name forge-central --full 1 --storage local-lvm'" in stdout
     assert "[dry-run] ssh root@10.123.238.110 'qm set 150 --cores 4 --memory 8192 --net0 virtio,bridge=vmbr0 --agent enabled=1 --ipconfig0 ip=dhcp'" in stdout
     assert "[dry-run] ssh root@10.123.238.110 'cat > /var/lib/vz/snippets/nkp-bastion-overlay.sh'" in stdout
-    assert "[dry-run] ssh root@10.123.238.110 'qm set 150 --cicustom user=local:snippets/nkp-bastion-overlay.sh'" in stdout
+    assert "[dry-run] ssh root@10.123.238.110 'qm set 150 --cicustom user=local:snippets/nkp-bastion-overlay.sh,meta=local:snippets/forge-central-meta.yaml'" in stdout
     assert "[dry-run] ssh root@10.123.238.110 'qm start 150'" in stdout
     assert "[dry-run] ssh root@10.123.238.110 'qm guest cmd 150 ping'" in stdout
     assert "[dry-run] ssh root@10.123.238.110 'qm guest cmd 150 network-get-interfaces'" in stdout
@@ -140,7 +140,7 @@ def test_dry_run_scratch_stream():
     assert "[dry-run] ssh root@10.123.238.110 'qm resize 150 scsi0 60G'" in stdout
     assert "[dry-run] ssh root@10.123.238.110 'qm set 150 --ide2 local-lvm:cloudinit --ipconfig0 ip=10.123.238.150/24,gw=10.123.238.1'" in stdout
     assert "[dry-run] ssh root@10.123.238.110 'cat > /var/lib/vz/snippets/forge-central-unified-init.sh'" in stdout
-    assert "[dry-run] ssh root@10.123.238.110 'qm set 150 --cicustom user=local:snippets/forge-central-unified-init.sh'" in stdout
+    assert "[dry-run] ssh root@10.123.238.110 'qm set 150 --cicustom user=local:snippets/forge-central-unified-init.sh,meta=local:snippets/forge-central-meta.yaml'" in stdout
     assert "[dry-run] ssh root@10.123.238.110 'qm start 150'" in stdout
 
 
