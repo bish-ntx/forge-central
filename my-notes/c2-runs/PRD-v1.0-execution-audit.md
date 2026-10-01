@@ -1803,3 +1803,36 @@ Duration  2.82s
 
 ### Git
 - Local commit only: `feat(gpu): Task-28 — hardware discovery, PCI passthrough & GPU VM provisioning manager` (NOT pushed; hash via `git log -1`)
+
+---
+
+## Task 29 — Automated Proxmox Bootstrap Script and Operator SOP for Forge Central VM
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] 1. Automated bootstrap script `scripts/bootstrap-forge-central-vm.sh` created with `set -euo pipefail` and executable permissions.
+- [x] 2. Option A (Golden Template clone) supported: verifies template exists, full clones, configures vCPU/RAM/virtio bridge/agent, injects `nkp-bastion-overlay.sh` user snippet, boots and polls guest agent.
+- [x] 3. Option B (Scratch bring-up) supported: downloads Ubuntu 24.04 LTS cloud image, creates VM shell (`q35`, `virtio-scsi-single`, serial socket), imports disk, attaches cloud-init drive, injects unified cloud-init snippet (`nkpadmin`, passwordless sudo, ECDSA keys, disable swap/IPv6/UFW, QEMU agent, Docker CE, kubectl, helm, working directories), boots and polls guest agent.
+- [x] 4. Auto mode (`--mode auto`, default) probes golden template VMID; clones if present, cleanly falls back to scratch bring-up if absent.
+- [x] 5. CLI flag `--print-manual-steps` generates copy-pasteable manual Proxmox shell commands with interpolated variables.
+- [x] 6. CLI flag `--dry-run` simulates and prints all remote SSH and `qm` commands without executing.
+- [x] 7. Comprehensive operator SOP guide created at `docs/BOOTSTRAP-FORGE-CENTRAL-VM.md` covering architecture/sizing, quickstart, step-by-step manual Proxmox CLI runbook, Day-1 verification, and code synchronization steps.
+- [x] 8. Automated validation tests added in `tests/scripts/test_bootstrap_script.py` verifying `--help`, `--print-manual-steps`, `--dry-run` command streams for clone/scratch/auto, argument validation, and parameter interpolation.
+- [x] 9. Backend tests (`pytest api/tests/`) remain at 100% pass rate (148 passed).
+- [x] 10. Frontend tests (`npm test`) remain at 100% pass rate (127 passed).
+- [x] 11. Documentation updated: `README.md`, `docs/USER-GUIDE.md`, `docs/API-GUIDE.md`.
+- [x] 12. Local Git commit created (NOT pushed): `feat(ops): Task-29 — automated Proxmox bootstrap script and operator SOP for Forge Central VM`.
+
+### Test Results
+- `pytest tests/scripts/test_bootstrap_script.py`: 10 passed in 0.33s
+- `pytest api/tests/`: 148 passed in 4.39s
+- `npm test`: 22 test files passed, 127 tests passed in 6.31s
+
+### Files Created / Modified
+- Created: `scripts/bootstrap-forge-central-vm.sh`, `docs/BOOTSTRAP-FORGE-CENTRAL-VM.md`, `tests/scripts/test_bootstrap_script.py`
+- Modified: `README.md`, `docs/USER-GUIDE.md`, `docs/API-GUIDE.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit: `feat(ops): Task-29 — automated Proxmox bootstrap script and operator SOP for Forge Central VM` (NOT pushed)
+

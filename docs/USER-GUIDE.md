@@ -317,6 +317,28 @@ All data is stored and transmitted in UTC (ISO 8601, `...Z`). The console conver
 - **Where it applies:** Diagnostics (support bundles, audit trail), Clusters (Last Updated), Path Settings (backup and safety-snapshot tables), Fleet (last sync), Upgrade (last upgrade) and each line of the Live Terminal.
 - **Live logs:** pipeline runs begin and end with a dual-timestamp header, e.g. `[TIMESTAMP] UTC: 2026-10-01T01:15:30Z | Local (PST): 2026-09-30 18:15:30 PDT`.
 
+## Dedicated VM Bootstrapping on Proxmox VE
+
+Forge Central can be provisioned as a dedicated host or bastion VM on Proxmox VE using the automated bootstrap script `scripts/bootstrap-forge-central-vm.sh`:
+
+- **Option A (Clone):** Full-clones an existing Proxmox golden template (default VMID 100) and applies the bastion overlay cloud-init snippet (`nkp-bastion-overlay.sh`).
+- **Option B (Scratch):** Downloads Ubuntu 24.04 LTS cloud image (`noble-server-cloudimg-amd64.img`), creates a VM shell, and applies the unified initialization snippet (`forge-central-unified-init.sh`).
+- **Auto Mode:** Automatically checks whether the golden template VMID exists; if found it clones, otherwise it cleanly falls back to scratch bring-up.
+- **Manual Runbook:** Run with `--print-manual-steps` to generate copy-pasteable manual `qm` commands with interpolated variables.
+
+```bash
+# Automated run on target Proxmox host
+./scripts/bootstrap-forge-central-vm.sh --pve-host 10.123.238.110
+
+# Dry-run inspection
+./scripts/bootstrap-forge-central-vm.sh --dry-run --mode scratch
+
+# Print manual Proxmox CLI runbook
+./scripts/bootstrap-forge-central-vm.sh --print-manual-steps
+```
+
+For complete architecture sizing, step-by-step Proxmox commands, and Day-1 post-bootstrap verification checks, see [docs/BOOTSTRAP-FORGE-CENTRAL-VM.md](BOOTSTRAP-FORGE-CENTRAL-VM.md).
+
 ## Frontend Validation Commands
 
 ```bash

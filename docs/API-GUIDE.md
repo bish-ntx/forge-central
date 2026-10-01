@@ -1114,3 +1114,11 @@ The backend, database/state records and audit events operate **exclusively in UT
 - Every SSE `log` event carries a UTC `timestamp` attribute: `{"timestamp": "2026-10-01T01:15:31Z", "line": "...", "stream": "stdout"}`.
 - `GET /api/v1/clusters` items include an optional `last_updated_at` (UTC, `null` when unknown).
 
+## Infrastructure & Host Provisioning
+
+For deploying Forge Central onto a dedicated VM on Proxmox VE, refer to:
+- Script: `scripts/bootstrap-forge-central-vm.sh`
+- Operator SOP: [`docs/BOOTSTRAP-FORGE-CENTRAL-VM.md`](BOOTSTRAP-FORGE-CENTRAL-VM.md)
+The script supports automated golden template clone (`--mode clone`), scratch bring-up (`--mode scratch`), dry-run simulations (`--dry-run`), and manual command generation (`--print-manual-steps`).
+
+

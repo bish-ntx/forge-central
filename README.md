@@ -161,6 +161,20 @@ docker compose up -d --build
 
 Open `http://localhost:8000`. See `docs/DEPLOYMENT-GUIDE.md` for volumes, environment variables and health checks.
 
+## Dedicated VM Bootstrapping on Proxmox VE
+
+Forge Central includes an automated Proxmox VM provisioner `scripts/bootstrap-forge-central-vm.sh` and comprehensive operator SOP `docs/BOOTSTRAP-FORGE-CENTRAL-VM.md`:
+
+```bash
+# Auto bring-up (Option A clone if template 100 exists; fallback to Option B scratch)
+./scripts/bootstrap-forge-central-vm.sh --pve-host 10.123.238.110
+
+# Print copy-pasteable manual Proxmox CLI runbook with interpolated variables
+./scripts/bootstrap-forge-central-vm.sh --print-manual-steps
+```
+
+See [docs/BOOTSTRAP-FORGE-CENTRAL-VM.md](docs/BOOTSTRAP-FORGE-CENTRAL-VM.md) for architecture sizing, clone vs. scratch workflows, manual command runbooks, and Day-1 verification.
+
 ## Air-Gapped Release Bundle
 
 Build a self-contained `forge-central-v<VERSION>.tar.gz` (plus `.sha256`) with `scripts/build-release-bundle.sh [--version V] [--output-dir DIR] [--dry-run]`, then inspect it in the Web Console at `/settings/upgrade` (`POST /api/v1/upgrade/inspect`). See `docs/DEPLOYMENT-GUIDE.md`.
