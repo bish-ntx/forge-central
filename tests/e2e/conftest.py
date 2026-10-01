@@ -7,11 +7,12 @@ import socket
 import subprocess
 import tempfile
 import time
+from urllib.request import Request
+from pathlib import Path
 from urllib.error import URLError
-from urllib.request import Request, urlopen
+from urllib.request import urlopen
 
 import pytest
-from playwright.sync_api import BrowserContext
 
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -98,12 +99,6 @@ def e2e_lab(backend_base_url: str) -> str:
     with urlopen(request, timeout=10) as response:  # noqa: S310
         assert response.status == 200
     return "e2e-lab"
-
-
-@pytest.fixture(autouse=True)
-def _dismiss_gateway_session(context: BrowserContext) -> None:
-    """Pre-set operator session in browser context so the LoginGatewayModal doesn't overlay E2E clicks."""
-    context.add_init_script("window.localStorage.setItem('forge_role', 'operator');")
 
 
 @pytest.fixture(scope="session")

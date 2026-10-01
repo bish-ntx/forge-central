@@ -5,6 +5,10 @@ from playwright.sync_api import Page, expect
 
 def test_navigation_and_sidebar(page: Page, base_url: str) -> None:
     page.goto(base_url)
+    # Dismiss first-visit login gateway modal if visible
+    gateway_btn = page.get_by_test_id("btn-gateway-operator")
+    if gateway_btn.is_visible():
+        gateway_btn.click()
     expect(page.get_by_test_id("link-vms")).to_be_visible()
 
     page.get_by_test_id("link-vms").click()
@@ -25,6 +29,9 @@ def test_navigation_and_sidebar(page: Page, base_url: str) -> None:
 
 def test_site_mode_toggle(page: Page, base_url: str) -> None:
     page.goto(base_url)
+    gateway_btn = page.get_by_test_id("btn-gateway-operator")
+    if gateway_btn.is_visible():
+        gateway_btn.click()
     badge = page.get_by_test_id("header-mode-badge")
     expect(badge).to_have_text("Forge Central Console")
 
@@ -37,6 +44,9 @@ def test_site_mode_toggle(page: Page, base_url: str) -> None:
 
 def test_theme_mode_switch(page: Page, base_url: str) -> None:
     page.goto(base_url)
+    gateway_btn = page.get_by_test_id("btn-gateway-operator")
+    if gateway_btn.is_visible():
+        gateway_btn.click()
     toggle = page.get_by_test_id("toggle-theme-mode")
     root = page.locator("html")
 
@@ -64,6 +74,9 @@ def test_theme_mode_switch(page: Page, base_url: str) -> None:
 
 def test_live_terminal_streaming(page: Page, base_url: str, e2e_lab: str) -> None:
     page.goto(f"{base_url}/clusters/deploy")
+    gateway_btn = page.get_by_test_id("btn-gateway-operator")
+    if gateway_btn.is_visible():
+        gateway_btn.click()
     # Stage 1 inherits the seeded lab; advance to Stage 4 (config generated) and Launch for Stage 5
     expect(page.get_by_test_id("select-lab")).to_have_value(e2e_lab)
     page.get_by_test_id("btn-wizard-next").click()
