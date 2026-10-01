@@ -23,7 +23,7 @@ docker build -t forge-central:latest .
 | `/cacrt` | CA certificates | `~/cacrt` |
 | `/var/log/forge-central` | Logs (`FORGE_LOG_DIR`) | container volume |
 
-Host directories must be writable by UID 1000 (`chown 1000 ~/forge-state ~/forge-data ~/cacrt`, or `mkdir` them first when using Docker Desktop).
+Host directories must be writable by container UID 1000 (`sudo chown -R 1000:1001 ~/forge-state ~/forge-data ~/cacrt && sudo chmod -R 2775 ~/forge-state ~/forge-data ~/cacrt`). This allows the container's `forgecentral` process (UID 1000) and the host's `nkpadmin` user (GID 1001) full read/write access.
 
 ## Docker Run
 

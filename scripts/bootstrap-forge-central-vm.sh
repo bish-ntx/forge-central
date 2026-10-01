@@ -831,8 +831,10 @@ get_bastion_overlay_snippet() {
 'fi' \
 '' \
 'echo "=== [5/5] Creating Forge Central directories ==="' \
-'mkdir -p "${NKP_HOME}/forge-central" "${NKP_HOME}/forge-state" "${NKP_HOME}/cacrt"' \
-'chown -R "${NKP_USER}:${NKP_USER}" "${NKP_HOME}/forge-central" "${NKP_HOME}/forge-state" "${NKP_HOME}/cacrt"' \
+'mkdir -p "${NKP_HOME}/forge-central" "${NKP_HOME}/forge-state" "${NKP_HOME}/forge-data" "${NKP_HOME}/cacrt"' \
+'chown -R "${NKP_USER}:${NKP_USER}" "${NKP_HOME}/forge-central"' \
+'chown -R 1000:"${NKP_USER}" "${NKP_HOME}/forge-state" "${NKP_HOME}/forge-data" "${NKP_HOME}/cacrt"' \
+'chmod -R 2775 "${NKP_HOME}/forge-state" "${NKP_HOME}/forge-data" "${NKP_HOME}/cacrt"' \
 '' \
 'mkdir -p /var/cloud-init' \
 'touch /var/cloud-init/SUCCESS' \
@@ -987,8 +989,10 @@ get_unified_init_snippet() {
 'fi' \
 '' \
 'echo "=== [8/8] Setting up Forge Central directories ==="' \
-'mkdir -p "${NKP_HOME}/forge-central" "${NKP_HOME}/forge-state" "${NKP_HOME}/cacrt"' \
-'chown -R "${NKP_USER}:${NKP_USER}" "${NKP_HOME}/forge-central" "${NKP_HOME}/forge-state" "${NKP_HOME}/cacrt"' \
+'mkdir -p "${NKP_HOME}/forge-central" "${NKP_HOME}/forge-state" "${NKP_HOME}/forge-data" "${NKP_HOME}/cacrt"' \
+'chown -R "${NKP_USER}:${NKP_USER}" "${NKP_HOME}/forge-central"' \
+'chown -R 1000:"${NKP_USER}" "${NKP_HOME}/forge-state" "${NKP_HOME}/forge-data" "${NKP_HOME}/cacrt"' \
+'chmod -R 2775 "${NKP_HOME}/forge-state" "${NKP_HOME}/forge-data" "${NKP_HOME}/cacrt"' \
 '' \
 'mkdir -p /var/cloud-init' \
 'touch /var/cloud-init/SUCCESS' \

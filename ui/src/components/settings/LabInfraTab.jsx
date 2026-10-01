@@ -111,10 +111,24 @@ function LabInfraTab() {
         headers: roleHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify(body),
       })
-      const payload = await response.json()
+      let payload = {}
+      let rawResponse = ''
+      if (typeof response.text === 'function') {
+        rawResponse = await response.text()
+        try {
+          payload = rawResponse ? JSON.parse(rawResponse) : {}
+        } catch (_parseError) {
+          if (!response.ok) {
+            throw new Error(`Lab initialization failed (${response.status}): ${rawResponse || 'empty server response'}`)
+          }
+          throw new Error('Lab initialization returned an invalid server response')
+        }
+      } else if (typeof response.json === 'function') {
+        payload = await response.json()
+      }
       if (!response.ok) {
         const detail = Array.isArray(payload.detail) ? payload.detail.map((d) => d.msg).join('; ') : payload.detail
-        throw new Error(detail ?? 'Lab initialization failed')
+        throw new Error(detail ?? `Lab initialization failed (${response.status})`)
       }
       setNotice(`Lab initialized: ${payload.config_path}`)
       setForm((current) => ({ ...current, pve_password: '' }))

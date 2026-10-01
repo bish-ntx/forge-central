@@ -35,13 +35,24 @@ def read_ini(path: Path) -> Dict[str, str]:
 
 def write_private_file(path: Path, lines: List[str]) -> None:
     """Write an INI file atomically with chmod 600 (it may hold credentials)."""
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_name(path.name + ".tmp")
-    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
-    with os.fdopen(fd, "w") as handle:
-        handle.write("\n".join(lines) + "\n")
-    os.replace(tmp, path)
-    path.chmod(0o600)
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        tmp = path.with_name(path.name + ".tmp")
+        fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        with os.fdopen(fd, "w") as handle:
+            handle.write("\n".join(lines) + "\n")
+        os.replace(tmp, path)
+        path.chmod(0o600)
+    except PermissionError as err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Permission denied writing lab configuration: {err}. Ensure target storage directory is writable by user {os.getuid()}.",
+        ) from err
+    except OSError as err:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Filesystem error writing lab configuration: {err}",
+        ) from err
 
 
 def labs_dir() -> Path:

@@ -1927,3 +1927,61 @@ Duration  2.82s
     - Interactive input sanitization: auto-trim whitespace & quotes (`trim_whitespace_and_quotes`) on all user answers and file paths
     - Early Proxmox connectivity pre-flight right after host entry with auto-fallback to password / `ssh-copy-id` / `sshpass`
 - Bookkeeping: `C1-CONTEXT-NOTES.md`, `END-TO-END-BUILD-CHECKLIST.md` Task 15.7, `CURSOR-PROMPTS` criteria, `SESSION-HANDOFF` updated
+
+---
+
+## [2026-10-01] Task 31 — Fix Docker Bind-Mount Ownership (1000:1001) & Structured Filesystem Permission Handling (BUG-001)
+
+### Execution Status: SUCCESS (Verified Live)
+- Scope: Resolve production defect `BUG-001` where `POST /api/v1/lab/init` failed inside Docker due to host directory permissions (`drwxr-xr-x 1001:1001 /home/nkpadmin/forge-state`).
+
+### Acceptance Criteria Matrix
+- [x] 1. Root Cause Identified: Ubuntu 24.04 cloud image assigns UID 1000 to `ubuntu` and UID 1001 to `nkpadmin`. Container `forgecentral` runs as UID 1000 and was blocked from creating `/forge-state/labs`.
+- [x] 2. Dual-Ownership & Setgid Directory Setup: `scripts/bootstrap-forge-central-vm.sh` updated to create `~/forge-state`, `~/forge-data`, and `~/cacrt` with `chown -R 1000:1001` and `chmod -R 2775`.
+- [x] 3. Explicit Docker Compose Environment Variables: `docker-compose.yml` updated with explicit bindings for `FORGE_STATE_DIR`, `FORGE_CENTRAL_DATA_DIR`, `FORGE_DATA_DIR`, `FORGE_CACRT_DIR`, and `FORGE_LOG_DIR`.
+- [x] 4. Structured Backend Error Handling: `api/app/services/lab.py` wraps `write_private_file()` in `try...except (PermissionError, OSError)` returning clean `HTTPException(500, detail="...")` JSON instead of crashing.
+- [x] 5. Unit Tests: Added `test_lab_init_permission_error_returns_clean_500_json` in `api/tests/test_lab_secrets.py` (17/17 passed); `test_bootstrap_script.py` (31/31 passed).
+- [x] 6. Live Validation on Target VM (`10.123.238.120`):
+  - Applied host permissions: `sudo chown -R 1000:1001 ~/forge-state ~/forge-data ~/cacrt && sudo chmod -R 2775 ~/forge-state ~/forge-data ~/cacrt`.
+  - Rebuilt & restarted container via `docker compose build && docker compose up -d`.
+  - Probed write access inside container: `WRITE SUCCESS`.
+  - Triggered `POST /api/v1/lab/init` for `ntx-lab`: returned HTTP 200 `{"status":"initialized","config_path":"/forge-state/labs/ntx-lab/ntx-lab-infra.ini"}`.
+  - Verified host file created at `/home/nkpadmin/forge-state/labs/ntx-lab/ntx-lab-infra.ini` (mode 0600, group `nkpadmin`).
+  - Verified `GET /api/v1/lab/config` returned `configured: true` and matched the live Proxmox parameters.
+- [x] 7. Documentation & Register: Updated `docs/DEPLOYMENT-GUIDE.md`, marked `BUG-001` as `Verified` in `my-notes/BUGS-AND-ENHANCEMENTS.md` with full evaluation scorecard.
+
+### Files Modified
+- `scripts/bootstrap-forge-central-vm.sh`
+- `docker-compose.yml`
+- `api/app/services/lab.py`
+- `api/tests/test_lab_secrets.py`
+- `docs/DEPLOYMENT-GUIDE.md`
+- `my-notes/BUGS-AND-ENHANCEMENTS.md`
+- `deliverables/CURSOR-PROMPTS-FORGE-CENTRAL-v1.md` (authored `[PROMPT-31]`)
+- `C1-CONTEXT-NOTES.md` & `deliverables/END-TO-END-BUILD-CHECKLIST.md`
+
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED] Task 31 (BUG-001) (2026-10-01)
+
+- Scope: Production defect fix for Docker volume bind-mount ownership mismatch (`BUG-001`).
+- Verification Status: **100% APPROVED & VERIFIED LIVE** on `ntx-forge-central1` (`10.123.238.120`).
+- Code Modifications:
+  - `scripts/bootstrap-forge-central-vm.sh`: Updated guest init snippets to configure `chown -R 1000:1001` and `chmod -R 2775` on runtime state/data directories.
+  - `docker-compose.yml`: Exported explicit environment variables (`FORGE_STATE_DIR`, `FORGE_DATA_DIR`, `FORGE_CACRT_DIR`, `FORGE_LOG_DIR`).
+  - `api/app/services/lab.py`: Wrapped `write_private_file()` in `try...except (PermissionError, OSError)` returning structured HTTP 500 JSON exceptions (`{"detail": "..."}`).
+  - `docs/DEPLOYMENT-GUIDE.md`: Documented host volume dual-ownership and setgid permissions.
+  - `api/tests/test_lab_secrets.py`: Added unit test `test_lab_init_permission_error_returns_clean_500_json`.
+- Test Suites:
+  - `pytest api/tests/test_lab_secrets.py`: 17 passed.
+  - `pytest tests/scripts/test_bootstrap_script.py`: 31 passed.
+- Live Deployment Validation on `10.123.238.120`:
+  - Host directory permissions applied: `sudo chown -R 1000:1001 ~/forge-state ~/forge-data ~/cacrt && sudo chmod -R 2775 ~/forge-state ~/forge-data ~/cacrt`.
+  - Rebuilt & restarted Docker Compose container in 6.2s.
+  - In-container write test: `touch /forge-state/test.txt` → `WRITE SUCCESS`.
+  - `POST /api/v1/lab/init` returned HTTP 200 initialized; `/home/nkpadmin/forge-state/labs/ntx-lab/ntx-lab-infra.ini` created with mode 0600 and group `nkpadmin`.
+  - `GET /api/v1/lab/config` verified round-trip configuration.
+- Prompt Book Entry: Authored retro prompt `[PROMPT-31]` in `deliverables/CURSOR-PROMPTS-FORGE-CENTRAL-v1.md`.
+- Register Updated: Marked `BUG-001` as `Verified` in `my-notes/BUGS-AND-ENHANCEMENTS.md` with complete 45/45 scorecard.
+
+

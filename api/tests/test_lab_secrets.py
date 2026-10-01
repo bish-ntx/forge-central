@@ -110,6 +110,19 @@ async def test_lab_init_requires_admin(headers, dirs) -> None:
 
 
 @pytest.mark.asyncio
+async def test_lab_init_permission_error_returns_clean_500_json(dirs, monkeypatch) -> None:
+    def _raise_permission_error(*_args, **_kwargs):
+        raise PermissionError("Permission denied: '/forge-state/labs'")
+
+    monkeypatch.setattr(Path, "mkdir", _raise_permission_error)
+    async with _client() as client:
+        response = await client.post("/api/v1/lab/init", json=LAB, headers=ADMIN)
+
+    assert response.status_code == 500
+    assert "Permission denied writing lab configuration" in response.json()["detail"]
+
+
+@pytest.mark.asyncio
 async def test_secret_save_list_masks_passwords_and_delete(dirs) -> None:
     async with _client() as client:
         dh = await client.post(
