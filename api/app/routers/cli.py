@@ -162,7 +162,7 @@ async def live_terminal_stream() -> EventSourceResponse:
                 "event": "log",
                 "data": json.dumps(
                     {
-                        "timestamp": f"2026-09-26T22:40:0{index}.100000+00:00",
+                        "timestamp": f"2026-09-26T22:40:0{index}Z",
                         "line": f"mock stdout line {index}",
                         "stream": "stdout",
                     }

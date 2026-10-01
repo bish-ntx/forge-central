@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react'
 import { CheckCircle2, CircleAlert, Copy, Loader2, PauseCircle, RefreshCw } from 'lucide-react'
 import useEventSource from '../../hooks/useEventSource.js'
+import Timestamp from './Timestamp.jsx'
 
 function formatElapsed(milliseconds) {
   const totalSeconds = Math.max(0, Math.floor(milliseconds / 1000))
@@ -128,10 +129,13 @@ function LiveTerminal({
             {logLines.map((entry, index) => (
               <div
                 key={`${entry.timestamp}-${index}`}
-                className="grid grid-cols-[48px_1fr] gap-2"
+                className="grid grid-cols-[48px_auto_1fr] gap-2"
                 data-testid={`terminal-line-${index + 1}`}
               >
                 <span className="text-right text-slate-500">{index + 1}</span>
+                <span className="text-slate-500" data-testid={`terminal-line-time-${index + 1}`}>
+                  <Timestamp value={entry.timestamp} formatType="time" fallback="" />
+                </span>
                 <span className={entry.stream === 'stderr' ? 'text-amber-300' : 'text-green-400'}>
                   {entry.line}
                 </span>

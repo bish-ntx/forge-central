@@ -3,6 +3,7 @@ import { Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 import SafetySnapshotNotice from '../components/common/SafetySnapshotNotice.jsx'
+import Timestamp from '../components/common/Timestamp.jsx'
 
 const API_BASE = '/api/v1/clusters'
 const PREP_NODE_DEFAULTS = {
@@ -368,6 +369,7 @@ function ClustersPage() {
               <th className="px-3 py-2">Kubernetes</th>
               <th className="px-3 py-2">Node Health</th>
               <th className="px-3 py-2">MetalLB VIP Range</th>
+              <th className="px-3 py-2">Last Updated</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-slate-800 text-slate-200">
@@ -388,6 +390,9 @@ function ClustersPage() {
                   Ready {cluster.ready_nodes}/{cluster.desired_nodes} nodes
                 </td>
                 <td className="px-3 py-2">{cluster.metallb?.vip_range || 'Not configured'}</td>
+                <td className="px-3 py-2">
+                  <Timestamp value={cluster.last_updated_at} />
+                </td>
               </tr>
             ))}
           </tbody>

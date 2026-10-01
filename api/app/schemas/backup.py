@@ -1,16 +1,17 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import List
 
 from pydantic import BaseModel
+
+from ..timeutil import UtcDatetime
 
 
 class BackupItem(BaseModel):
     backup_id: str
     filename: str
     file_size_bytes: int
-    created_at: datetime
+    created_at: UtcDatetime
     checksum_sha256: str
 
 

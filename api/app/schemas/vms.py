@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from ..timeutil import UtcDatetime
 
 
 class VmItem(BaseModel):
@@ -46,7 +47,7 @@ class VmCommandResponse(BaseModel):
     run_id: UUID
     status: str
     command: str
-    started_at: datetime
+    started_at: UtcDatetime
 
 
 class VmBatchActionRequest(BaseModel):
@@ -59,7 +60,7 @@ class VmBatchActionResponse(BaseModel):
     status: str = "PENDING"
     action: str
     affected_vmids: list[int]
-    started_at: datetime
+    started_at: UtcDatetime
     safety_backup_id: Optional[str] = None
 
 
@@ -76,4 +77,4 @@ class VmCloneBatchResponse(BaseModel):
     status: str = "PENDING"
     command: str
     created_vms: list[dict[str, Any]] = Field(default_factory=list)
-    started_at: datetime
+    started_at: UtcDatetime

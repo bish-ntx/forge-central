@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Search } from 'lucide-react'
+import { Clock, Search } from 'lucide-react'
+import { useTimezone } from '../../context/TimezoneContext.jsx'
 
 const THEME_MODE_LABELS = {
   dark: 'Dark',
@@ -9,6 +10,7 @@ const THEME_MODE_LABELS = {
 
 function Header({ mode, onToggleMode, themeMode, onToggleThemeMode, onOpenCommandPalette }) {
   const [mockMode, setMockMode] = useState(false)
+  const { mode: timezoneMode, label: timezoneLabel, timeZone, toggleMode: toggleTimezoneMode } = useTimezone()
   const modeLabel =
     mode === 'console' ? 'Forge Central Console' : 'Forge Fleet Dashboard'
 
@@ -62,6 +64,16 @@ function Header({ mode, onToggleMode, themeMode, onToggleThemeMode, onOpenComman
       </div>
 
       <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={toggleTimezoneMode}
+          title={`Timestamps shown in ${timezoneMode === 'utc' ? 'UTC' : timeZone}. Click to switch.`}
+          className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-slate-600"
+          data-testid="button-timezone-toggle"
+        >
+          <Clock size={14} />
+          {timezoneLabel}
+        </button>
         <button
           type="button"
           onClick={onOpenCommandPalette}

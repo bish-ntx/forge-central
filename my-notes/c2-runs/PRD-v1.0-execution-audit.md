@@ -1552,3 +1552,51 @@ Duration  2.82s
   cd ~/work/git/forge-central
   git push origin main
   ```
+
+## Task 23 — Enterprise Timezone Engine (ISO UTC Core, Local PST Display & Live Log Dual-Timestamping)
+
+- Execution Status: **SUCCESS**
+
+### Acceptance Criteria Matrix
+- [x] 1. `pytest api/tests/` passes 100% (67 passed, incl. new `api/tests/test_timezone.py`)
+- [x] 2. All API timestamp fields serialize as `YYYY-MM-DDTHH:MM:SSZ`: shared `UtcDatetime` Pydantic type (`api/app/timeutil.py`) applied across `audit`, `backup`, `cli`, `clusters`, `diagnostics`, `fleet`, `nodes`, `pipeline`, `upgrade`, `vms` schemas (former `str` timestamps in audit/diagnostics/fleet converted to `UtcDatetime`); router/seed/mock timestamps emit `Z`
+- [x] 3. `ProcessRunner` emits `[TIMESTAMP] UTC: <iso>Z | Local (PST): YYYY-MM-DD HH:MM:SS PDT` as an SSE `log` line at run start and finish; all `log` events carry UTC `timestamp`
+- [x] 4. Header has `button-timezone-toggle` (`PDT (Local)` / `UTC`)
+- [x] 5. Dates in Diagnostics (bundles + audit trail), Clusters (new Last Updated column), Path Settings (backup/safety snapshot table), Fleet, Upgrade and `<LiveTerminal />` (per-line time) follow the selected mode via shared `<Timestamp />` (tooltip = raw UTC)
+- [x] 6. `npm test` passes 100% (17 files, 73 tests, incl. new `ui/src/context/__tests__/Timezone.test.jsx`)
+- [x] 7. `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+- [x] 8. Local commit created: `feat(timezone): Task-23 — enterprise timezone engine (ISO UTC core, local PST display & live log dual-timestamping)`
+- [x] 9. NOT pushed
+- Notes: there is no `AuditLogsPage.jsx`; the audit trail table lives in `DiagnosticsPage.jsx` and was updated there. `ClustersPage` had no date column, so an optional `last_updated_at` (UTC) cluster field + "Last Updated" column was added. Local zone for log headers is configurable via `FORGE_DISPLAY_TZ` (default `America/Los_Angeles`). `useTimezone` lives in `ui/src/context/TimezoneContext.jsx` (re-exported from `ui/src/hooks/useTimezone.js`); the provider is mounted in `main.jsx` and defaults to local/no-op without a provider so isolated component tests are unaffected.
+
+### Test Results
+- `pytest api/tests/`: 67 passed
+- `npm test` (vitest): 17 files, 73 passed
+
+### Files Created / Modified
+- Created: `api/app/timeutil.py`, `api/tests/test_timezone.py`, `ui/src/context/TimezoneContext.jsx`, `ui/src/context/__tests__/Timezone.test.jsx`, `ui/src/hooks/useTimezone.js`, `ui/src/components/common/Timestamp.jsx`
+- Modified: `api/app/config.py`, `api/app/schemas/{audit,backup,cli,clusters,diagnostics,fleet,nodes,pipeline,upgrade,vms}.py`, `api/app/routers/{audit,cli,clusters,diagnostics,fleet}.py`, `api/app/services/{process_runner,mock_data}.py`, `ui/src/main.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/components/common/LiveTerminal.jsx`, `ui/src/pages/{ClustersPage,DiagnosticsPage,FleetDashboardPage,PathSettingsPage,UpgradePage}.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only (hash: `git log -1` on `main`; report is part of the commit): `feat(timezone): Task-23 — enterprise timezone engine (ISO UTC core, local PST display & live log dual-timestamping)` (NOT pushed)
+
+### C1 Planner Verification Verdict
+- **Date/Time:** 2026-09-30 18:18 PDT / 01:18 UTC (Oct 1)
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `f63e3d9` created cleanly (`feat(timezone): Task-23 — enterprise timezone engine (ISO UTC core, local PST display & live log dual-timestamping)`).
+  - Backend ISO 8601 UTC Standardization verified: Created `api/app/timeutil.py` with custom `UtcDatetime` Pydantic type serializing `YYYY-MM-DDTHH:MM:SSZ` across all schemas (`audit.py`, `backup.py`, `clusters.py`, `vms.py`, `pipeline.py`, `nodes.py`, `diagnostics.py`, `fleet.py`, `upgrade.py`, `cli.py`).
+  - `ProcessRunner` emits dual-timestamp start/finish banner `[TIMESTAMP] UTC: ... | Local (PST): ...` and adds UTC timestamps to all SSE live terminal lines.
+  - Frontend `TimezoneContext.jsx` and `useTimezone.js` auto-detect browser timezone with `America/Los_Angeles` fallback, localStorage persistence (`local` vs `utc`), and shared `<Timestamp />` component with raw UTC tooltip.
+  - Interactive timezone switcher button mounted in `Header.jsx` (`data-testid="button-timezone-toggle"`).
+  - UI date tables across Diagnostics, Clusters, Backups/Safety Snapshots, Fleet, Upgrade, and `<LiveTerminal />` updated to format via timezone provider.
+  - Pytest suite: 67/67 passed (100%).
+  - Vitest suite: 73/73 passed across 17 test files (100%).
+  - Docs updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+

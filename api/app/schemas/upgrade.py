@@ -1,14 +1,15 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import List, Optional
 
 from pydantic import BaseModel
 
+from ..timeutil import UtcDatetime
+
 
 class UpgradeStatusResponse(BaseModel):
     current_version: str
-    last_upgrade_at: Optional[datetime] = None
+    last_upgrade_at: Optional[UtcDatetime] = None
     arch: str
     platform: str
 

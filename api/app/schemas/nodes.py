@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from ..timeutil import UtcDatetime
 
 
 class NodePrepRequest(BaseModel):
@@ -21,7 +22,7 @@ class NodePrepResponse(BaseModel):
     run_id: UUID
     status: str
     command: str
-    started_at: datetime
+    started_at: UtcDatetime
 
 
 class ShareMountRequest(BaseModel):

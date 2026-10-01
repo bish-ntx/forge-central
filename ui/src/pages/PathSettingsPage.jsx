@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
+import Timestamp from '../components/common/Timestamp.jsx'
 
 const PATHS_API = '/api/v1/settings/paths'
 const MIGRATE_API = '/api/v1/settings/paths/migrate'
@@ -295,7 +296,7 @@ function PathSettingsPage() {
                 <tr key={backup.backup_id} className="border-t border-slate-700" data-testid={`row-backup-${backup.backup_id}`}>
                   <td className="py-2 pr-3 font-mono text-xs">{backup.filename}</td>
                   <td className="py-2 pr-3">{formatSize(backup.file_size_bytes)}</td>
-                  <td className="py-2 pr-3">{new Date(backup.created_at).toLocaleString()}</td>
+                  <td className="py-2 pr-3"><Timestamp value={backup.created_at} /></td>
                   <td className="break-all py-2 pr-3 font-mono text-xs text-slate-400">{backup.checksum_sha256}</td>
                   <td className="py-2">
                     <button

@@ -8,11 +8,12 @@
 
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Any, Optional, Union
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from ..timeutil import UtcDatetime
 
 
 class CLIExecuteRequest(BaseModel):
@@ -25,7 +26,7 @@ class CLIExecuteResponse(BaseModel):
     run_id: UUID
     status: str
     command: str
-    started_at: datetime
+    started_at: UtcDatetime
 
 
 class HealthResponse(BaseModel):

@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { CheckCircle2, XCircle } from 'lucide-react'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
+import Timestamp from '../components/common/Timestamp.jsx'
 
 const STATUS_API = '/api/v1/upgrade/status'
 const INSPECT_API = '/api/v1/upgrade/inspect'
@@ -66,7 +67,7 @@ function UpgradePage() {
         {status ? (
           <p className="mt-1 text-xs text-slate-400">
             {status.platform} · {status.arch} · Last upgrade:{' '}
-            {status.last_upgrade_at ? new Date(status.last_upgrade_at).toLocaleString() : 'never'}
+            <Timestamp value={status.last_upgrade_at} fallback="never" />
           </p>
         ) : null}
       </article>

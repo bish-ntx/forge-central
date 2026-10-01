@@ -12,13 +12,14 @@ from ..schemas.diagnostics import (
     SupportBundleInfo,
     SupportBundleListResponse,
 )
+from ..timeutil import iso_utc
 from .audit import record_audit_event
 
 router = APIRouter(prefix="/api/v1/diagnostics", tags=["diagnostics"])
 
 
 def _iso_utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return iso_utc()
 
 
 def _seed_support_bundles() -> list[dict[str, Any]]:
@@ -28,7 +29,7 @@ def _seed_support_bundles() -> list[dict[str, Any]]:
             "cluster_name": "amd-nkp1",
             "filename": "bundle-amd-nkp1-20260926.tar.gz",
             "file_size_bytes": 152_034_918,
-            "captured_at": "2026-09-26T10:45:00+00:00",
+            "captured_at": "2026-09-26T10:45:00Z",
             "status": "ready",
         },
         {
@@ -36,7 +37,7 @@ def _seed_support_bundles() -> list[dict[str, Any]]:
             "cluster_name": "cirra-nkp1",
             "filename": "bundle-cirra-nkp1-20260925.tar.gz",
             "file_size_bytes": 138_220_441,
-            "captured_at": "2026-09-25T18:12:00+00:00",
+            "captured_at": "2026-09-25T18:12:00Z",
             "status": "ready",
         },
     ]
@@ -57,7 +58,7 @@ async def capture_diagnostics(payload: DiagnosticsCaptureRequest) -> Diagnostics
     node_count = len(payload.node_names or [])
     base_size = 90_000_000 if payload.include_logs else 35_000_000
     file_size_bytes = base_size + (node_count * 1_500_000)
-    captured_at = timestamp.isoformat()
+    captured_at = iso_utc(timestamp)
     status = "ready"
 
     bundle = SupportBundleInfo(

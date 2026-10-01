@@ -1,17 +1,17 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
 
 from fastapi import APIRouter, HTTPException
 
 from ..schemas.fleet import FleetStatusResponse, SiteSnapshot, SiteStatus
+from ..timeutil import iso_utc
 
 router = APIRouter(prefix="/api/v1/fleet", tags=["fleet"])
 
 
 def _iso_utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return iso_utc()
 
 
 def _seed_sites() -> dict[str, dict[str, object]]:

@@ -1,10 +1,11 @@
 from __future__ import annotations
 
-from datetime import datetime
 from typing import Literal, Optional
 from uuid import UUID
 
 from pydantic import BaseModel, Field
+
+from ..timeutil import UtcDatetime
 
 
 class ClusterNodeItem(BaseModel):
@@ -25,6 +26,7 @@ class ClusterItem(BaseModel):
     desired_nodes: int = 0
     ready_nodes: int = 0
     metallb: MetalLbConfig = Field(default_factory=MetalLbConfig)
+    last_updated_at: Optional[UtcDatetime] = None
 
 
 class ClusterListResponse(BaseModel):
@@ -64,7 +66,7 @@ class ClusterCommandResponse(BaseModel):
     run_id: UUID
     status: str
     command: str
-    started_at: datetime
+    started_at: UtcDatetime
     safety_backup_id: Optional[str] = None
 
 

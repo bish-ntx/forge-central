@@ -826,3 +826,19 @@ Returns configured NFS exports/mounts:
 { "shares": [ { "export": "/srv/forge-share", "client": "bastion-01", "type": "nfs", "status": "mounted" } ] }
 ```
 
+## Timestamps & Timezone Handling (UTC Storage Discipline)
+
+The backend, database/state records and audit events operate **exclusively in UTC**. Every timestamp field in every API response (`timestamp`, `created_at`, `started_at`, `captured_at`, `last_seen`, `last_updated_at`, `last_upgrade_at`, SSE `log` event `timestamp`) is serialized as ISO 8601 UTC with a `Z` suffix and no sub-seconds: `YYYY-MM-DDTHH:MM:SSZ` (e.g. `2026-10-01T01:15:30Z`).
+
+- Pydantic schemas use the shared `UtcDatetime` type (`api/app/timeutil.py`). Inputs with other offsets (e.g. `-07:00`) or naive values (assumed UTC) are normalized to UTC on validation.
+- Local-time conversion is a **presentation concern of the web console only** (see the User Guide); the API never returns local-time strings in data fields.
+- **Dual-timestamp job headers:** when a pipeline run starts and when it finishes, the SSE stream (`GET /api/v1/pipeline/{run_id}/stream`) emits a `log` event whose line is a human-readable header:
+
+```text
+[TIMESTAMP] UTC: 2026-10-01T01:15:30Z | Local (PST): 2026-09-30 18:15:30 PDT
+```
+
+  The local part is for operator convenience only. Its zone defaults to `America/Los_Angeles` and can be changed with the `FORGE_DISPLAY_TZ` environment variable (any IANA zone name); it never affects stored data.
+- Every SSE `log` event carries a UTC `timestamp` attribute: `{"timestamp": "2026-10-01T01:15:31Z", "line": "...", "stream": "stdout"}`.
+- `GET /api/v1/clusters` items include an optional `last_updated_at` (UTC, `null` when unknown).
+

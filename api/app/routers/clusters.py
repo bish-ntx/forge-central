@@ -65,6 +65,7 @@ def _normalize_cluster_item(raw: dict[str, Any]) -> ClusterItem:
         kubernetes_version=str(raw.get("kubernetes_version", "")),
         desired_nodes=desired_nodes,
         ready_nodes=ready_nodes,
+        last_updated_at=raw.get("last_updated_at"),
         metallb=MetalLbConfig(
             vip_range=str(raw.get("metallb", {}).get("vip_range", "")),
             address_pool=str(raw.get("metallb", {}).get("address_pool", "")),

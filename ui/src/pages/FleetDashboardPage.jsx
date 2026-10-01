@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import Timestamp from '../components/common/Timestamp.jsx'
 
 const API_STATUS = '/api/v1/fleet/status'
 
@@ -49,17 +50,6 @@ function getStatusBadgeClass(status) {
     return 'bg-rose-500/20 text-rose-300'
   }
   return 'bg-slate-600 text-slate-200'
-}
-
-function toLocalTimestamp(value) {
-  if (!value) {
-    return 'Not yet synced'
-  }
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return value
-  }
-  return parsed.toLocaleString()
 }
 
 function FleetDashboardPage() {
@@ -206,7 +196,7 @@ function FleetDashboardPage() {
               </div>
 
               <p className="mt-3 text-xs text-slate-400">
-                Last sync: {toLocalTimestamp(site.last_seen ?? site.timestamp)}
+                Last sync: <Timestamp value={site.last_seen ?? site.timestamp} fallback="Not yet synced" />
               </p>
             </article>
           )

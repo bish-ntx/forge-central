@@ -37,6 +37,7 @@ MOCK_CLUSTERS: list[dict[str, Any]] = [
         "desired_nodes": 6,
         "ready_nodes": 6,
         "metallb": {"vip_range": "10.10.0.200-10.10.0.220", "address_pool": "amd-nkp1-pool"},
+        "last_updated_at": "2026-09-26T08:15:00Z",
     },
     {
         "name": "cirra-nkp1",
@@ -45,6 +46,7 @@ MOCK_CLUSTERS: list[dict[str, Any]] = [
         "desired_nodes": 5,
         "ready_nodes": 2,
         "metallb": {"vip_range": "10.20.0.200-10.20.0.220", "address_pool": "cirra-nkp1-pool"},
+        "last_updated_at": "2026-09-26T12:33:19Z",
     },
 ]
 

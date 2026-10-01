@@ -21,6 +21,7 @@ from uuid import UUID, uuid4
 
 from ..config import get_settings
 from ..schemas.pipeline import PipelineEndEventData, PipelineLogEventData
+from ..timeutil import dual_timestamp_header, iso_utc
 from .log_publisher import LogPublisher
 
 
@@ -127,7 +128,7 @@ class ProcessRunner:
                 "event": "log",
                 "stream": channel,
                 "line": payload,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": iso_utc(),
             }
         )
         await self._publish_stream_line(run, channel, payload)
@@ -138,11 +139,13 @@ class ProcessRunner:
             {
                 "event": "status",
                 "status": RunStatus.RUNNING.value,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
+                "timestamp": iso_utc(),
             }
         )
+        await self._emit_log(run, "stdout", dual_timestamp_header())
 
     async def _finish_run(self, run: ProcessRun, exit_code: int | None) -> None:
+        await self._emit_log(run, "stdout", dual_timestamp_header())
         run.exit_code = exit_code
         run.completed_at = datetime.now(timezone.utc)
         run.status = RunStatus.COMPLETED if exit_code == 0 else RunStatus.FAILED
@@ -151,7 +154,7 @@ class ProcessRunner:
                 "event": "status",
                 "status": run.status.value,
                 "exit_code": run.exit_code,
-                "timestamp": run.completed_at.isoformat(),
+                "timestamp": iso_utc(run.completed_at),
             }
         )
         if self._log_publisher is not None and run.exit_code is not None:

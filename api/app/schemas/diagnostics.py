@@ -4,6 +4,8 @@ from typing import List, Optional
 
 from pydantic import BaseModel, Field
 
+from ..timeutil import UtcDatetime
+
 
 class DiagnosticsCaptureRequest(BaseModel):
     cluster_name: str
@@ -17,7 +19,7 @@ class DiagnosticsCaptureResponse(BaseModel):
     filename: str
     file_size_bytes: int
     status: str
-    captured_at: str
+    captured_at: UtcDatetime
     download_url: str
 
 
@@ -26,7 +28,7 @@ class SupportBundleInfo(BaseModel):
     cluster_name: str
     filename: str
     file_size_bytes: int
-    captured_at: str
+    captured_at: UtcDatetime
     status: str
 
 

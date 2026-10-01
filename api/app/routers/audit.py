@@ -1,25 +1,25 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from datetime import datetime, timezone
 from typing import Any, Dict, Optional
 
 from fastapi import APIRouter
 
 from ..schemas.audit import AuditLogEntry, AuditLogListResponse
+from ..timeutil import iso_utc
 
 router = APIRouter(prefix="/api/v1/audit", tags=["audit"])
 
 
 def _iso_utc_now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return iso_utc()
 
 
 def _seed_audit_logs() -> list[dict[str, Any]]:
     return [
         {
             "run_id": "run-provision-amd-nkp1",
-            "timestamp": "2026-09-26T08:15:00+00:00",
+            "timestamp": "2026-09-26T08:15:00Z",
             "verb": "cluster-provision",
             "user": "platform-admin",
             "status": "succeeded",
@@ -28,7 +28,7 @@ def _seed_audit_logs() -> list[dict[str, Any]]:
         },
         {
             "run_id": "run-vm-poweron-amd-db01",
-            "timestamp": "2026-09-26T10:02:41+00:00",
+            "timestamp": "2026-09-26T10:02:41Z",
             "verb": "vm-power-on",
             "user": "lab-operator",
             "status": "succeeded",
@@ -37,7 +37,7 @@ def _seed_audit_logs() -> list[dict[str, Any]]:
         },
         {
             "run_id": "run-diag-capture-cirra-nkp1",
-            "timestamp": "2026-09-26T12:33:19+00:00",
+            "timestamp": "2026-09-26T12:33:19Z",
             "verb": "diagnostics-capture",
             "user": "sre-oncall",
             "status": "succeeded",

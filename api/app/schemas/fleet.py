@@ -4,6 +4,8 @@ from typing import Any, Dict, Optional
 
 from pydantic import BaseModel, Field
 
+from ..timeutil import UtcDatetime
+
 
 class SiteSnapshot(BaseModel):
     site_id: str = Field(..., description="Unique site identifier")
@@ -14,7 +16,7 @@ class SiteSnapshot(BaseModel):
     vms_count: int = Field(0, description="Number of VMs for this site")
     ipam_utilization_pct: float = Field(0.0, description="IPAM utilization percentage for this site")
     gpu_nodes_count: int = Field(0, description="Number of GPU nodes for this site")
-    timestamp: Optional[str] = Field(None, description="Snapshot timestamp in ISO-8601 format")
+    timestamp: Optional[UtcDatetime] = Field(None, description="Snapshot timestamp in ISO-8601 format")
     details: Optional[Dict[str, Any]] = Field(None, description="Optional site telemetry details")
 
 
@@ -27,9 +29,9 @@ class SiteStatus(BaseModel):
     vms_count: int = Field(0, description="Number of VMs for this site")
     ipam_utilization_pct: float = Field(0.0, description="IPAM utilization percentage for this site")
     gpu_nodes_count: int = Field(0, description="Number of GPU nodes for this site")
-    timestamp: Optional[str] = Field(None, description="Snapshot timestamp in ISO-8601 format")
+    timestamp: Optional[UtcDatetime] = Field(None, description="Snapshot timestamp in ISO-8601 format")
     details: Optional[Dict[str, Any]] = Field(None, description="Optional site telemetry details")
-    last_seen: Optional[str] = Field(None, description="Last update time in ISO-8601 format")
+    last_seen: Optional[UtcDatetime] = Field(None, description="Last update time in ISO-8601 format")
 
 
 class FleetStatusResponse(BaseModel):

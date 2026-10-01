@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react'
+import Timestamp from '../components/common/Timestamp.jsx'
 
 const DIAGNOSTICS_BUNDLES_API = '/api/v1/diagnostics/bundles'
 const DIAGNOSTICS_CAPTURE_API = '/api/v1/diagnostics/capture'
@@ -49,14 +50,6 @@ const FALLBACK_AUDIT_LOGS = [
     duration_sec: 23.5,
   },
 ]
-
-function formatTimestamp(value) {
-  const parsed = new Date(value)
-  if (Number.isNaN(parsed.getTime())) {
-    return value
-  }
-  return parsed.toLocaleString()
-}
 
 function formatSize(bytes) {
   const size = Number(bytes || 0)
@@ -198,7 +191,7 @@ function DiagnosticsPage() {
                 <td className="px-3 py-2">{bundle.filename}</td>
                 <td className="px-3 py-2">{bundle.cluster_name}</td>
                 <td className="px-3 py-2">{formatSize(bundle.file_size_bytes)}</td>
-                <td className="px-3 py-2">{formatTimestamp(bundle.captured_at)}</td>
+                <td className="px-3 py-2"><Timestamp value={bundle.captured_at} /></td>
                 <td className="px-3 py-2">
                   <span
                     className={`rounded px-2 py-1 text-xs font-medium ${statusBadgeClasses(bundle.status)}`}
@@ -229,7 +222,7 @@ function DiagnosticsPage() {
             {displayedAuditLogs.map((log) => (
               <tr key={log.run_id}>
                 <td className="px-3 py-2">{log.run_id}</td>
-                <td className="px-3 py-2">{formatTimestamp(log.timestamp)}</td>
+                <td className="px-3 py-2"><Timestamp value={log.timestamp} /></td>
                 <td className="px-3 py-2">{log.verb}</td>
                 <td className="px-3 py-2">{log.user}</td>
                 <td className="px-3 py-2">

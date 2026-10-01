@@ -259,6 +259,17 @@ FORGE_MOCK_MODE=true uvicorn api.app.main:app
 
 The header shows an amber **[SYNTHETIC MOCK MODE]** badge (`badge-mock-mode`). The VM list shows 6 sample VMs, Clusters shows `amd-nkp1` (ready) and `cirra-nkp1` (deploying), and every action streams simulated terminal output that finishes successfully.
 
+## Timezone Display (Local vs UTC)
+
+All data is stored and transmitted in UTC (ISO 8601, `...Z`). The console converts it for display:
+
+- **Auto-detect:** your browser timezone is used (`Intl.DateTimeFormat().resolvedOptions().timeZone`); if unavailable it falls back to `America/Los_Angeles` (PST/PDT).
+- **Header toggle:** the clock badge in the header (`button-timezone-toggle`) shows the current mode, e.g. `PDT (Local)` or `UTC`. Click it to switch every timestamp in the console between your local zone and UTC.
+- **Persistence:** your choice is saved in the browser's `localStorage` (`forge_timezone_mode`) and restored on the next visit.
+- **Tooltip:** hover over any timestamp to see the raw UTC value (`UTC: 2026-10-01T01:15:30Z`).
+- **Where it applies:** Diagnostics (support bundles, audit trail), Clusters (Last Updated), Path Settings (backup and safety-snapshot tables), Fleet (last sync), Upgrade (last upgrade) and each line of the Live Terminal.
+- **Live logs:** pipeline runs begin and end with a dual-timestamp header, e.g. `[TIMESTAMP] UTC: 2026-10-01T01:15:30Z | Local (PST): 2026-09-30 18:15:30 PDT`.
+
 ## Frontend Validation Commands
 
 ```bash

@@ -162,5 +162,6 @@ Build a self-contained `forge-central-v<VERSION>.tar.gz` (plus `.sha256`) with `
 
 - `FORGE_BIN`: Absolute or relative path to the forge executable. Default is `./forge` from the current working directory.
 - `FORGE_MOCK_MODE`: Set to `true` to run offline with synthetic VMs, clusters, NFS shares and simulated `./forge` runs (no Proxmox or Kubernetes needed). Default is `false`.
+- `FORGE_DISPLAY_TZ`: IANA zone used only for the local half of the dual-timestamp log headers. Default is `America/Los_Angeles`. All stored/API timestamps remain ISO 8601 UTC (`...Z`); the web console has a Local/UTC toggle (`button-timezone-toggle`).
 - `PORT`: (Compose only) host port mapped to container port 8000. Default is `8000`.
 - `FORGE_HOME`: Forge state directory. Container default is `/forge-state`.

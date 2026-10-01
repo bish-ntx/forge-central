@@ -25,6 +25,7 @@ class Settings(BaseModel):
     forge_backup_dir: Path = Path("~/forge-backups")
     forge_log_dir: Path = Path("~/forge-logs")
     forge_mock_mode: bool = False
+    forge_display_timezone: str = "America/Los_Angeles"  # local label for log headers only
 
     @property
     def forge_bin_resolved(self) -> Path:
@@ -51,6 +52,7 @@ def get_settings() -> Settings:
         if value
     }
     return Settings(
+        forge_display_timezone=os.getenv("FORGE_DISPLAY_TZ", "").strip() or "America/Los_Angeles",
         forge_mock_mode=os.getenv("FORGE_MOCK_MODE", "").strip().lower() in {"1", "true", "yes", "on"},
         forge_bin=Path(forge_bin).expanduser() if forge_bin else Path.cwd() / "forge",
         **overrides,
