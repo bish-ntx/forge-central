@@ -1466,3 +1466,47 @@ Duration  2.82s
   cd ~/work/git/forge-central
   git push origin main
   ```
+
+## Task 21 — State Restore Engine & Pre-Restore Integrity Verification
+
+### Execution Status
+- **SUCCESS**
+
+### Acceptance Criteria Matrix
+- [x] `api/app/schemas/restore.py` (`RestoreVerifyRequest`, `RestoreVerifyCheck`, `RestoreVerifyResponse`, `RestoreExecuteRequest`, `RestoreExecuteResponse`)
+- [x] `api/app/services/restore.py` `verify_backup`: archive exists/`.tar.gz`, SHA-256 vs companion `.sha256`, tarfile integrity; returns manifest
+- [x] `execute_restore`: verifies first (HTTP 400 if invalid), pre-restore safety snapshot via `create_backup()`, per-file atomic restore (temp file + `os.replace`) of `state/*`, `forge-central.db`, `cacrt/*`; traversal/absolute/symlink members skipped; `state-restored` audit event
+- [x] `POST /api/v1/restore/verify` and `POST /api/v1/restore/execute` registered under `/api/v1` in `main.py`
+- [x] `PathSettingsPage.jsx`: Actions column, `btn-restore-{id}`, typed-confirmation modal (`modal-confirm-restore`, `input-confirm-restore`, `btn-confirm-restore`, `btn-close-restore-modal`), SHA-256 badge, safety-snapshot warning, success banner, list refresh, `CliSnippetCard` (`./forge restore execute --backup <id>`)
+- [x] `api/tests/test_restore.py` (4 tests) and `PathSettingsPage.test.jsx` (+2 tests)
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+- [ ] `./forge restore execute` in nkp-forge CLI (snippet only; out of scope)
+
+### Test Results
+- `pytest api/tests/`: 58 passed
+- `npm test` (vitest): 16 files, 65 passed
+
+### Files Created / Modified
+- Created: `api/app/schemas/restore.py`, `api/app/services/restore.py`, `api/app/routers/restore.py`, `api/tests/test_restore.py`
+- Modified: `api/app/main.py`, `ui/src/pages/PathSettingsPage.jsx`, `ui/src/pages/__tests__/PathSettingsPage.test.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only: `feat(restore): Task-21 — 1-click state restore & archive integrity verification engine` (NOT pushed; hash reported in C2 hand-off)
+
+### C1 Planner Verification Verdict
+- **Date/Time:** 2026-09-30 17:35 PDT / 24:35 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `729acd9` created cleanly (`feat(restore): Task-21 — 1-click state restore & archive integrity verification engine`).
+  - Pre-restore verification endpoint `POST /api/v1/restore/verify` implemented in `api/app/routers/restore.py` and `api/app/services/restore.py` checking file existence, SHA-256 companion checksum integrity, and tarball member safety.
+  - Safe restore execution endpoint `POST /api/v1/restore/execute` takes automatic pre-restore safety snapshots via `create_backup()`, unpacks archive members atomically per file, restores state/certs/db, and records `state-restored` audit event.
+  - Frontend controls implemented in `PathSettingsPage.jsx`: Actions column with `btn-restore-{backup_id}`, 2-step typed confirmation modal (`modal-confirm-restore`, `input-confirm-restore`, `btn-confirm-restore`), and `<CliSnippetCard />`.
+  - Pytest suite passed 58/58 tests across all endpoints in `api/tests/`.
+  - Vitest component suite passed 65/65 tests across 16 test files in `ui/`.
+  - Documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```

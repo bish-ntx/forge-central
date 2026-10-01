@@ -111,4 +111,60 @@ describe('PathSettingsPage', () => {
     expect(screen.getByTestId('table-backups')).toHaveTextContent('abc123')
     expect(fetchMock.mock.calls.find(([url]) => url === '/api/v1/backup/create')[1].method).toBe('POST')
   })
+
+  test('restore modal requires typed RESTORE and calls the execute API', async () => {
+    const backup = {
+      backup_id: 'forge-central-backup-1',
+      filename: 'forge-central-backup-1.tar.gz',
+      file_size_bytes: 2048,
+      created_at: '2026-09-30T00:00:00Z',
+      checksum_sha256: 'abc123',
+    }
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      if (url === '/api/v1/restore/verify') {
+        return jsonResponse({ valid: true, backup_id: backup.backup_id, filename: backup.filename, manifest: {}, checks: [] })
+      }
+      if (url === '/api/v1/restore/execute') {
+        return jsonResponse({ restore_id: 'restore-1', restored_files_count: 4, safety_backup_id: 'safety-1', status: 'completed' })
+      }
+      if (url === '/api/v1/backup/list') {
+        return jsonResponse({ backups: [backup] })
+      }
+      return jsonResponse(pathsPayload)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<PathSettingsPage />)
+
+    fireEvent.click(await screen.findByTestId('btn-restore-forge-central-backup-1'))
+    expect(screen.getByTestId('modal-confirm-restore')).toHaveTextContent('forge-central-backup-1.tar.gz')
+    await waitFor(() => expect(screen.getByTestId('badge-restore-checksum')).toHaveTextContent('SHA-256 match'))
+
+    const confirm = screen.getByTestId('btn-confirm-restore')
+    expect(confirm).toBeDisabled()
+    fireEvent.change(screen.getByTestId('input-confirm-restore'), { target: { value: 'RESTORE' } })
+    expect(confirm).not.toBeDisabled()
+    fireEvent.click(confirm)
+
+    await waitFor(() => expect(screen.getByTestId('alert-restore-result')).toHaveTextContent('4 file(s) restored'))
+    expect(screen.queryByTestId('modal-confirm-restore')).not.toBeInTheDocument()
+    const call = fetchMock.mock.calls.find(([url]) => url === '/api/v1/restore/execute')
+    expect(call[1].method).toBe('POST')
+    expect(JSON.parse(call[1].body)).toEqual({ backup_id: 'forge-central-backup-1' })
+  })
+
+  test('cancel closes the restore modal without restoring', async () => {
+    const backup = { backup_id: 'b1', filename: 'b1.tar.gz', file_size_bytes: 1, created_at: '2026-09-30T00:00:00Z', checksum_sha256: 'x' }
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      if (url === '/api/v1/backup/list') return jsonResponse({ backups: [backup] })
+      return jsonResponse(pathsPayload)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    render(<PathSettingsPage />)
+
+    fireEvent.click(await screen.findByTestId('btn-restore-b1'))
+    fireEvent.click(screen.getByTestId('btn-close-restore-modal'))
+
+    expect(screen.queryByTestId('modal-confirm-restore')).not.toBeInTheDocument()
+    expect(fetchMock.mock.calls.some(([url]) => url === '/api/v1/restore/execute')).toBe(false)
+  })
 })

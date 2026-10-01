@@ -223,6 +223,7 @@ Open via the sidebar (`Path Configuration`, `data-testid="link-settings-paths"`)
 - **Result banner (`alert-migration-result`):** shows scanned/migrated file counts and the outcome message. Each migration is recorded in the audit trail as `paths-migrated`.
 
 - **State Backup & Archives (`section-backups`):** press **Create Instant Backup** (`btn-create-backup`) before destructive operations (migrations, upgrades, deletions) to export a compressed `.tar.gz` of state, CA certificates (`~/cacrt/`) and the SQLite database into `FORGE_BACKUP_DIR`; `*.log` files are excluded. The table (`table-backups`) lists Filename, Size, Created At and SHA-256 Checksum, newest first, and a CLI snippet shows `./forge backup create`. Each backup is recorded in the audit trail as `backup-created`.
+- **Restoring a backup:** press **Restore** (`btn-restore-{backup_id}`) in the Actions column of `table-backups`. The confirmation modal (`modal-confirm-restore`) shows the filename, a SHA-256 verification badge (`badge-restore-checksum`) and a warning that an automatic pre-restore safety snapshot is taken first. Type `RESTORE` (`input-confirm-restore`) to enable **Confirm Restore** (`btn-confirm-restore`); **Cancel** (`btn-close-restore-modal`) closes without changes. On success a banner (`alert-restore-result`) reports the restored file count and safety snapshot ID, and the list refreshes. CLI equivalent: `./forge restore execute --backup <id>`. Each restore is recorded in the audit trail as `state-restored`.
 
 ## Air-Gapped Upgrade (`/settings/upgrade`)
 

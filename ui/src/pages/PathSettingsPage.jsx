@@ -5,6 +5,8 @@ const PATHS_API = '/api/v1/settings/paths'
 const MIGRATE_API = '/api/v1/settings/paths/migrate'
 const BACKUP_LIST_API = '/api/v1/backup/list'
 const BACKUP_CREATE_API = '/api/v1/backup/create'
+const RESTORE_VERIFY_API = '/api/v1/restore/verify'
+const RESTORE_EXECUTE_API = '/api/v1/restore/execute'
 
 const FALLBACK_PATHS = [
   { name: 'FORGE_HOME', path: '~/forge', exists: true, accessible: true, writable: true, status: 'accessible', free_bytes: 120000000000, total_bytes: 500000000000 },
@@ -43,6 +45,11 @@ function PathSettingsPage() {
   const [result, setResult] = useState(null)
   const [backups, setBackups] = useState([])
   const [isBackingUp, setIsBackingUp] = useState(false)
+  const [restoreTarget, setRestoreTarget] = useState(null)
+  const [verification, setVerification] = useState(null)
+  const [confirmText, setConfirmText] = useState('')
+  const [isRestoring, setIsRestoring] = useState(false)
+  const [restoreNotice, setRestoreNotice] = useState('')
 
   async function loadBackups() {
     try {
@@ -89,6 +96,52 @@ function PathSettingsPage() {
       setError(backupError instanceof Error ? backupError.message : 'Backup creation failed')
     } finally {
       setIsBackingUp(false)
+    }
+  }
+
+  async function openRestoreModal(backup) {
+    setRestoreTarget(backup)
+    setVerification(null)
+    setConfirmText('')
+    try {
+      const response = await fetch(RESTORE_VERIFY_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backup_id: backup.backup_id }),
+      })
+      setVerification(await response.json())
+    } catch {
+      setVerification({ valid: false })
+    }
+  }
+
+  function closeRestoreModal() {
+    setRestoreTarget(null)
+    setConfirmText('')
+  }
+
+  async function executeRestore() {
+    setIsRestoring(true)
+    setError('')
+    try {
+      const response = await fetch(RESTORE_EXECUTE_API, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ backup_id: restoreTarget.backup_id }),
+      })
+      const payload = await response.json()
+      if (!response.ok) {
+        throw new Error(payload.detail ?? 'Restore failed')
+      }
+      setRestoreNotice(
+        `Restore complete: ${payload.restored_files_count} file(s) restored. Safety snapshot: ${payload.safety_backup_id}`,
+      )
+      closeRestoreModal()
+      await loadBackups()
+    } catch (restoreError) {
+      setError(restoreError instanceof Error ? restoreError.message : 'Restore failed')
+    } finally {
+      setIsRestoring(false)
     }
   }
 
@@ -233,7 +286,8 @@ function PathSettingsPage() {
                 <th className="py-2 pr-3">Filename</th>
                 <th className="py-2 pr-3">Size</th>
                 <th className="py-2 pr-3">Created At</th>
-                <th className="py-2">SHA-256 Checksum</th>
+                <th className="py-2 pr-3">SHA-256 Checksum</th>
+                <th className="py-2">Actions</th>
               </tr>
             </thead>
             <tbody>
@@ -242,7 +296,17 @@ function PathSettingsPage() {
                   <td className="py-2 pr-3 font-mono text-xs">{backup.filename}</td>
                   <td className="py-2 pr-3">{formatSize(backup.file_size_bytes)}</td>
                   <td className="py-2 pr-3">{new Date(backup.created_at).toLocaleString()}</td>
-                  <td className="break-all py-2 font-mono text-xs text-slate-400">{backup.checksum_sha256}</td>
+                  <td className="break-all py-2 pr-3 font-mono text-xs text-slate-400">{backup.checksum_sha256}</td>
+                  <td className="py-2">
+                    <button
+                      type="button"
+                      onClick={() => void openRestoreModal(backup)}
+                      className="rounded border border-amber-500/50 px-3 py-1 text-xs font-medium text-amber-300"
+                      data-testid={`btn-restore-${backup.backup_id}`}
+                    >
+                      Restore
+                    </button>
+                  </td>
                 </tr>
               ))}
             </tbody>
@@ -251,7 +315,73 @@ function PathSettingsPage() {
         <div className="mt-4">
           <CliSnippetCard command="./forge backup create" />
         </div>
+        <div className="mt-4">
+          <CliSnippetCard command={`./forge restore execute --backup ${restoreTarget?.backup_id ?? backups[0]?.backup_id ?? '<id>'}`} />
+        </div>
+        {restoreNotice ? (
+          <div
+            className="mt-4 rounded border border-emerald-500/40 bg-emerald-500/10 p-3 text-sm text-emerald-200"
+            data-testid="alert-restore-result"
+          >
+            {restoreNotice}
+          </div>
+        ) : null}
       </article>
+
+      {restoreTarget ? (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" data-testid="modal-confirm-restore">
+          <div className="w-full max-w-md space-y-4 rounded border border-slate-700 bg-slate-900 p-6">
+            <h3 className="text-lg font-semibold text-slate-100">Confirm State Restore</h3>
+            <p className="break-all font-mono text-xs text-slate-300" data-testid="text-restore-filename">
+              {restoreTarget.filename}
+            </p>
+            <span
+              className={`inline-flex rounded px-2 py-1 text-xs font-medium ${
+                verification === null
+                  ? 'bg-slate-700 text-slate-300'
+                  : verification.valid
+                    ? 'bg-emerald-500/20 text-emerald-300'
+                    : 'bg-rose-500/20 text-rose-300'
+              }`}
+              data-testid="badge-restore-checksum"
+            >
+              {verification === null ? 'Verifying...' : verification.valid ? 'SHA-256 match' : 'Verification failed'}
+            </span>
+            <p className="text-sm text-amber-300">
+              Current state will be overwritten. An automatic pre-restore safety snapshot will be taken first.
+            </p>
+            <label className="block">
+              <span className="mb-1 block text-xs text-slate-400">Type RESTORE to confirm</span>
+              <input
+                type="text"
+                value={confirmText}
+                onChange={(event) => setConfirmText(event.target.value)}
+                className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                data-testid="input-confirm-restore"
+              />
+            </label>
+            <div className="flex justify-end gap-3">
+              <button
+                type="button"
+                onClick={closeRestoreModal}
+                className="rounded border border-slate-600 px-4 py-2 text-sm text-slate-200"
+                data-testid="btn-close-restore-modal"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => void executeRestore()}
+                className="rounded bg-rose-500 px-4 py-2 text-sm font-medium text-white disabled:opacity-50"
+                data-testid="btn-confirm-restore"
+                disabled={confirmText !== 'RESTORE' || isRestoring}
+              >
+                {isRestoring ? 'Restoring...' : 'Confirm Restore'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
 
       {error ? <p className="text-xs text-amber-300">{error}</p> : null}
     </section>

@@ -699,6 +699,30 @@ Example response:
 
 Lists `*.tar.gz` archives in `FORGE_BACKUP_DIR`, newest first, as `{"backups": [ ...same fields as above without status... ]}`.
 
+## State Restore API
+
+### `POST /api/v1/restore/verify`
+
+Request: `{"backup_id": "forge-central-backup-20260930T170000Z-1a2b3c4d"}` (a filename is also accepted; only the basename is used, so path traversal is impossible). Runs three pre-restore checks against the archive in `FORGE_BACKUP_DIR`: `archive-exists` (file present, `.tar.gz`), `checksum-match` (SHA-256 equals the companion `.sha256`) and `archive-integrity` (the tarball opens and lists members). Always returns `200`; inspect `valid`.
+
+```json
+{
+  "valid": true,
+  "backup_id": "forge-central-backup-20260930T170000Z-1a2b3c4d",
+  "filename": "forge-central-backup-20260930T170000Z-1a2b3c4d.tar.gz",
+  "manifest": {"checksum_sha256": "9f86...", "file_count": 12, "total_bytes": 20480, "entries": ["cacrt", "forge-central.db", "state"]},
+  "checks": [{"name": "archive-exists", "passed": true, "message": "Archive found"}]
+}
+```
+
+### `POST /api/v1/restore/execute`
+
+Request: `{"backup_id": "..."}`. Re-runs verification (`400` with `{"detail": "Backup verification failed: ..."}` if invalid), takes an automatic pre-restore safety snapshot via the backup engine, then restores `state/*` and `forge-central.db` into `FORGE_CENTRAL_DATA_DIR` and `cacrt/*` into `~/cacrt/`. Each file is written to a temporary name and atomically swapped into place; absolute paths, `..` segments, symlinks and device nodes in the archive are skipped. Records a `state-restored` audit event.
+
+```json
+{"restore_id": "restore-1a2b3c4d", "restored_files_count": 12, "safety_backup_id": "forge-central-backup-20260930T171000Z-5e6f7a8b", "status": "completed"}
+```
+
 ## Air-Gapped Upgrade API
 
 ### `GET /api/v1/upgrade/status`
