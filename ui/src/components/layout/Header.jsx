@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useEffect, useState } from 'react'
 import { Search } from 'lucide-react'
 
 const THEME_MODE_LABELS = {
@@ -8,8 +8,21 @@ const THEME_MODE_LABELS = {
 }
 
 function Header({ mode, onToggleMode, themeMode, onToggleThemeMode, onOpenCommandPalette }) {
+  const [mockMode, setMockMode] = useState(false)
   const modeLabel =
     mode === 'console' ? 'Forge Central Console' : 'Forge Fleet Dashboard'
+
+  useEffect(() => {
+    let active = true
+    Promise.resolve()
+      .then(() => fetch('/health'))
+      .then((response) => response.json())
+      .then((health) => active && setMockMode(Boolean(health?.mock_mode)))
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [])
 
   return (
     <header
@@ -23,6 +36,14 @@ function Header({ mode, onToggleMode, themeMode, onToggleThemeMode, onOpenComman
         >
           {modeLabel}
         </span>
+        {mockMode && (
+          <span
+            className="rounded-full border border-amber-500/40 bg-amber-500/15 px-3 py-1 text-xs font-semibold text-amber-300"
+            data-testid="badge-mock-mode"
+          >
+            [SYNTHETIC MOCK MODE]
+          </span>
+        )}
         <button
           type="button"
           onClick={onToggleMode}

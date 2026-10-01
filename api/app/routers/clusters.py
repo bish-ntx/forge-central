@@ -6,6 +6,7 @@ from typing import Any, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Request
 
+from ..config import get_settings
 from ..schemas.clusters import (
     ClusterCommandResponse,
     ClusterCreateRequest,
@@ -19,6 +20,7 @@ from ..schemas.clusters import (
     ClusterResetNodesRequest,
     MetalLbConfig,
 )
+from ..services.mock_data import MOCK_CLUSTERS
 from ..services.process_runner import ProcessRunner
 from .audit import record_audit_event
 
@@ -106,8 +108,10 @@ async def _run_forge_json(
 @router.get("", response_model=ClusterListResponse)
 async def list_clusters(request: Request) -> ClusterListResponse:
     """Return NKP cluster inventory from forge CLI JSON output."""
-    runner = get_runner(request)
-    payload = await _run_forge_json(runner, ["cluster-list", "--json"])
+    if get_settings().forge_mock_mode:
+        payload: Union[dict[str, Any], list[dict[str, Any]]] = MOCK_CLUSTERS
+    else:
+        payload = await _run_forge_json(get_runner(request), ["cluster-list", "--json"])
     raw_clusters = payload["clusters"] if isinstance(payload, dict) else payload
     cluster_items = [_normalize_cluster_item(item) for item in raw_clusters if isinstance(item, dict)]
     return ClusterListResponse(clusters=cluster_items)

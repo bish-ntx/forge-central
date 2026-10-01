@@ -24,6 +24,7 @@ class Settings(BaseModel):
     forge_central_data_dir: Path = Path("~/forge-central-data")
     forge_backup_dir: Path = Path("~/forge-backups")
     forge_log_dir: Path = Path("~/forge-logs")
+    forge_mock_mode: bool = False
 
     @property
     def forge_bin_resolved(self) -> Path:
@@ -50,6 +51,7 @@ def get_settings() -> Settings:
         if value
     }
     return Settings(
+        forge_mock_mode=os.getenv("FORGE_MOCK_MODE", "").strip().lower() in {"1", "true", "yes", "on"},
         forge_bin=Path(forge_bin).expanduser() if forge_bin else Path.cwd() / "forge",
         **overrides,
     )

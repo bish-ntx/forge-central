@@ -142,3 +142,4 @@ Pages under `ui/src/pages/` expose deterministic `data-testid` selectors for aut
 ## Environment Variables
 
 - `FORGE_BIN`: Absolute or relative path to the forge executable. Default is `./forge` from the current working directory.
+- `FORGE_MOCK_MODE`: Set to `true` to run offline with synthetic VMs, clusters, NFS shares and simulated `./forge` runs (no Proxmox or Kubernetes needed). Default is `false`.

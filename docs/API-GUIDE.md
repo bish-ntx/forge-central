@@ -4,16 +4,32 @@
 
 ### `GET /health`
 
-Returns service liveness with forge binary path metadata.
+Returns service liveness with forge binary path metadata and whether synthetic mock mode is active.
 
 Example response:
 
 ```json
 {
   "status": "healthy",
-  "forge_bin": "/path/to/forge"
+  "forge_bin": "/path/to/forge",
+  "mock_mode": false
 }
 ```
+
+### Synthetic Mock Mode (`FORGE_MOCK_MODE=true`)
+
+Run the API 100% offline, with no Proxmox hypervisor or Kubernetes cluster:
+
+```bash
+FORGE_MOCK_MODE=true uvicorn api.app.main:app
+```
+
+- `/health` returns `"mock_mode": true`.
+- Every run started through `ProcessRunner` (pipeline, VM, cluster, node, share actions) is simulated instead of spawning `./forge`: synthetic stage banners, clone progress, IP allocation and etcd quorum lines stream over SSE (20-50ms apart), then `event: end` with `exit_code: 0` / `COMPLETED`.
+- `GET /api/v1/vms` returns 6 sample VMs (`cp-01..03`, `wk-01..02`, and `gpu-01` with PCI passthrough).
+- `GET /api/v1/clusters` returns `amd-nkp1` (`ready`) and `cirra-nkp1` (`deploying`).
+- `GET /api/v1/shares/status` returns the `~/nkp-forge`, `~/forge-state` and `~/cacrt` exports.
+- Runs are also simulated (without the env flag) when `--mock` is in the CLI args or the `forge` binary is missing or not executable.
 
 ### `GET /api/v1/version`
 

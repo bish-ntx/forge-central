@@ -1272,3 +1272,63 @@ Duration  2.82s
   git push origin main
   ```
 
+
+## [2026-09-30] Task-17 100% offline synthetic dev engine & mock execution mode
+
+- Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] `forge_mock_mode` setting (`FORGE_MOCK_MODE`, default `false`) in `api/app/config.py`
+- [x] `ProcessRunner` simulates runs (synthetic stdout/stderr, 20-50ms delays, `end` event `exit_code: 0` / `COMPLETED`) when `mock_mode`, `FORGE_MOCK_MODE`, `--mock` argv, or missing/non-executable `forge`
+- [x] `GET /health` includes `mock_mode` (route lives in `api/app/routers/cli.py`)
+- [x] `GET /api/v1/vms`, `GET /api/v1/clusters`, `GET /api/v1/shares/status` return synthetic payloads in mock mode (`api/app/services/mock_data.py`)
+- [x] Header renders amber `badge-mock-mode` (`[SYNTHETIC MOCK MODE]`) from `/health`; Vite dev proxy forwards `/health`
+- [x] `api/tests/test_mock_mode.py` and `Header.test.jsx` added
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+
+### Test Results
+- `pytest api/tests/`: 46 passed
+- `npm test` (ui/): 15 test files, 60 tests passed
+
+### Local Commit Snapshot
+- Subject: `feat(mock): Task-17 — 100% offline synthetic dev engine & mock execution mode`
+- Hash: see `git log -1` (local commit only; NOT pushed)
+
+### Files Created / Modified
+- `api/app/config.py`
+- `api/app/schemas/cli.py`
+- `api/app/routers/cli.py`
+- `api/app/routers/vms.py`
+- `api/app/routers/clusters.py`
+- `api/app/routers/nodes.py`
+- `api/app/services/process_runner.py`
+- `api/app/services/mock_data.py` (new)
+- `api/tests/test_mock_mode.py` (new)
+- `ui/src/components/layout/Header.jsx`
+- `ui/src/components/layout/__tests__/Header.test.jsx` (new)
+- `ui/vite.config.js`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### C1 Planner Verification Verdict
+- **Date/Time:** 2026-09-30 17:03 PDT / 24:03 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `f14ccbc` created cleanly (`feat(mock): Task-17 — 100% offline synthetic dev engine & mock execution mode`).
+  - `forge_mock_mode` setting added to `api/app/config.py` resolving `FORGE_MOCK_MODE` env var.
+  - Subprocess mock engine in `api/app/services/process_runner.py` streams synthetic progressive stdout/stderr lines with async delays and terminates with exit code 0 / COMPLETED.
+  - Health endpoint (`GET /health`) enhanced with `mock_mode: bool`.
+  - Synthetic data fallbacks implemented in `api/app/services/mock_data.py` for `/api/v1/vms`, `/api/v1/clusters`, and `/api/v1/shares/status`.
+  - Header badge `badge-mock-mode` (`[SYNTHETIC MOCK MODE]`) dynamically displayed in `Header.jsx`.
+  - Vite dev proxy configured to forward `/health` in `ui/vite.config.js`.
+  - Pytest suite passed 46/46 tests across all endpoints in `api/tests/`.
+  - Vitest component suite passed 60/60 tests across 15 test files in `ui/`.
+  - Documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```

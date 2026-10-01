@@ -31,6 +31,7 @@ class CLIExecuteResponse(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     forge_bin: str
+    mock_mode: bool = False
 
 
 class VersionResponse(BaseModel):

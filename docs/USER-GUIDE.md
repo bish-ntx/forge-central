@@ -231,6 +231,16 @@ Create dialogs and review steps show a **CLI Equivalent** card (`card-cli-snippe
 
 Press **Copy** (`btn-copy-cli-snippet`) to copy the command to the clipboard; the button briefly shows **Copied!**.
 
+## Offline Synthetic Mock Mode
+
+Develop, test or demo the whole console without Proxmox or a Kubernetes cluster:
+
+```bash
+FORGE_MOCK_MODE=true uvicorn api.app.main:app
+```
+
+The header shows an amber **[SYNTHETIC MOCK MODE]** badge (`badge-mock-mode`). The VM list shows 6 sample VMs, Clusters shows `amd-nkp1` (ready) and `cirra-nkp1` (deploying), and every action streams simulated terminal output that finishes successfully.
+
 ## Frontend Validation Commands
 
 ```bash

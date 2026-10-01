@@ -2,12 +2,14 @@ from __future__ import annotations
 
 from fastapi import APIRouter, Request
 
+from ..config import get_settings
 from ..schemas.nodes import (
     NodePrepRequest,
     NodePrepResponse,
     ShareMountRequest,
     ShareStatusResponse,
 )
+from ..services.mock_data import MOCK_SHARES
 from .audit import record_audit_event
 
 router = APIRouter(tags=["nodes"])
@@ -102,4 +104,4 @@ async def mount_share(request: Request, payload: ShareMountRequest) -> NodePrepR
 @router.get("/shares/status", response_model=ShareStatusResponse)
 async def share_status() -> ShareStatusResponse:
     """List configured NFS exports/mounts and their status."""
-    return ShareStatusResponse(shares=SHARE_STATUS_STATE)
+    return ShareStatusResponse(shares=MOCK_SHARES if get_settings().forge_mock_mode else SHARE_STATUS_STATE)

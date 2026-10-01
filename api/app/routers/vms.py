@@ -6,6 +6,7 @@ from typing import Any, Literal, Optional, Union
 
 from fastapi import APIRouter, HTTPException, Query, Request
 
+from ..config import get_settings
 from ..schemas.vms import (
     PciPassthroughRequest,
     VmActionRequest,
@@ -18,6 +19,7 @@ from ..schemas.vms import (
     VmItem,
     VmListResponse,
 )
+from ..services.mock_data import MOCK_VMS
 from ..services.process_runner import ProcessRunner
 from .audit import record_audit_event
 
@@ -77,8 +79,10 @@ async def list_vms(
     status: Optional[Literal["running", "stopped"]] = Query(default=None),
 ) -> VmListResponse:
     """Return active VM inventory with optional node/status filtering."""
-    runner = get_runner(request)
-    payload = await _run_forge_json(runner, ["vm-list", "--json"])
+    if get_settings().forge_mock_mode:
+        payload: Union[dict[str, Any], list[dict[str, Any]]] = MOCK_VMS
+    else:
+        payload = await _run_forge_json(get_runner(request), ["vm-list", "--json"])
     raw_vms = payload["vms"] if isinstance(payload, dict) else payload
     vm_items = [_normalize_vm_item(item) for item in raw_vms if isinstance(item, dict)]
 

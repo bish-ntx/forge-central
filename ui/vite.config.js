@@ -13,6 +13,10 @@ export default defineConfig(({ mode }) => {
           target: backendProxyTarget,
           changeOrigin: true,
         },
+        '/health': {
+          target: backendProxyTarget,
+          changeOrigin: true,
+        },
       },
     },
     test: {

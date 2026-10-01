@@ -112,6 +112,7 @@ async def health_check(request: Request) -> HealthResponse:
     return HealthResponse(
         status="healthy",
         forge_bin=str(runner.forge_bin),
+        mock_mode=get_settings().forge_mock_mode,
     )
 
 
