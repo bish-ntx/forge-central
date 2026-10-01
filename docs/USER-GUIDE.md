@@ -225,6 +225,10 @@ Open via the sidebar (`Path Configuration`, `data-testid="link-settings-paths"`)
 - **State Backup & Archives (`section-backups`):** press **Create Instant Backup** (`btn-create-backup`) before destructive operations (migrations, upgrades, deletions) to export a compressed `.tar.gz` of state, CA certificates (`~/cacrt/`) and the SQLite database into `FORGE_BACKUP_DIR`; `*.log` files are excluded. The table (`table-backups`) lists Filename, Size, Created At and SHA-256 Checksum, newest first, and a CLI snippet shows `./forge backup create`. Each backup is recorded in the audit trail as `backup-created`.
 - **Restoring a backup:** press **Restore** (`btn-restore-{backup_id}`) in the Actions column of `table-backups`. The confirmation modal (`modal-confirm-restore`) shows the filename, a SHA-256 verification badge (`badge-restore-checksum`) and a warning that an automatic pre-restore safety snapshot is taken first. Type `RESTORE` (`input-confirm-restore`) to enable **Confirm Restore** (`btn-confirm-restore`); **Cancel** (`btn-close-restore-modal`) closes without changes. On success a banner (`alert-restore-result`) reports the restored file count and safety snapshot ID, and the list refreshes. CLI equivalent: `./forge restore execute --backup <id>`. Each restore is recorded in the audit trail as `state-restored`.
 
+## Automatic Safety Snapshots on Destructive Operations
+
+Before **Delete Cluster**, **Reset Nodes** (cluster list and detail pages) and **Destroy Selected** (VM batch destroy) run, Forge Central automatically archives its state, CA certificates and database into `FORGE_BACKUP_DIR` as `safety-<operation>-<resource>-<timestamp>-<id>.tar.gz` (with a `.sha256` companion). The confirmation dialogs show a teal notice (`banner-safety-snapshot-notice`) and the API returns the snapshot ID as `safety_backup_id`. If something goes wrong, restore it from Path Settings (`/settings/paths`). Safety snapshots appear in the audit trail as `safety-snapshot-created`.
+
 ## Air-Gapped Upgrade (`/settings/upgrade`)
 
 Open via the sidebar (`Upgrade`, `data-testid="link-settings-upgrade"`) or the Command Palette (`Air-Gapped Upgrade`).

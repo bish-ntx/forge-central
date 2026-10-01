@@ -82,6 +82,7 @@ describe('ClustersPage', () => {
     fireEvent.click(screen.getByTestId('btn-cluster-delete-nkp-prod-01'))
 
     expect(screen.getByTestId('modal-confirm-cluster-delete')).toBeInTheDocument()
+    expect(screen.getByTestId('banner-safety-snapshot-notice')).toBeInTheDocument()
     expect(screen.getByTestId('btn-confirm-cluster-delete')).toBeDisabled()
   })
 
@@ -128,6 +129,9 @@ describe('ClustersPage', () => {
 
     fireEvent.click(screen.getByTestId('btn-reset-nodes-nkp-prod-01'))
     expect(screen.getByTestId('modal-confirm-reset-nodes')).toBeInTheDocument()
+    expect(screen.getByTestId('modal-confirm-reset-nodes')).toContainElement(
+      screen.getByTestId('banner-safety-snapshot-notice'),
+    )
     expect(screen.getByTestId('btn-confirm-reset-nodes')).toBeDisabled()
 
     fireEvent.change(screen.getByTestId('input-confirm-reset-nodes'), { target: { value: 'RESET' } })

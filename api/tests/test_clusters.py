@@ -149,3 +149,32 @@ async def test_list_nodepools_reflects_created_pool(monkeypatch: pytest.MonkeyPa
     pools = {p["name"]: p for p in updated.json()["nodepools"]}
     assert pools["gpu-pool"]["replicas"] == 4
     assert pools["gpu-pool"]["hypervisor_type"] == "ahv"
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    ("method", "path", "operation"),
+    [
+        ("delete", "/api/v1/clusters/nkp-prod-01", "cluster-delete"),
+        ("post", "/api/v1/clusters/amd-nkp1/reset-nodes", "reset-nodes"),
+    ],
+)
+async def test_destructive_cluster_ops_create_safety_snapshot(
+    monkeypatch: pytest.MonkeyPatch, isolated_backup_dir: Path, method: str, path: str, operation: str
+) -> None:
+    async def fake_start_run(command: str | list[str], args: list[str], env_overrides=None) -> ProcessRun:
+        _ = (command, args, env_overrides)
+        return _pending_run("./forge destructive")
+
+    monkeypatch.setattr(app.state.process_runner, "start_run", fake_start_run)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.request(method, path)
+        logs = await client.get("/api/v1/audit/logs", params={"verb": "safety-snapshot-created"})
+
+    assert response.status_code == 202
+    backup_id = response.json()["safety_backup_id"]
+    assert backup_id.startswith(f"safety-{operation}-")
+    assert (isolated_backup_dir / f"{backup_id}.tar.gz").is_file()
+    assert (isolated_backup_dir / f"{backup_id}.tar.gz.sha256").is_file()
+    assert logs.json()["logs"][0]["details"]["operation_name"] == operation

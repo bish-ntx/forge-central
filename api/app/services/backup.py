@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import tarfile
 from datetime import datetime, timezone
 from pathlib import Path
@@ -53,12 +54,9 @@ def _item(path: Path, checksum: str) -> BackupItem:
     )
 
 
-def create_backup(target_dir: Optional[Path] = None) -> BackupCreateResponse:
-    """Bundle state, CA certs and the SQLite DB into a checksummed `.tar.gz` (excluding `*.log`)."""
+def _write_archive(filename: str, target_dir: Optional[Path] = None) -> BackupItem:
     directory = (target_dir or get_settings().forge_backup_dir).expanduser().resolve()
     directory.mkdir(parents=True, exist_ok=True)
-    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
-    filename = f"forge-central-backup-{timestamp}-{uuid4().hex[:8]}{ARCHIVE_SUFFIX}"
     archive = directory / filename
 
     def _exclude(info: tarfile.TarInfo) -> Optional[tarfile.TarInfo]:
@@ -73,14 +71,48 @@ def create_backup(target_dir: Optional[Path] = None) -> BackupCreateResponse:
 
     checksum = _sha256(archive)
     archive.with_name(filename + ".sha256").write_text(f"{checksum}  {filename}\n")
-    item = _item(archive, checksum)
+    return _item(archive, checksum)
+
+
+def create_backup(target_dir: Optional[Path] = None) -> BackupCreateResponse:
+    """Bundle state, CA certs and the SQLite DB into a checksummed `.tar.gz` (excluding `*.log`)."""
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    filename = f"forge-central-backup-{timestamp}-{uuid4().hex[:8]}{ARCHIVE_SUFFIX}"
+    item = _write_archive(filename, target_dir)
     record_audit_event(
         run_id=f"backup-{item.backup_id[-8:]}",
         verb="backup-created",
         user="system-admin",
         status="succeeded",
         duration_sec=0.0,
-        details={"filename": filename, "checksum": checksum, "size": item.file_size_bytes},
+        details={"filename": filename, "checksum": item.checksum_sha256, "size": item.file_size_bytes},
+    )
+    return BackupCreateResponse(**item.model_dump())
+
+
+def _slug(value: str) -> str:
+    return re.sub(r"[^A-Za-z0-9_.-]+", "-", value).strip("-.") or "unknown"
+
+
+def create_safety_snapshot(operation_name: str, resource_id: str) -> BackupCreateResponse:
+    """Create a pre-mutation `safety-*` archive before a destructive operation runs."""
+    timestamp = datetime.now(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
+    filename = (
+        f"safety-{_slug(operation_name)}-{_slug(resource_id)}-{timestamp}-{uuid4().hex[:8]}{ARCHIVE_SUFFIX}"
+    )
+    item = _write_archive(filename)
+    record_audit_event(
+        run_id=f"safety-{item.backup_id[-8:]}",
+        verb="safety-snapshot-created",
+        user="system-admin",
+        status="succeeded",
+        duration_sec=0.0,
+        details={
+            "operation_name": operation_name,
+            "resource_id": resource_id,
+            "filename": filename,
+            "checksum": item.checksum_sha256,
+        },
     )
     return BackupCreateResponse(**item.model_dump())
 

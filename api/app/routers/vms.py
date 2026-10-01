@@ -19,6 +19,7 @@ from ..schemas.vms import (
     VmItem,
     VmListResponse,
 )
+from ..services.backup import create_safety_snapshot
 from ..services.mock_data import MOCK_VMS
 from ..services.process_runner import ProcessRunner
 from .audit import record_audit_event
@@ -123,8 +124,13 @@ async def create_vm(request: Request, payload: VmCreateRequest) -> VmCommandResp
 
 @router.post("/batch-action", response_model=VmBatchActionResponse, status_code=202)
 async def vm_batch_action(request: Request, payload: VmBatchActionRequest) -> VmBatchActionResponse:
-    """Queue a lifecycle action (start/stop/restart/destroy) for multiple VMs."""
+    """Queue a lifecycle action for multiple VMs; `destroy` first takes a safety snapshot."""
     runner = get_runner(request)
+    snapshot = (
+        create_safety_snapshot("vm-batch-destroy", f"{len(payload.vmids)}-vms")
+        if payload.action == "destroy"
+        else None
+    )
     run = await runner.start_run(
         command="forge",
         args=[
@@ -149,6 +155,7 @@ async def vm_batch_action(request: Request, payload: VmBatchActionRequest) -> Vm
         action=payload.action,
         affected_vmids=payload.vmids,
         started_at=run.started_at,
+        safety_backup_id=snapshot.backup_id if snapshot else None,
     )
 
 

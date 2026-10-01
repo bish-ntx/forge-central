@@ -180,7 +180,7 @@ curl -s -X POST "http://127.0.0.1:8000/api/v1/vms/pci-passthrough" \
 
 ### `POST /api/v1/vms/batch-action`
 
-Queues one lifecycle action (`start`, `stop`, `restart`, `destroy`) for multiple VMs via `forge vm-batch-action`. Returns `202` and records a `vm-batch-{action}` audit event.
+Queues one lifecycle action (`start`, `stop`, `restart`, `destroy`) for multiple VMs via `forge vm-batch-action`. Returns `202` and records a `vm-batch-{action}` audit event. For `action: "destroy"` a pre-mutation safety snapshot (`safety-vm-batch-destroy-<N>-vms-<timestamp>-<id>.tar.gz`) is created first and its ID returned as `safety_backup_id` (`null` for other actions).
 
 Request schema:
 
@@ -307,7 +307,7 @@ Example response:
 
 ### `DELETE /api/v1/clusters/{name}`
 
-Queues cluster deletion for workload or management clusters.
+Queues cluster deletion for workload or management clusters. Before the deletion run starts, an automatic safety snapshot (`safety-cluster-delete-<name>-<timestamp>-<id>.tar.gz` plus `.sha256`) is written to `FORGE_BACKUP_DIR` and its ID is returned as `safety_backup_id`. The snapshot is audited as `safety-snapshot-created` and can be restored via `/api/v1/restore/execute`.
 
 Example:
 
@@ -347,7 +347,7 @@ Response schema (`ClusterNodepoolListResponse`):
 
 ### `POST /api/v1/clusters/{name}/reset-nodes`
 
-Queues `preprov-reset-nodes.sh` for the cluster and records a `cluster-reset-nodes` entry in the audit trail (`GET /api/v1/audit/logs`). Returns `202` with a `ClusterCommandResponse`.
+Queues `preprov-reset-nodes.sh` for the cluster and records a `cluster-reset-nodes` entry in the audit trail (`GET /api/v1/audit/logs`). Returns `202` with a `ClusterCommandResponse`. A safety snapshot (`safety-reset-nodes-<name>-<timestamp>-<id>.tar.gz`) is created before the reset run and returned as `safety_backup_id`.
 
 Optional request body (omit to reset all nodes):
 

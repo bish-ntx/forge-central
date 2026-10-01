@@ -20,6 +20,7 @@ from ..schemas.clusters import (
     ClusterResetNodesRequest,
     MetalLbConfig,
 )
+from ..services.backup import create_safety_snapshot
 from ..services.mock_data import MOCK_CLUSTERS
 from ..services.process_runner import ProcessRunner
 from .audit import record_audit_event
@@ -165,8 +166,9 @@ async def get_cluster(name: str, request: Request) -> ClusterDetailResponse:
 
 @router.delete("/{name}", response_model=ClusterCommandResponse, status_code=202)
 async def delete_cluster(name: str, request: Request) -> ClusterCommandResponse:
-    """Queue cluster deletion for NKP workload or management cluster."""
+    """Queue cluster deletion after taking an automatic pre-mutation safety snapshot."""
     runner = get_runner(request)
+    snapshot = create_safety_snapshot("cluster-delete", name)
     run = await runner.start_run(
         command="forge",
         args=["cluster-delete", "--cluster-name", name],
@@ -176,6 +178,7 @@ async def delete_cluster(name: str, request: Request) -> ClusterCommandResponse:
         status=run.status.value,
         command=run.command,
         started_at=run.started_at,
+        safety_backup_id=snapshot.backup_id,
     )
 
 
@@ -230,8 +233,9 @@ async def list_nodepools(name: str) -> ClusterNodepoolListResponse:
 async def reset_cluster_nodes(
     name: str, request: Request, payload: Optional[ClusterResetNodesRequest] = None
 ) -> ClusterCommandResponse:
-    """Queue preprov-reset-nodes.sh for the cluster and record an audit trail entry."""
+    """Take a safety snapshot, queue preprov-reset-nodes.sh and record an audit trail entry."""
     runner = get_runner(request)
+    snapshot = create_safety_snapshot("reset-nodes", name)
     args = ["preprov-reset-nodes.sh", "--cluster-name", name]
     for node_name in (payload.node_names if payload and payload.node_names else []):
         args.extend(["--node-name", node_name])
@@ -249,4 +253,5 @@ async def reset_cluster_nodes(
         status=run.status.value,
         command=run.command,
         started_at=run.started_at,
+        safety_backup_id=snapshot.backup_id,
     )

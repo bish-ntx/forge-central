@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ArrowLeft, Minus, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import SafetySnapshotNotice from '../components/common/SafetySnapshotNotice.jsx'
 
 const API_BASE = '/api/v1/clusters'
 
@@ -212,8 +213,9 @@ function ClusterDetailPage() {
         </div>
       ) : null}
       {panel === 'reset' ? (
-        <div className="mt-4 flex items-center gap-2" data-testid="panel-detail-reset-nodes">
+        <div className="mt-4 flex flex-wrap items-center gap-2" data-testid="panel-detail-reset-nodes">
           <span className="text-sm text-slate-300">Type RESET to confirm:</span>
+          <SafetySnapshotNotice />
           <input
             className="rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
             value={resetText}
@@ -232,8 +234,9 @@ function ClusterDetailPage() {
         </div>
       ) : null}
       {panel === 'delete' ? (
-        <div className="mt-4 flex items-center gap-2" data-testid="panel-detail-delete-cluster">
+        <div className="mt-4 flex flex-wrap items-center gap-2" data-testid="panel-detail-delete-cluster">
           <span className="text-sm text-slate-300">Delete {cluster.name}? This cannot be undone.</span>
+          <SafetySnapshotNotice />
           <button
             type="button"
             className="rounded bg-rose-700 px-3 py-2 text-sm text-white"

@@ -65,6 +65,7 @@ class ClusterCommandResponse(BaseModel):
     status: str
     command: str
     started_at: datetime
+    safety_backup_id: Optional[str] = None
 
 
 class ClusterDetailResponse(BaseModel):

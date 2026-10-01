@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
+import SafetySnapshotNotice from '../components/common/SafetySnapshotNotice.jsx'
 
 const API_BASE = '/api/v1/vms'
 
@@ -536,6 +537,7 @@ function VmListPage() {
               Type <span className="font-semibold text-rose-300">DESTROY</span> to permanently
               delete {selectedVmids.length} selected {selectedVmids.length === 1 ? 'VM' : 'VMs'}.
             </p>
+            <SafetySnapshotNotice />
             <input
               className="mt-3 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
               value={batchDestroyText}

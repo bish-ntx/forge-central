@@ -60,6 +60,7 @@ class VmBatchActionResponse(BaseModel):
     action: str
     affected_vmids: list[int]
     started_at: datetime
+    safety_backup_id: Optional[str] = None
 
 
 class VmCloneBatchRequest(BaseModel):

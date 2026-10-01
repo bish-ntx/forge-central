@@ -161,3 +161,29 @@ async def test_vm_clone_batch_queues_runner(monkeypatch: pytest.MonkeyPatch) -> 
         "vm-clone-batch", "--template-id", "9000", "--count", "3",
         "--base-name", "worker", "--node", "pve-a",
     ]
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(("action", "expects_snapshot"), [("destroy", True), ("stop", False)])
+async def test_vm_batch_action_safety_snapshot_only_for_destroy(
+    monkeypatch: pytest.MonkeyPatch, isolated_backup_dir: Path, action: str, expects_snapshot: bool
+) -> None:
+    async def fake_start_run(command: str | list[str], args: list[str], env_overrides=None) -> ProcessRun:
+        _ = (command, args, env_overrides)
+        return _pending_run("./forge vm-batch-action")
+
+    monkeypatch.setattr(app.state.process_runner, "start_run", fake_start_run)
+
+    async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as client:
+        response = await client.post(
+            "/api/v1/vms/batch-action", json={"vmids": [101, 102], "action": action}
+        )
+
+    assert response.status_code == 202
+    backup_id = response.json()["safety_backup_id"]
+    if expects_snapshot:
+        assert backup_id.startswith("safety-vm-batch-destroy-2-vms-")
+        assert (isolated_backup_dir / f"{backup_id}.tar.gz").is_file()
+    else:
+        assert backup_id is None
+        assert not isolated_backup_dir.exists()

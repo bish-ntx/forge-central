@@ -171,6 +171,7 @@ describe('VmListPage', () => {
     fireEvent.click(screen.getByTestId('btn-batch-destroy'))
 
     expect(screen.getByTestId('modal-confirm-batch-destroy')).toBeInTheDocument()
+    expect(screen.getByTestId('banner-safety-snapshot-notice')).toBeInTheDocument()
     expect(screen.getByTestId('btn-confirm-batch-destroy')).toBeDisabled()
     fireEvent.change(screen.getByTestId('input-confirm-batch-destroy'), {
       target: { value: 'DESTROY' },

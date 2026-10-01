@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react'
 import { Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { Link, useNavigate } from 'react-router-dom'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
+import SafetySnapshotNotice from '../components/common/SafetySnapshotNotice.jsx'
 
 const API_BASE = '/api/v1/clusters'
 const PREP_NODE_DEFAULTS = {
@@ -404,6 +405,7 @@ function ClustersPage() {
               Type <span className="font-semibold text-rose-300">{deleteTargetCluster.name}</span> to
               confirm deletion.
             </p>
+            <SafetySnapshotNotice />
             <input
               className="mt-3 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
               value={deleteConfirmationText}
@@ -599,6 +601,7 @@ function ClustersPage() {
               Type <span className="font-semibold text-rose-300">RESET</span> to reset all nodes of{' '}
               {resetTargetCluster.name}.
             </p>
+            <SafetySnapshotNotice />
             <input
               className="mt-3 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
               value={resetConfirmationText}

@@ -91,7 +91,13 @@ describe('ClusterDetailPage', () => {
     expect(screen.getByTestId('btn-back-clusters')).toHaveAttribute('href', '/clusters')
     expect(screen.getByTestId('btn-detail-delete-cluster')).toBeInTheDocument()
 
+    fireEvent.click(screen.getByTestId('btn-detail-delete-cluster'))
+    expect(screen.getByTestId('panel-detail-delete-cluster')).toContainElement(
+      screen.getByTestId('banner-safety-snapshot-notice'),
+    )
+
     fireEvent.click(screen.getByTestId('btn-detail-reset-nodes'))
+    expect(screen.getByTestId('banner-safety-snapshot-notice')).toBeInTheDocument()
     expect(screen.getByTestId('btn-detail-confirm-reset')).toBeDisabled()
     fireEvent.change(screen.getByTestId('input-detail-confirm-reset'), { target: { value: 'RESET' } })
     fireEvent.click(screen.getByTestId('btn-detail-confirm-reset'))

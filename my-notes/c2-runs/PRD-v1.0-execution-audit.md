@@ -1510,3 +1510,45 @@ Duration  2.82s
   cd ~/work/git/forge-central
   git push origin main
   ```
+
+## Task 22 — Pre-Mutating Safety Snapshots & Destructive Operation Guards
+
+- Execution Status: **SUCCESS**
+
+### Acceptance Criteria Matrix
+- [x] `services/backup.py`: `create_safety_snapshot(operation_name, resource_id)` → `safety-{op}-{resource}-{timestamp}-{uuid8}.tar.gz` (sanitized), shared `_write_archive` with `create_backup` (excludes `*.log`), SHA-256 + `.sha256` companion, `safety-snapshot-created` audit event
+- [x] `safety_backup_id: Optional[str]` added to `ClusterCommandResponse` and `VmBatchActionResponse`
+- [x] `DELETE /api/v1/clusters/{name}` and `POST /api/v1/clusters/{name}/reset-nodes` snapshot before the run; `POST /api/v1/vms/batch-action` snapshots only for `destroy` (`{N}-vms`)
+- [x] Shared `SafetySnapshotNotice` component (`banner-safety-snapshot-notice`) shown in `modal-confirm-reset-nodes`, `modal-confirm-cluster-delete` (ClustersPage), delete/reset panels (ClusterDetailPage), `modal-confirm-batch-destroy` (VmListPage)
+- [x] Backend tests (cluster delete, reset-nodes, VM batch destroy + non-destroy negative) and frontend banner assertions; `api/tests/conftest.py` isolates backup dir per test
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md` updated
+- Note: batch request field is `vmids` (not `vm_ids`); ClusterDetailPage uses inline confirmation panels rather than a modal.
+
+### Test Results
+- `pytest api/tests/`: 62 passed
+- `npm test` (vitest): 16 files, 65 passed
+
+### Files Created / Modified
+- Created: `api/tests/conftest.py`, `ui/src/components/common/SafetySnapshotNotice.jsx`
+- Modified: `api/app/services/backup.py`, `api/app/routers/clusters.py`, `api/app/routers/vms.py`, `api/app/schemas/clusters.py`, `api/app/schemas/vms.py`, `api/tests/test_clusters.py`, `api/tests/test_vms.py`, `ui/src/pages/{ClustersPage,ClusterDetailPage,VmListPage}.jsx`, `ui/src/pages/__tests__/{ClustersPage,ClusterDetailPage,VmListPage}.test.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only: `feat(safety): Task-22 — pre-mutating auto-backup safety snapshots & destructive guard engine` (NOT pushed)
+
+### C1 Planner Verification Verdict
+- **Date/Time:** 2026-09-30 18:05 PDT / 01:05 UTC (Oct 1)
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `227dc56` created cleanly (`feat(safety): Task-22 — pre-mutating auto-backup safety snapshots & destructive guard engine`).
+  - `create_safety_snapshot(operation_name, resource_id)` implemented in `api/app/services/backup.py` generating timestamped safety tarballs with companion SHA-256 and logging audit event `safety-snapshot-created`.
+  - Destructive routes `DELETE /api/v1/clusters/{name}`, `POST /api/v1/clusters/{name}/reset-nodes`, and `POST /api/v1/vms/batch-action` (destroy action) wired to automatically take pre-mutation safety snapshots and return `safety_backup_id`.
+  - Shared UI component `SafetySnapshotNotice` created with `banner-safety-snapshot-notice` and integrated into destructive confirmation modals across `ClustersPage.jsx`, `ClusterDetailPage.jsx`, and `VmListPage.jsx`.
+  - Pytest suite passed 62/62 tests across all endpoints in `api/tests/` (including isolated temp backup fixture in `conftest.py`).
+  - Vitest component suite passed 65/65 tests across 16 test files in `ui/`.
+  - Documentation updated in `docs/API-GUIDE.md` and `docs/USER-GUIDE.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
