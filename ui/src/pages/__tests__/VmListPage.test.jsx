@@ -187,4 +187,155 @@ describe('VmListPage', () => {
       expect(screen.queryByTestId('modal-confirm-batch-destroy')).not.toBeInTheDocument()
     })
   })
+
+  describe('PCI hardware inventory', () => {
+    const hardwarePayload = {
+      pci_devices: [
+        {
+          pci_bdf: '0000:05:00.0',
+          device_type: 'gpu',
+          description: 'Instinct MI350P',
+          vendor: 'AMD',
+          assigned_vmid: 101,
+          assigned_vm_name: 'gpu-vm-01',
+        },
+        {
+          pci_bdf: '0000:65:00.0',
+          device_type: 'gpu',
+          description: 'Instinct MI350P',
+          vendor: 'AMD',
+          assigned_vmid: null,
+          assigned_vm_name: null,
+        },
+        {
+          pci_bdf: '0000:67:00.0',
+          device_type: 'nic',
+          description: 'Pollara 400',
+          vendor: 'Pensando',
+          assigned_vmid: null,
+          assigned_vm_name: null,
+        },
+      ],
+      total_gpus: 2,
+      total_nics: 1,
+      discovered_at: '2026-09-30T10:00:00Z',
+    }
+
+    function mockHardwareFetch() {
+      const fetchMock = vi.fn().mockImplementation((url, options) => {
+        if (String(url).endsWith('/hardware/pci')) {
+          return jsonResponse(hardwarePayload)
+        }
+        if (options?.method === 'POST') {
+          return jsonResponse({ run_id: 'run-1', status: 'PENDING' })
+        }
+        return jsonResponse(mockVmPayload)
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+    }
+
+    async function openInventory() {
+      render(<VmListPage />)
+      await waitFor(() => expect(screen.getByTestId('row-vm-101')).toBeInTheDocument())
+      fireEvent.click(screen.getByTestId('btn-open-hardware-inventory'))
+      await waitFor(() => expect(screen.getByTestId('row-pci-0000:05:00.0')).toBeInTheDocument())
+    }
+
+    test('opens the PCI hardware drawer with GPUs, NICs and assignment badges', async () => {
+      const fetchMock = mockHardwareFetch()
+      await openInventory()
+
+      expect(screen.getByTestId('modal-hardware-pci')).toBeInTheDocument()
+      expect(fetchMock).toHaveBeenCalledWith('/api/v1/vms/hardware/pci')
+      expect(screen.getByTestId('text-total-gpus')).toHaveTextContent('2')
+      expect(screen.getByTestId('text-total-nics')).toHaveTextContent('1')
+      expect(screen.getByTestId('row-pci-0000:67:00.0')).toHaveTextContent('Pensando')
+      expect(screen.getByTestId('badge-pci-assignment-0000:05:00.0')).toHaveTextContent('gpu-vm-01 (101)')
+      expect(screen.getByTestId('badge-pci-assignment-0000:65:00.0')).toHaveTextContent('Unassigned')
+      expect(screen.getByTestId('btn-detach-pci-0000:05:00.0')).toBeInTheDocument()
+      expect(screen.getByTestId('btn-attach-pci-0000:65:00.0')).toBeInTheDocument()
+
+      fireEvent.click(screen.getByTestId('btn-close-hardware-inventory'))
+      expect(screen.queryByTestId('modal-hardware-pci')).not.toBeInTheDocument()
+    })
+
+    test('attach modal warns when the selected VM is running and requires Stop VM first', async () => {
+      const fetchMock = mockHardwareFetch()
+      await openInventory()
+
+      fireEvent.click(screen.getByTestId('btn-attach-pci-0000:65:00.0'))
+      expect(screen.getByTestId('modal-attach-pci')).toBeInTheDocument()
+      expect(screen.getByTestId('select-attach-pci-device')).toHaveValue('0000:65:00.0')
+
+      // VM 101 is running: power-state warning and disabled submit until force-stop is ticked.
+      expect(screen.getByTestId('warning-attach-pci-power')).toHaveTextContent('is running')
+      expect(screen.getByTestId('btn-submit-attach-pci')).toBeDisabled()
+      fireEvent.click(screen.getByTestId('checkbox-attach-force-stop'))
+      expect(screen.getByTestId('btn-submit-attach-pci')).not.toBeDisabled()
+      expect(screen.getByTestId('card-cli-snippet')).toHaveTextContent(
+        './forge passthrough attach --vmid 101 --device gpu --stop',
+      )
+
+      fireEvent.click(screen.getByTestId('btn-submit-attach-pci'))
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(([, options]) => options?.method === 'POST')
+        expect(post[0]).toBe('/api/v1/vms/101/passthrough/attach')
+        expect(JSON.parse(post[1].body)).toEqual({
+          vmid: 101,
+          device_type: 'gpu',
+          pci_bdf: '0000:65:00.0',
+          force_stop: true,
+        })
+      })
+      await waitFor(() => expect(screen.queryByTestId('modal-attach-pci')).not.toBeInTheDocument())
+      expect(screen.getByTestId('pci-hardware-notice')).toHaveTextContent('0000:65:00.0')
+    })
+
+    test('attach modal for a stopped VM needs no force-stop and previews the CLI', async () => {
+      mockHardwareFetch()
+      await openInventory()
+
+      fireEvent.click(screen.getByTestId('btn-attach-pci-0000:67:00.0'))
+      fireEvent.change(screen.getByTestId('select-attach-pci-vm'), { target: { value: '102' } })
+
+      expect(screen.getByTestId('warning-attach-pci-power')).toHaveTextContent('while the VM is stopped')
+      expect(screen.queryByTestId('checkbox-attach-force-stop')).not.toBeInTheDocument()
+      expect(screen.getByTestId('btn-submit-attach-pci')).not.toBeDisabled()
+      expect(screen.getByTestId('card-cli-snippet')).toHaveTextContent(
+        './forge passthrough attach --vmid 102 --device nic',
+      )
+    })
+
+    test('shows the backend power-state error when attach is rejected', async () => {
+      const fetchMock = vi.fn().mockImplementation((url, options) => {
+        if (String(url).endsWith('/hardware/pci')) return jsonResponse(hardwarePayload)
+        if (options?.method === 'POST') {
+          return Promise.resolve({ ok: false, json: async () => ({ detail: 'VM 102 is running' }) })
+        }
+        return jsonResponse(mockVmPayload)
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      await openInventory()
+
+      fireEvent.click(screen.getByTestId('btn-attach-pci-0000:67:00.0'))
+      fireEvent.change(screen.getByTestId('select-attach-pci-vm'), { target: { value: '102' } })
+      fireEvent.click(screen.getByTestId('btn-submit-attach-pci'))
+
+      await waitFor(() => expect(screen.getByTestId('pci-hardware-error')).toHaveTextContent('VM 102 is running'))
+      expect(screen.getByTestId('modal-attach-pci')).toBeInTheDocument()
+    })
+
+    test('detach posts to the passthrough detach endpoint of the owning VM', async () => {
+      const fetchMock = mockHardwareFetch()
+      await openInventory()
+
+      fireEvent.click(screen.getByTestId('btn-detach-pci-0000:05:00.0'))
+      await waitFor(() => {
+        const post = fetchMock.mock.calls.find(([, options]) => options?.method === 'POST')
+        expect(post[0]).toBe('/api/v1/vms/101/passthrough/detach')
+        expect(JSON.parse(post[1].body).pci_bdf).toBe('0000:05:00.0')
+      })
+    })
+  })
 })

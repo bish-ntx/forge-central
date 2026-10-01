@@ -16,6 +16,7 @@ It includes:
 - `api/app/routers/cli.py`: Base API routes (`/health`, `/api/v1/version`, `/api/v1/cli/execute`).
 - `api/app/routers/pipeline.py`: Pipeline SSE stream route (`/api/v1/pipeline/{run_id}/stream`).
 - `api/app/routers/vms.py`: VM inventory and lifecycle APIs (`/api/v1/vms`).
+- `api/app/routers/vms.py` / `api/app/services/passthrough.py`: hardware & GPU passthrough manager wrapping `./forge discover hardware`, `passthrough list|attach|detach` and `provision gpu-vms` (`GET /api/v1/vms/hardware/pci`, `POST /api/v1/vms/{vmid}/passthrough/attach|detach` with a VM power-state guard, `POST /api/v1/vms/provision-gpu`). UI: PCI Hardware Inventory drawer on `/vms` (`ui/src/components/vms/HardwarePciDrawer.jsx`) and GPU Workers card on `/clusters/:name` (`ui/src/components/cluster/GpuWorkersSection.jsx`). Tests: `api/tests/test_passthrough_hardware.py`.
 - `api/app/routers/clusters.py`: NKP cluster lifecycle APIs (`/api/v1/clusters`).
 - `api/app/routers/diagnostics.py`: Day-0 diagnostics capture APIs (`/api/v1/diagnostics`).
 - `api/app/routers/audit.py`: Operational audit trail APIs (`/api/v1/audit`).
@@ -117,6 +118,7 @@ Pages under `ui/src/pages/` expose deterministic `data-testid` selectors for aut
 - VM lifecycle controls (`start`, `stop`, `restart`, `destroy`).
 - Multi-select batch lifecycle actions with a batch control bar and typed `DESTROY` confirmation (`POST /api/v1/vms/batch-action`; template cloning via `POST /api/v1/vms/clone-batch`).
 - Typed destroy confirmation modal and GPU/PCI passthrough indicators.
+- PCI Hardware Inventory drawer (`btn-open-hardware-inventory`) with GPU/Pensando NIC discovery, assignment badges and an Attach PCI Device modal that enforces VM power-state safety.
 
 `ClustersPage.jsx` now includes NKP cluster operations with:
 

@@ -1767,3 +1767,39 @@ Duration  2.82s
 
 ### Git
 - Local commit only: `feat(cluster): Task-27 — guided cluster config generator & bastion remote sync workflow` (NOT pushed; hash via `git log -1`)
+
+---
+
+## Task 28 — Hardware Discovery, PCI Passthrough & GPU VM Provisioning Manager
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] 1. `pytest api/tests/` passes 100% (148 passed)
+- [x] 2. `GET /api/v1/vms/hardware/pci` lists discovered GPUs and Pensando NICs (live: `./forge discover hardware --details` -> `lspci -D` fallback + `./forge passthrough list`; mock: 4x AMD Instinct MI350P + 4x Pensando Pollara 400 fixtures)
+- [x] 3. `POST /api/v1/vms/{vmid}/passthrough/attach` and `/detach` enforce VM power-state checks (409 when running unless `force_stop=true`, which passes `--stop`)
+- [x] 4. `POST /api/v1/vms/provision-gpu` dispatches `./forge provision gpu-vms --conf <cluster>-input.ini` and records audit event `gpu-vms-provisioned`
+- [x] 5. Frontend renders the PCI hardware drawer (`modal-hardware-pci`, `modal-attach-pci`) on `/vms` and the GPU worker card/modal (`section-gpu-workers`, `modal-provision-gpu-vm`) in Cluster Detail
+- [x] 6. `npm test` passes 100% (22 files, 127 tests); `npm run build` succeeds
+- [x] 7. `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+- [x] 8. Local commit: `feat(gpu): Task-28 — hardware discovery, PCI passthrough & GPU VM provisioning manager`
+- [x] 9. NOT pushed
+- Notes:
+  - `./forge passthrough attach|detach` has no per-BDF flag; an explicit `pci_bdf` / `gpu_bdf` / `nic_bdf` is therefore passed through the CLI's own env contract (`GPU_PCIE_DEVICE`, `PENSANDO_NIC_PCIE_DEVICE`) via `env_overrides`, and `gpu_worker_count` as `GPU_WORKER_COUNT` (the `04-proxmox-clone-gpu-vms.sh` defaults). BDFs are regex-validated (`dddd:bb:ss.f`) before reaching the environment. Without a BDF the CLI uses the values from its config.
+  - Power-state check reads VM status from `./forge vm-list --json` (live) or fixtures (mock) in `services/passthrough.py::get_vm`; the guard uses HTTP 409 (state conflict) while unknown VM / undiscovered BDF is 404, wrong device class 400, BDF already held by another VM 409 (attach). `pci_bdf` combined with `device_type=both` is 400 (ambiguous).
+  - Mock mode adds GPU worker VMs 301 (stopped), 302 (running), 303 (stopped, free) used only by the passthrough service; `MOCK_VMS` (and `GET /api/v1/vms` in mock mode) is unchanged. Cluster-config existence (404) is skipped for `provision-gpu` in mock mode so the Cluster Detail card works offline.
+  - `PassthroughActionRequest.vmid` is optional/informational (the URL path is authoritative); device_type is a `Literal` (invalid -> 422). New response models `PassthroughActionResponse` / `GpuVmProvisionResponse`. Attach/detach/provision use `require_mutating_role` (viewer -> 403). Audit status is `succeeded` at dispatch time, matching the other dispatchers.
+  - Cluster Detail's GPU worker list = VMs with a 300-399 VMID or `gpu_passthrough`; the card degrades to an empty table when the backend is offline. Existing legacy `POST /api/v1/vms/pci-passthrough` is untouched.
+  - Playwright E2E was not run for this task. Existing React `act(...)` warnings in unrelated suites are pre-existing.
+
+### Test Results
+- `pytest api/tests/`: 148 passed (22 new in `api/tests/test_passthrough_hardware.py`: lspci/forge output parsers, mock fixtures + assignments, live discover/list wrapping, lspci fallback, discovery failure 500, attach/detach power guards with and without `force_stop`, BDF validation/ownership/class checks, env overrides, audit events, provision dispatch + conf 404 + validation, mock mode never spawns forge)
+- `npm test` (vitest): 22 files, 127 passed (8 new: 5 in `VmListPage.test.jsx` — inventory drawer, attach modal power warning/force-stop, stopped-VM attach, backend error, detach; 3 in `ClusterDetailPage.test.jsx` — GPU worker card + CLI previews, provision modal submit, provision error)
+- `npm run build`: succeeded
+
+### Files Created / Modified
+- Created: `api/app/services/passthrough.py`, `api/tests/test_passthrough_hardware.py`, `ui/src/components/vms/HardwarePciDrawer.jsx`, `ui/src/components/cluster/GpuWorkersSection.jsx`
+- Modified: `api/app/routers/vms.py`, `api/app/schemas/vms.py`, `ui/src/pages/VmListPage.jsx`, `ui/src/pages/ClusterDetailPage.jsx`, `ui/src/pages/__tests__/VmListPage.test.jsx`, `ui/src/pages/__tests__/ClusterDetailPage.test.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only: `feat(gpu): Task-28 — hardware discovery, PCI passthrough & GPU VM provisioning manager` (NOT pushed; hash via `git log -1`)

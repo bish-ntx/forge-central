@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react'
 import { ArrowLeft, Minus, Plus, RotateCcw, Trash2 } from 'lucide-react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
+import GpuWorkersSection from '../components/cluster/GpuWorkersSection.jsx'
 import SafetySnapshotNotice from '../components/common/SafetySnapshotNotice.jsx'
 import { roleHeaders, useRole } from '../context/RoleContext.jsx'
 
@@ -352,6 +353,8 @@ function ClusterDetailPage() {
           </tbody>
         </table>
       </div>
+
+      <GpuWorkersSection clusterName={cluster.name} />
     </section>
   )
 }

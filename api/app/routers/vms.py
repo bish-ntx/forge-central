@@ -2,12 +2,18 @@ from __future__ import annotations
 
 import asyncio
 import json
+from datetime import datetime, timezone
 from typing import Any, Literal, Optional, Union
 
-from fastapi import APIRouter, Header, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, Request
 
 from ..config import get_settings
 from ..schemas.vms import (
+    GpuVmProvisionRequest,
+    GpuVmProvisionResponse,
+    HardwareDiscoveryResponse,
+    PassthroughActionRequest,
+    PassthroughActionResponse,
     PciPassthroughRequest,
     VmActionRequest,
     VmBatchActionRequest,
@@ -19,11 +25,14 @@ from ..schemas.vms import (
     VmItem,
     VmListResponse,
 )
+from ..schemas.clusters import validate_cluster_name
+from ..services import passthrough as passthrough_service
 from ..services.backup import create_safety_snapshot
+from ..services.cluster_config import cluster_input_path, require_cluster_config
 from ..services.mock_data import MOCK_VMS
 from ..services.process_runner import ProcessRunner
 from .audit import record_audit_event
-from .auth import forbid_viewer
+from .auth import forbid_viewer, require_mutating_role
 
 router = APIRouter(prefix="/api/v1/vms", tags=["vms"])
 
@@ -202,6 +211,155 @@ async def vm_clone_batch(request: Request, payload: VmCloneBatchRequest) -> VmCl
         run_id=run.run_id,
         status=run.status.value,
         command=run.command,
+        started_at=run.started_at,
+    )
+
+
+@router.get("/hardware/pci", response_model=HardwareDiscoveryResponse)
+async def discover_pci_hardware(request: Request) -> HardwareDiscoveryResponse:
+    """Discover physical GPU (AMD MI350P / NVIDIA) and Pensando NIC PCI BDFs plus their VM assignments.
+
+    Live mode wraps `./forge discover hardware --details` (falling back to `lspci -D`) and
+    `./forge passthrough list`; `FORGE_MOCK_MODE=true` serves deterministic AMD MI350P and
+    Pensando Pollara 400 fixtures.
+    """
+    devices = await passthrough_service.discover_hardware(get_runner(request))
+    return HardwareDiscoveryResponse(
+        pci_devices=devices,
+        total_gpus=sum(1 for item in devices if item.device_type == "gpu"),
+        total_nics=sum(1 for item in devices if item.device_type == "nic"),
+        discovered_at=datetime.now(timezone.utc),
+    )
+
+
+async def _run_passthrough_action(
+    request: Request, vmid: int, payload: PassthroughActionRequest, action: Literal["attach", "detach"]
+) -> PassthroughActionResponse:
+    runner = get_runner(request)
+    vm = await passthrough_service.get_vm(runner, vmid)
+    passthrough_service.require_stopped_or_force(vm, payload.force_stop, action)
+    env_overrides = passthrough_service.resolve_bdf_env(payload.device_type, payload.pci_bdf)
+    if payload.pci_bdf:
+        devices = await passthrough_service.discover_hardware(runner)
+        passthrough_service.check_bdf_usable(
+            devices, payload.pci_bdf, payload.device_type, must_be_free=action == "attach", vmid=vmid
+        )
+    run = await runner.start_run(
+        command="forge",
+        args=passthrough_service.passthrough_args(action, vmid, payload.device_type, payload.force_stop),
+        env_overrides=env_overrides or None,
+    )
+    record_audit_event(
+        run_id=str(run.run_id),
+        verb=f"passthrough-{action}ed",
+        user="lab-operator",
+        status="succeeded",
+        duration_sec=0.0,
+        details={
+            "vmid": vmid,
+            "vm_name": vm.get("name"),
+            "device_type": payload.device_type,
+            "pci_bdf": payload.pci_bdf,
+            "force_stop": payload.force_stop,
+        },
+    )
+    return PassthroughActionResponse(
+        run_id=run.run_id,
+        status=run.status.value,
+        command=run.command,
+        action=action,
+        vmid=vmid,
+        device_type=payload.device_type,
+        force_stop=payload.force_stop,
+        started_at=run.started_at,
+    )
+
+
+@router.post(
+    "/{vmid}/passthrough/attach",
+    response_model=PassthroughActionResponse,
+    status_code=202,
+    dependencies=[Depends(require_mutating_role)],
+)
+async def attach_passthrough(
+    vmid: int, request: Request, payload: PassthroughActionRequest
+) -> PassthroughActionResponse:
+    """Queue `./forge passthrough attach` for a VM (GPU, NIC or both).
+
+    Power-state safety: HTTP 409 when the VM is running and `force_stop` is false; with
+    `force_stop=true` the CLI is invoked with `--stop` (the VM is never auto-started).
+    404 for an unknown VM or undiscovered `pci_bdf`; 409 when `pci_bdf` is held by another VM.
+    """
+    return await _run_passthrough_action(request, vmid, payload, "attach")
+
+
+@router.post(
+    "/{vmid}/passthrough/detach",
+    response_model=PassthroughActionResponse,
+    status_code=202,
+    dependencies=[Depends(require_mutating_role)],
+)
+async def detach_passthrough(
+    vmid: int, request: Request, payload: PassthroughActionRequest
+) -> PassthroughActionResponse:
+    """Queue `./forge passthrough detach` for a VM; same power-state guard as attach (409 when running)."""
+    return await _run_passthrough_action(request, vmid, payload, "detach")
+
+
+@router.post(
+    "/provision-gpu",
+    response_model=GpuVmProvisionResponse,
+    status_code=202,
+    dependencies=[Depends(require_mutating_role)],
+)
+async def provision_gpu_vms(request: Request, payload: GpuVmProvisionRequest) -> GpuVmProvisionResponse:
+    """Dispatch `./forge provision gpu-vms --conf <cluster>-input.ini` to clone 300-series GPU workers.
+
+    Requires the cluster INI generated by `POST /api/v1/clusters/init-config` (404 otherwise; skipped
+    in mock mode). Optional `gpu_bdf` / `nic_bdf` must be discovered and unassigned (409 when taken).
+    Emits the `gpu-vms-provisioned` audit event.
+    """
+    runner = get_runner(request)
+    try:
+        cluster_name = validate_cluster_name(payload.cluster_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    conf_path = (
+        cluster_input_path(cluster_name)
+        if get_settings().forge_mock_mode
+        else require_cluster_config(cluster_name)
+    )
+    for bdf, kind in ((payload.gpu_bdf, "gpu"), (payload.nic_bdf, "nic")):
+        if bdf:
+            devices = await passthrough_service.discover_hardware(runner)
+            passthrough_service.check_bdf_usable(devices, bdf, kind, must_be_free=True)
+    run = await runner.start_run(
+        command="forge",
+        args=passthrough_service.gpu_provision_args(str(conf_path)),
+        env_overrides=passthrough_service.gpu_provision_env(
+            payload.gpu_worker_count, payload.gpu_bdf, payload.nic_bdf
+        ),
+    )
+    record_audit_event(
+        run_id=str(run.run_id),
+        verb="gpu-vms-provisioned",
+        user="lab-operator",
+        status="succeeded",
+        duration_sec=0.0,
+        details={
+            "cluster_name": cluster_name,
+            "gpu_worker_count": payload.gpu_worker_count,
+            "gpu_bdf": payload.gpu_bdf,
+            "nic_bdf": payload.nic_bdf,
+        },
+    )
+    return GpuVmProvisionResponse(
+        run_id=run.run_id,
+        status=run.status.value,
+        command=run.command,
+        cluster_name=cluster_name,
+        gpu_worker_count=payload.gpu_worker_count,
+        conf_path=str(conf_path),
         started_at=run.started_at,
     )
 

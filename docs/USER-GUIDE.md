@@ -103,6 +103,11 @@ The VM page now provides interactive Proxmox/AHV VM operations:
 - Batch destroy safety:
   - `Destroy Selected` opens a modal (`data-testid="modal-confirm-batch-destroy"`); type `DESTROY` in `input-confirm-batch-destroy` to enable `btn-confirm-batch-destroy`. `btn-cancel-batch-destroy` aborts.
 
+- PCI hardware inventory & GPU passthrough:
+  - **PCI Hardware Inventory** (`btn-open-hardware-inventory`) opens a drawer (`modal-hardware-pci`) listing the discovered AMD/NVIDIA GPUs and Pensando NICs (`table-pci-devices`) with BDF, vendor, description and an assignment badge (`Unassigned` or `<vm name> (<vmid>)`), plus GPU/NIC totals. Data comes from `GET /api/v1/vms/hardware/pci`.
+  - **Attach PCI Device** (or the per-row `Attach` button) opens `modal-attach-pci`: pick an unassigned device and a target VM. A power-state warning (`warning-attach-pci-power`) explains that passthrough can only change while the VM is stopped; for a running VM the submit button stays disabled until you tick **Stop VM first** (the VM is stopped, never auto-started). A Copy-as-CLI card shows the equivalent `./forge passthrough attach --vmid <id> --device gpu|nic [--stop]`.
+  - Per-row `Detach` calls `POST /api/v1/vms/{vmid}/passthrough/detach`; a running VM is refused by the backend (stop it first) and the error is shown in the drawer.
+
 ## NKP Cluster Management Page (`/clusters`)
 
 The Clusters page provides an NKP-focused cluster overview and lifecycle controls:
@@ -135,6 +140,10 @@ The Clusters page provides an NKP-focused cluster overview and lifecycle control
 ## Cluster Detail Page (`/clusters/:name`)
 
 Shows a single cluster (`page-cluster-detail`): name, status badge, Kubernetes version, ready/desired nodes, MetalLB VIP range, a nodes table (control-plane vs worker with status badges), and a nodepools section with **Scale +/-** buttons per pool. Header actions: **Back**, **Add Nodepool**, **Reset Nodes** (type `RESET` to confirm), and **Delete Cluster** (asks for confirmation). If the backend is offline, seed data is shown instead of an error.
+
+### GPU Workers (`section-gpu-workers`)
+
+Below the nodepools, the **GPU Workers** card lists the GPU worker VMs (300-series VMIDs or VMs with passthrough devices) with status badges and their PCI BDFs, and summarizes the unassigned GPUs/NICs on the host. **Add GPU Worker VM** (`btn-add-gpu-worker`) opens `modal-provision-gpu-vm`: choose the worker count, optionally an unassigned GPU BDF and Pensando NIC BDF (otherwise the cluster config's values are used) and press **Provision GPU VM** — this calls `POST /api/v1/vms/provision-gpu`, which runs `./forge provision gpu-vms --conf <cluster>-input.ini` (the cluster config must exist; generate it from the Deploy wizard first) and records a `gpu-vms-provisioned` audit event. Two **Copy as CLI** cards preview `./forge provision gpu-vms --conf <cluster>-input.ini` and `./forge passthrough attach --vmid <vmid> --device gpu`. After provisioning, run `./forge create nodepool` to add the new workers to the NKP cluster.
 
 ## NKP Cluster Deploy Page (`/clusters/deploy`)
 

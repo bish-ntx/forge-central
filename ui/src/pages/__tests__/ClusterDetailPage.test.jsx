@@ -110,6 +110,93 @@ describe('ClusterDetailPage', () => {
     )
   })
 
+  describe('GPU workers', () => {
+    const vmsPayload = {
+      vms: [
+        { vmid: 301, name: 'gpu-wk-01', node: 'pve-03', status: 'running', pci_devices: ['0000:05:00.0'] },
+        { vmid: 101, name: 'cp-01', node: 'pve-01', status: 'running', pci_devices: [] },
+      ],
+    }
+    const hardwarePayload = {
+      pci_devices: [
+        { pci_bdf: '0000:05:00.0', device_type: 'gpu', vendor: 'AMD', assigned_vmid: 301, assigned_vm_name: 'gpu-wk-01' },
+        { pci_bdf: '0000:65:00.0', device_type: 'gpu', vendor: 'AMD', assigned_vmid: null, assigned_vm_name: null },
+        { pci_bdf: '0000:67:00.0', device_type: 'nic', vendor: 'Pensando', assigned_vmid: null, assigned_vm_name: null },
+      ],
+      total_gpus: 2,
+      total_nics: 1,
+    }
+
+    function mockGpuFetch(provisionResponse = { ok: true, json: async () => ({ run_id: 'run-gpu-1' }) }) {
+      const fetchMock = vi.fn().mockImplementation((url, options) => {
+        const target = String(url)
+        if (target === '/api/v1/vms/provision-gpu') return Promise.resolve(provisionResponse)
+        if (options?.method) return jsonResponse({})
+        if (target === '/api/v1/vms') return jsonResponse(vmsPayload)
+        if (target === '/api/v1/vms/hardware/pci') return jsonResponse(hardwarePayload)
+        return jsonResponse(target.endsWith('/nodepools') ? nodepoolPayload : detailPayload)
+      })
+      vi.stubGlobal('fetch', fetchMock)
+      return fetchMock
+    }
+
+    test('renders GPU worker status, capacity and Copy as CLI previews', async () => {
+      mockGpuFetch()
+      renderPage()
+
+      await waitFor(() => expect(screen.getByTestId('row-gpu-worker-301')).toBeInTheDocument())
+      expect(screen.getByTestId('section-gpu-workers')).toBeInTheDocument()
+      expect(screen.queryByTestId('row-gpu-worker-101')).not.toBeInTheDocument()
+      expect(screen.getByTestId('badge-gpu-worker-status-301')).toHaveTextContent('running')
+      await waitFor(() => expect(screen.getByTestId('text-gpu-capacity')).toHaveTextContent('1 unassigned GPU'))
+      const previews = screen.getByTestId('gpu-cli-previews')
+      expect(previews).toHaveTextContent('./forge provision gpu-vms --conf nkp-prod-01-input.ini')
+      expect(previews).toHaveTextContent('./forge passthrough attach --vmid <vmid> --device gpu')
+    })
+
+    test('Add GPU Worker VM modal provisions with the selected unassigned BDF', async () => {
+      const fetchMock = mockGpuFetch()
+      renderPage()
+
+      await waitFor(() => expect(screen.getByTestId('text-gpu-capacity')).toHaveTextContent('1 unassigned GPU'))
+      fireEvent.click(screen.getByTestId('btn-add-gpu-worker'))
+      expect(screen.getByTestId('modal-provision-gpu-vm')).toBeInTheDocument()
+
+      const gpuSelect = screen.getByTestId('select-provision-gpu-bdf')
+      expect(gpuSelect).toHaveTextContent('0000:65:00.0')
+      expect(gpuSelect).not.toHaveTextContent('0000:05:00.0')
+      fireEvent.change(gpuSelect, { target: { value: '0000:65:00.0' } })
+      fireEvent.change(screen.getByTestId('select-provision-nic-bdf'), { target: { value: '0000:67:00.0' } })
+      fireEvent.change(screen.getByTestId('input-provision-gpu-count'), { target: { value: '2' } })
+      fireEvent.click(screen.getByTestId('btn-submit-provision-gpu'))
+
+      await waitFor(() => expect(screen.getByTestId('gpu-provision-notice')).toHaveTextContent('run-gpu-1'))
+      const post = fetchMock.mock.calls.find(([url]) => url === '/api/v1/vms/provision-gpu')
+      expect(post[1].method).toBe('POST')
+      expect(JSON.parse(post[1].body)).toEqual({
+        cluster_name: 'nkp-prod-01',
+        gpu_worker_count: 2,
+        gpu_bdf: '0000:65:00.0',
+        nic_bdf: '0000:67:00.0',
+      })
+      expect(screen.queryByTestId('modal-provision-gpu-vm')).not.toBeInTheDocument()
+    })
+
+    test('shows the backend error inside the modal when provisioning fails', async () => {
+      mockGpuFetch({ ok: false, json: async () => ({ detail: 'cluster config not found' }) })
+      renderPage()
+
+      await waitFor(() => expect(screen.getByTestId('btn-add-gpu-worker')).toBeInTheDocument())
+      fireEvent.click(screen.getByTestId('btn-add-gpu-worker'))
+      fireEvent.click(screen.getByTestId('btn-submit-provision-gpu'))
+
+      await waitFor(() =>
+        expect(screen.getByTestId('gpu-provision-modal-error')).toHaveTextContent('cluster config not found'),
+      )
+      expect(screen.getByTestId('modal-provision-gpu-vm')).toBeInTheDocument()
+    })
+  })
+
   test('falls back to seed data when backend is offline', async () => {
     vi.stubGlobal('fetch', vi.fn().mockRejectedValue(new Error('offline')))
     renderPage()

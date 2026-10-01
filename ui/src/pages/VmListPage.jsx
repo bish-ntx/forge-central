@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
 import SafetySnapshotNotice from '../components/common/SafetySnapshotNotice.jsx'
+import HardwarePciDrawer from '../components/vms/HardwarePciDrawer.jsx'
 import { roleHeaders, useRole } from '../context/RoleContext.jsx'
 
 const API_BASE = '/api/v1/vms'
@@ -30,6 +31,7 @@ function VmListPage() {
   const [selectedVmids, setSelectedVmids] = useState([])
   const [isBatchDestroyOpen, setIsBatchDestroyOpen] = useState(false)
   const [batchDestroyText, setBatchDestroyText] = useState('')
+  const [isHardwareOpen, setIsHardwareOpen] = useState(false)
 
   async function loadVms() {
     setLoading(true)
@@ -230,7 +232,23 @@ function VmListPage() {
         >
           Create VM
         </button>
+        <button
+          type="button"
+          onClick={() => setIsHardwareOpen(true)}
+          className="rounded border border-violet-500/60 px-3 py-2 text-sm font-medium text-violet-200"
+          data-testid="btn-open-hardware-inventory"
+        >
+          PCI Hardware Inventory
+        </button>
       </div>
+
+      {isHardwareOpen ? (
+        <HardwarePciDrawer
+          vms={vms}
+          onClose={() => setIsHardwareOpen(false)}
+          onChanged={loadVms}
+        />
+      ) : null}
 
       {error ? (
         <p className="mt-3 text-sm text-red-400" data-testid="vm-page-error">
