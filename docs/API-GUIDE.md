@@ -863,6 +863,36 @@ Omitting the header or sending `operator`/`admin` keeps the previous behaviour (
 
 The web console requires an exact, uppercase keyword before any destructive request is sent: `DELETE` (cluster delete), `RESET` (reset nodes), `DESTROY` (batch VM destroy) and `RESTORE` (state restore). Each destructive call also takes an automatic safety snapshot (see `safety_backup_id`).
 
+## Day-0 Lab Wizard API (`/api/v1/lab`)
+
+Lab infrastructure is stored as `FORGE_HOME/labs/<lab>/<lab>-infra.ini` (flat `KEY="value"` lines, chmod 600, same keys as `./forge init lab`). Mutations require `X-Forge-Role: admin`; any other role or a missing header returns `403` `{"detail": "Admin role required for Day-0 lab and secret changes"}`.
+
+### `GET /api/v1/lab/config?lab=<name>`
+
+Discovers labs under `FORGE_HOME/labs/` and parses the requested lab (or the first one found). With no labs on disk it returns `{"configured": false, "labs": [], ...defaults}`. `404` for an unknown `lab`. The Proxmox password is never returned; only `has_password`.
+
+```json
+{
+  "configured": true, "lab_name": "amd-lab", "config_path": "/home/u/forge/labs/amd-lab/amd-lab-infra.ini",
+  "labs": ["amd-lab"], "pve_host": "10.0.0.5", "pve_node": "pve1", "pve_user": "root", "has_password": true,
+  "storage_pool": "local-lvm", "resource_pool": null, "network_bridge": "vmbr0", "nameserver": "10.0.0.1",
+  "search_domain": null, "lab_ip_pool": "10.0.0.10-10.0.0.40", "golden_vmid": 100,
+  "golden_name": "ubuntu-2404-golden", "registry_type": "dockerhub", "storage_mode": "local"
+}
+```
+
+### `POST /api/v1/lab/init` (admin)
+
+Validates and writes the lab-infra INI; an existing file is kept as `<lab>-infra.ini.bak` and an omitted `pve_password` keeps the existing one. Records the `lab-initialized` audit event (no secrets). Body fields: `lab_name`, `pve_host`, `pve_node`, `pve_user` (`root`), `pve_password`, `storage_pool`, `resource_pool`, `network_bridge` (`vmbr0`), `nameserver`, `search_domain`, `lab_ip_pool` (`10.0.0.10-10.0.0.40`), `golden_vmid` (`100`), `golden_name` (`ubuntu-2404-golden`), `registry_type` (`dockerhub|harbor|mirror`), `storage_mode` (`local`). Invalid lab names, IP pools, or values containing quotes/`$`/backticks/control characters return `422`. Response: `{"status": "initialized", "lab_name": "...", "config_path": "...", "updated_at": "...Z"}`. CLI equivalent: `./forge init lab --non-interactive --lab-name amd-lab --pve-host 10.0.0.5 ...`.
+
+## Registry & Secrets Vault API (`/api/v1/secrets`)
+
+Credentials are staged under `FORGE_CACRT_DIR` (default `~/cacrt`) using the CLI's canonical layout: `dockerhub/dockerhub-creds.ini` and `<cluster>/harbor-creds.ini` (chmod 600).
+
+- `GET /api/v1/secrets` — lists staged files: `{"secrets": [{"sec_type": "harbor", "user": "nkpadmin", "path": "...", "cluster": "amd-nkp1", "has_ca": true, "password_masked": "********", "updated_at": "...Z"}]}`. Passwords are never returned.
+- `POST /api/v1/secrets/save` (admin) — body `{"sec_type": "dockerhub|harbor", "user": "...", "password": "...", "url": null, "ca_path": null, "cluster": null}`; `cluster` is required for `harbor` (`422` otherwise). Returns the masked `SecretItem`. Audit event `secret-saved` (never includes the password). CLI equivalent: `./forge secret save --type harbor --cluster amd-nkp1 --user nkpadmin --pass ...`.
+- `DELETE /api/v1/secrets/{sec_type}?cluster=<name>` (admin) — removes the staged INI; `404` when nothing is staged, `400` for an unknown type or a missing harbor cluster. Audit event `secret-deleted`.
+
 ## Timestamps & Timezone Handling (UTC Storage Discipline)
 
 The backend, database/state records and audit events operate **exclusively in UTC**. Every timestamp field in every API response (`timestamp`, `created_at`, `started_at`, `captured_at`, `last_seen`, `last_updated_at`, `last_upgrade_at`, SSE `log` event `timestamp`) is serialized as ISO 8601 UTC with a `Z` suffix and no sub-seconds: `YYYY-MM-DDTHH:MM:SSZ` (e.g. `2026-10-01T01:15:30Z`).

@@ -1635,3 +1635,61 @@ Duration  2.82s
 
 ### Git
 - Local commit only: `feat(rbac): Task-24 — 3-tier role-based access control (admin/operator/viewer) & typed destructive guards` (NOT pushed)
+
+### C1 Planner Verification Verdict
+- **Date/Time:** 2026-09-30 19:20 PDT / 02:20 UTC (Oct 1)
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `a779a56` created cleanly (`feat(rbac): Task-24 — 3-tier role-based access control (admin/operator/viewer) & typed destructive guards`).
+  - Backend Role & Session Model verified: Added `FORGE_ADMIN_PASSWORD` to `config.py`, `POST /api/v1/auth/unlock-admin` with 401 on incorrect passphrase and 200 on authorized passphrase (`Nutanix.123`).
+  - Mutating endpoint guards verified: `X-Forge-Role: viewer` returns HTTP 403 Forbidden on cluster delete, reset-nodes, VM batch actions, and path migration.
+  - Frontend Role Management verified: `RoleContext.jsx` with persistent localStorage role selection (`viewer`, `operator`, `admin`), `Header.jsx` role switcher badge (`badge-role-switcher`), and password modal `modal-unlock-admin`.
+  - Mutating UI controls disabled in Demo/Viewer mode with tooltip "Action disabled in Demo/Viewer mode". Day-0 actions restricted to Admin role.
+  - Typed destructive modals verified: `modal-confirm-cluster-delete` enforces `DELETE`, `modal-confirm-reset-nodes` enforces `RESET`, and `modal-confirm-batch-destroy` enforces `DESTROY`.
+  - Pytest suite: 77/77 passed (100%).
+  - Vitest suite: 83/83 passed across 18 test files (100%).
+  - Docs updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```
+
+---
+
+## Task 25 — Day-0 Lab Infrastructure Wizard, Secrets Vault & Gateway Login Screen
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] 1. `pytest api/tests/` passes 100% (93 passed)
+- [x] 2. Gateway screen (`modal-login-gateway`) shows on first visit: quick Operator/Viewer entry or Admin passphrase unlock, "Remember my choice" checkbox, **Log Out** (`btn-logout-switch-user`) in the Header next to `badge-role-switcher`
+- [x] 3. `POST /api/v1/lab/init` validates input and writes `FORGE_HOME/labs/<lab>/<lab>-infra.ini` (chmod 600, previous file kept as `.bak`), audit event `lab-initialized`
+- [x] 4. `POST /api/v1/secrets/save` stages Docker Hub / Harbor credentials (chmod 600); `GET /api/v1/secrets` lists them with masked passwords
+- [x] 5. `lab/init`, `secrets/save`, `DELETE secrets/{sec_type}` return 403 unless `X-Forge-Role: admin`
+- [x] 6. `SettingsPage.jsx` renders Lab Infrastructure (`tab-lab-infra`) and Secrets Vault (`tab-secrets-vault`) tabs
+- [x] 7. `npm test` passes 100% (20 files, 95 tests)
+- [x] 8. `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+- [x] 9. Local commit: `feat(lab): Task-25 — Day-0 lab infrastructure wizard, secrets vault & gateway login screen`
+- [x] 10. NOT pushed
+- Notes:
+  - Writes the INI files directly (same keys, quoting/escaping and paths as `forge init lab` / `forge secret save`) instead of spawning the interactive CLI wizards, so the API is deterministic and testable. The UI "Copy as CLI" card shows the equivalent `./forge init lab --non-interactive ...` command.
+  - Secrets use the CLI's canonical layout (`<cacrt>/dockerhub/dockerhub-creds.ini`, `<cacrt>/<cluster>/harbor-creds.ini`), not a flat `dockerhub-creds.ini`. New setting `FORGE_CACRT_DIR` (default `~/cacrt`) avoids a hardcoded path.
+  - New `require_admin_role` dependency (`routers/auth.py`) is strict (admin header only); existing viewer-only guards are unchanged. `SecretItem` adds `password_masked`; `LabConfigResponse` adds `configured`, `labs`, `config_path`, `has_password` (the password is never returned).
+  - Lab-infra values are rejected if they contain quotes, `$`, backticks or control characters (the file is sourced by bash); passwords are escaped on write exactly like the CLI.
+  - `RoleContext` no longer writes a default role on mount: a stored role (localStorage when "Remember" is ticked, otherwise sessionStorage) means "signed in"; none shows the gateway. `useRole()` without a provider still reports an active session, so isolated component tests are unaffected. `roleHeaders()` reads either store.
+  - Day-0 buttons on `/settings` reuse `adminProps()`.
+  - The uncommitted C1 verdict block for Task 24 that was already in this file is included in this commit.
+
+### Test Results
+- `pytest api/tests/`: 93 passed (16 new in `api/tests/test_lab_secrets.py`)
+- `npm test` (vitest): 20 files, 95 passed (12 new: `SettingsPage.test.jsx` 8, `LoginGatewayModal.test.jsx` 4)
+- `npm run build`: succeeds
+
+### Files Created / Modified
+- Created: `api/app/{routers,services,schemas}/lab.py`, `api/app/{routers,services,schemas}/secrets.py`, `api/tests/test_lab_secrets.py`, `ui/src/components/auth/LoginGatewayModal.jsx`, `ui/src/components/auth/__tests__/LoginGatewayModal.test.jsx`, `ui/src/components/settings/{LabInfraTab,SecretsVaultTab}.jsx`, `ui/src/pages/__tests__/SettingsPage.test.jsx`
+- Modified: `api/app/{config,main}.py`, `api/app/routers/auth.py`, `ui/src/context/RoleContext.jsx`, `ui/src/components/layout/{Header,Layout}.jsx`, `ui/src/pages/SettingsPage.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only: `feat(lab): Task-25 — Day-0 lab infrastructure wizard, secrets vault & gateway login screen` (NOT pushed)

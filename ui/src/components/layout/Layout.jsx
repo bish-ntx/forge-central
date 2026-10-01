@@ -1,5 +1,6 @@
 import React, { useCallback, useEffect, useState } from 'react'
 import { Outlet } from 'react-router-dom'
+import LoginGatewayModal from '../auth/LoginGatewayModal.jsx'
 import CommandPalette from '../common/CommandPalette.jsx'
 import Header from './Header.jsx'
 import Sidebar from './Sidebar.jsx'
@@ -75,6 +76,7 @@ function Layout() {
           <Outlet />
         </main>
       </div>
+      <LoginGatewayModal />
       <CommandPalette open={paletteOpen} onOpen={openPalette} onClose={closePalette} />
     </div>
   )

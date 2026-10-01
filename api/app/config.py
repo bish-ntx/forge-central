@@ -24,6 +24,7 @@ class Settings(BaseModel):
     forge_central_data_dir: Path = Path("~/forge-central-data")
     forge_backup_dir: Path = Path("~/forge-backups")
     forge_log_dir: Path = Path("~/forge-logs")
+    forge_cacrt_dir: Path = Path("~/cacrt")  # staged registry credentials + Harbor CA certs
     forge_mock_mode: bool = False
     forge_display_timezone: str = "America/Los_Angeles"  # local label for log headers only
     forge_admin_password: str = "Nutanix.123"  # passphrase that unlocks the admin role
@@ -48,6 +49,7 @@ def get_settings() -> Settings:
             ("forge_central_data_dir", "FORGE_CENTRAL_DATA_DIR"),
             ("forge_backup_dir", "FORGE_BACKUP_DIR"),
             ("forge_log_dir", "FORGE_LOG_DIR"),
+            ("forge_cacrt_dir", "FORGE_CACRT_DIR"),
         )
         for value in [os.getenv(env)]
         if value

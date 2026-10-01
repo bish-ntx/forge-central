@@ -239,6 +239,17 @@ The header role badge (`badge-role-switcher`) shows the current role and opens a
 
 **Typed confirmations:** destructive actions never run on a single click. The confirm button stays disabled until you type the exact uppercase keyword: `DELETE` for **Delete Cluster** (`modal-confirm-cluster-delete`, also on the cluster detail page), `RESET` for **Reset Nodes** (`modal-confirm-reset-nodes`), and `DESTROY` for **Destroy Selected** VMs (`modal-confirm-batch-destroy`). Lowercase or extra characters do not enable the button.
 
+## Login Gateway (First Visit)
+
+On first visit (or after **Log Out**) the **Welcome to Forge Central** screen (`modal-login-gateway`) asks how to enter: **Enter as Operator / Viewer** (`btn-gateway-operator`, one click; `btn-gateway-viewer` enters read-only) or **Unlock as Administrator** (`btn-gateway-admin`, then the passphrase in `input-gateway-passphrase`). Tick **Remember my choice on this browser** (`checkbox-gateway-remember`) to keep the role across browser restarts; otherwise it lasts for the current tab only. **Log Out** (`btn-logout-switch-user`, next to the role badge) clears the stored role and shows the gateway again.
+
+## Day-0 Lab Wizard & Secrets Vault (`/settings`)
+
+Both tabs are visible to everyone, but every save/stage/delete button needs the **Admin** role (tooltip: "Day-0 infrastructure setup requires Admin role").
+
+- **Lab Infrastructure** (`tab-lab-infra`): fill in Proxmox host/IP, target node, storage pool, bridge, DNS nameservers, search domain, lab IP pool (e.g. `10.0.0.10-10.0.0.40`), golden VMID and registry type, then press **Save & Initialize Lab** (`btn-save-lab`). This writes `FORGE_HOME/labs/<lab>/<lab>-infra.ini` (chmod 600); an existing lab is loaded into the form and its previous file is kept as `.bak`. Leave the password blank to keep the stored one. The `<lab>-infra.ini` preview (`preview-lab-ini`) masks the password and the **Copy as CLI** card gives the equivalent `./forge init lab --non-interactive ...` command.
+- **Registry & Secrets Vault** (`tab-secrets-vault`): **Stage Docker Hub PAT** (`modal-stage-dockerhub`) and **Stage Harbor Registry** (`modal-stage-harbor`, needs a cluster name) save credentials under `~/cacrt` (chmod 600). `table-secrets` lists type, user, file location and status with passwords masked (`********`); the trash icon deletes a staged secret. CLI equivalent: `./forge secret save|list|delete`.
+
 ## Automatic Safety Snapshots on Destructive Operations
 
 Before **Delete Cluster**, **Reset Nodes** (cluster list and detail pages) and **Destroy Selected** (VM batch destroy) run, Forge Central automatically archives its state, CA certificates and database into `FORGE_BACKUP_DIR` as `safety-<operation>-<resource>-<timestamp>-<id>.tar.gz` (with a `.sha256` companion). The confirmation dialogs show a teal notice (`banner-safety-snapshot-notice`) and the API returns the snapshot ID as `safety_backup_id`. If something goes wrong, restore it from Path Settings (`/settings/paths`). Safety snapshots appear in the audit trail as `safety-snapshot-created`.

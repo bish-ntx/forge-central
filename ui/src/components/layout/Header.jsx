@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react'
-import { Clock, Search } from 'lucide-react'
+import { Clock, LogOut, Search } from 'lucide-react'
+import { useRole } from '../../context/RoleContext.jsx'
 import { useTimezone } from '../../context/TimezoneContext.jsx'
 import RoleSwitcher from './RoleSwitcher.jsx'
 
@@ -11,6 +12,7 @@ const THEME_MODE_LABELS = {
 
 function Header({ mode, onToggleMode, themeMode, onToggleThemeMode, onOpenCommandPalette }) {
   const [mockMode, setMockMode] = useState(false)
+  const { signOut } = useRole()
   const { mode: timezoneMode, label: timezoneLabel, timeZone, toggleMode: toggleTimezoneMode } = useTimezone()
   const modeLabel =
     mode === 'console' ? 'Forge Central Console' : 'Forge Fleet Dashboard'
@@ -66,6 +68,16 @@ function Header({ mode, onToggleMode, themeMode, onToggleThemeMode, onOpenComman
 
       <div className="flex items-center gap-3">
         <RoleSwitcher />
+        <button
+          type="button"
+          onClick={signOut}
+          title="Log out / switch user"
+          className="inline-flex items-center gap-1 rounded border border-slate-700 bg-slate-800 px-3 py-2 text-xs font-semibold text-slate-200 hover:border-slate-600"
+          data-testid="btn-logout-switch-user"
+        >
+          <LogOut size={14} />
+          Log Out
+        </button>
         <button
           type="button"
           onClick={toggleTimezoneMode}

@@ -11,6 +11,7 @@ from ..schemas.auth import UnlockAdminRequest, UnlockAdminResponse
 router = APIRouter(prefix="/api/v1/auth", tags=["auth"])
 
 VIEWER_FORBIDDEN_DETAIL = "Viewer role cannot perform mutating actions"
+ADMIN_REQUIRED_DETAIL = "Admin role required for Day-0 lab and secret changes"
 
 
 def forbid_viewer(x_forge_role: Optional[str]) -> None:
@@ -22,6 +23,12 @@ def forbid_viewer(x_forge_role: Optional[str]) -> None:
 async def require_mutating_role(x_forge_role: Optional[str] = Header(default=None)) -> None:
     """FastAPI dependency: reject mutating requests sent with `X-Forge-Role: viewer`."""
     forbid_viewer(x_forge_role)
+
+
+async def require_admin_role(x_forge_role: Optional[str] = Header(default=None)) -> None:
+    """FastAPI dependency: Day-0 mutations require `X-Forge-Role: admin`; anything else gets HTTP 403."""
+    if (x_forge_role or "").strip().lower() != "admin":
+        raise HTTPException(status_code=403, detail=ADMIN_REQUIRED_DETAIL)
 
 
 @router.post("/unlock-admin", response_model=UnlockAdminResponse)
