@@ -52,8 +52,10 @@ It includes:
 
 ## Quickstart
 
+> **Note on Directory Paths:** In commands throughout this documentation, `~/forge-central` represents the default deployment directory on the Forge Central VM. If you are developing locally on a workstation (e.g. `~/work/git/forge-central` or another directory), adjust the path to your clone root accordingly.
+
 ```bash
-cd ~/work/git/forge-central
+cd ~/forge-central
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -r api/requirements.txt
@@ -67,7 +69,7 @@ OpenAPI docs are available at:
 ## Frontend Quickstart
 
 ```bash
-cd ~/work/git/forge-central/ui
+cd ~/forge-central/ui
 npm install
 npm run dev
 ```
@@ -84,14 +86,14 @@ npm run build
 Backend tests:
 
 ```bash
-cd ~/work/git/forge-central
+cd ~/forge-central
 pytest api/tests/
 ```
 
 Playwright Python E2E tests:
 
 ```bash
-cd ~/work/git/forge-central
+cd ~/forge-central
 pip install -r api/requirements.txt -r tests/e2e/requirements-e2e.txt
 cd ui && npm install && cd ..
 python -m playwright install chromium --with-deps
@@ -169,9 +171,14 @@ Forge Central includes an automated Proxmox VM provisioner `scripts/bootstrap-fo
 # Auto bring-up (Option A clone if template 100 exists; fallback to Option B scratch)
 ./scripts/bootstrap-forge-central-vm.sh --pve-host 10.123.238.110
 
+# Supply your own SSH keypair (or env FORGE_SSH_KEY_FILE / FORGE_SSH_PUBKEY_FILE)
+./scripts/bootstrap-forge-central-vm.sh --ssh-key-file ~/.ssh/id_nkpadmin_ecdsa --ssh-pubkey-file ~/.ssh/id_nkpadmin_ecdsa.pub
+
 # Print copy-pasteable manual Proxmox CLI runbook with interpolated variables
 ./scripts/bootstrap-forge-central-vm.sh --print-manual-steps
 ```
+
+No SSH key material is stored in the script. Keys come from `--ssh-key-file`, `--ssh-pubkey-file`, `--ssh-private-key`, `--ssh-public-key` (or `FORGE_SSH_KEY_FILE`, `FORGE_SSH_PUBKEY_FILE`, `FORGE_SSH_PRIVATE_KEY`, `FORGE_SSH_PUBLIC_KEY`). With no public key the script authorizes your local `~/.ssh/id_ed25519.pub`, `id_ecdsa.pub` or `id_rsa.pub`; with no private key the VM generates its own ECDSA keypair on first boot. Password login (`nkpadmin` / `Nutanix.123`) and `ssh-copy-id` keep working.
 
 See [docs/BOOTSTRAP-FORGE-CENTRAL-VM.md](docs/BOOTSTRAP-FORGE-CENTRAL-VM.md) for architecture sizing, clone vs. scratch workflows, manual command runbooks, and Day-1 verification.
 

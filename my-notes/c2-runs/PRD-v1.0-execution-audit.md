@@ -1836,3 +1836,36 @@ Duration  2.82s
 ### Git
 - Local commit: `feat(ops): Task-29 — automated Proxmox bootstrap script and operator SOP for Forge Central VM` (NOT pushed)
 
+
+---
+
+## Task 29 (follow-up) — Dynamic SSH Key Injection, Secret Hygiene & Portable Documentation Paths
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] 1. Hardcoded private key and public key removed from `scripts/bootstrap-forge-central-vm.sh` (no `BEGIN OPENSSH PRIVATE KEY`; asserted by test).
+- [x] 2. New options `--ssh-key-file`, `--ssh-pubkey-file`, `--ssh-private-key`, `--ssh-public-key` (and `=value` forms) with env fallbacks `FORGE_SSH_KEY_FILE`, `FORGE_SSH_PUBKEY_FILE`, `FORGE_SSH_PRIVATE_KEY`, `FORGE_SSH_PUBLIC_KEY`; CLI overrides env; missing files and malformed public keys rejected.
+- [x] 3. Public key auto-detection from `~/.ssh/id_ed25519.pub`, `id_ecdsa.pub`, `id_rsa.pub` when none supplied.
+- [x] 4. `get_unified_init_snippet()`: supplied private key staged to `${NKP_SSH_DIR}/id_nkpadmin_ecdsa` (base64 transport); otherwise `ssh-keygen -t ecdsa -b 256 -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" -N "" -C "nkpadmin@forge-central"` runs in guest; `id_ecdsa` always created; keys copied to `${NKP_HOME}/ssh-key/`; public keys appended (deduplicated) to `authorized_keys`; `PasswordAuthentication yes` and `Nutanix.123` retained.
+- [x] 5. `--print-manual-steps` shows SSH key options and masks the private key payload (`<BASE64_OF_YOUR_PRIVATE_KEY>`); `--dry-run` never prints key content.
+- [x] 6. Documentation paths generalized (`~/work/git/forge-central` -> `~/forge-central`) in `README.md`, `docs/USER-GUIDE.md`, `docs/TESTING-GUIDE.md`, `docs/BOOTSTRAP-FORGE-CENTRAL-VM.md`, with the "Note on Directory Paths" callout; embedded key removed from the manual runbook in `docs/BOOTSTRAP-FORGE-CENTRAL-VM.md`.
+- [x] 7. SSH key flags documented in `README.md`, `docs/USER-GUIDE.md`, `docs/BOOTSTRAP-FORGE-CENTRAL-VM.md`.
+- [x] 8. Tests added in `tests/scripts/test_bootstrap_script.py` (no-private-key assertion, key-file/pubkey-file/inline handling, env vars, auto-detect + generate fallback, masking, validation errors).
+- [x] 9. Guest key logic exercised functionally in a temp dir for four scenarios (generate; private only -> derived pub; private + pub pair; operator pub only): keys staged byte-identical, derived pub matches, authorized_keys deduplicated.
+- [x] 10. Local Git commit created (NOT pushed).
+
+### Test Results
+- `pytest tests/scripts/test_bootstrap_script.py`: 18 passed
+- `pytest api/tests/`: 148 passed
+- `npm test`: 22 test files, 127 tests passed
+
+### Files Created / Modified
+- Modified: `scripts/bootstrap-forge-central-vm.sh`, `tests/scripts/test_bootstrap_script.py`, `README.md`, `docs/USER-GUIDE.md`, `docs/TESTING-GUIDE.md`, `docs/BOOTSTRAP-FORGE-CENTRAL-VM.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Notes
+- A supplied private key is embedded (base64) in the cloud-init snippet uploaded to the Proxmox host (`/var/lib/vz/snippets/`); the guest unsets it after staging. The previously hardcoded key remains in git history and should be treated as compromised/rotated.
+- Keys apply to scratch bring-up (Option B); clone mode (Option A) inherits keys from the golden template.
+
+### Git
+- Local commit: `fix(ops): Task-29 — dynamic SSH key injection, secret hygiene & portable documentation paths` (NOT pushed; hash via `git log -1`)

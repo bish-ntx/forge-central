@@ -4,12 +4,14 @@
 
 This guide covers local backend API tests and Playwright-based UI automation for the Forge Central web console.
 
+> **Note on Directory Paths:** In commands throughout this documentation, `~/forge-central` represents the default deployment directory on the Forge Central VM. If you are developing locally on a workstation (e.g. `~/work/git/forge-central` or another directory), adjust the path to your clone root accordingly.
+
 ## Backend Pytest Suite
 
 Install backend dependencies:
 
 ```bash
-cd ~/work/git/forge-central
+cd ~/forge-central
 python3 -m pip install -r api/requirements.txt
 ```
 
@@ -24,7 +26,7 @@ pytest api/tests/
 Install Python and browser automation dependencies:
 
 ```bash
-cd ~/work/git/forge-central
+cd ~/forge-central
 python3 -m pip install -r api/requirements.txt -r tests/e2e/requirements-e2e.txt
 python3 -m playwright install chromium --with-deps
 ```
@@ -35,14 +37,14 @@ python3 -m playwright install chromium --with-deps
 Install frontend dependencies:
 
 ```bash
-cd ~/work/git/forge-central/ui
+cd ~/forge-central/ui
 npm install
 ```
 
 Run E2E tests headlessly:
 
 ```bash
-cd ~/work/git/forge-central
+cd ~/forge-central
 pytest tests/e2e/ --browser chromium
 ```
 

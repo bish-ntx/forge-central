@@ -29,6 +29,16 @@ DRY_RUN=false
 PRINT_MANUAL_STEPS=false
 GUEST_AGENT_TIMEOUT="${GUEST_AGENT_TIMEOUT:-900}"
 
+# SSH key inputs (all optional). Inline content wins over file path; CLI wins over env.
+SSH_KEY_FILE="${FORGE_SSH_KEY_FILE:-}"
+SSH_PUBKEY_FILE="${FORGE_SSH_PUBKEY_FILE:-}"
+SSH_PRIVATE_KEY="${FORGE_SSH_PRIVATE_KEY:-}"
+SSH_PUBLIC_KEY="${FORGE_SSH_PUBLIC_KEY:-}"
+SSH_PRIVATE_KEY_B64=""   # base64 of operator private key (empty => generate in guest)
+SSH_PAIR_PUB_B64=""      # base64 of explicit public key paired with the private key
+SSH_AUTH_PUB_B64=""      # base64 of operator public key appended to authorized_keys
+SSH_PUBKEY_SOURCE="none"
+
 UBUNTU_IMG_NAME="ubuntu-24.04-server-cloudimg-amd64.img"
 UBUNTU_IMG_DIR="/var/lib/vz/template/iso"
 UBUNTU_IMG_PATH="${UBUNTU_IMG_DIR}/${UBUNTU_IMG_NAME}"
@@ -67,6 +77,13 @@ usage() {
 "  --storage <pool>          Proxmox storage pool (default: local-lvm or STORAGE_POOL)" \
 "  --bridge <bridge>         Proxmox virtual network bridge (default: vmbr0 or NETWORK_BRIDGE)" \
 "  --ip <cidr_or_dhcp>       IP configuration, e.g. 'dhcp' or '10.123.238.150/24,gw=10.123.238.1' (default: dhcp)" \
+"  --ssh-key-file <path>     Local SSH private key to stage in the VM as ~/.ssh/id_nkpadmin_ecdsa (env: FORGE_SSH_KEY_FILE)" \
+"  --ssh-pubkey-file <path>  Local SSH public key to authorize in the VM (env: FORGE_SSH_PUBKEY_FILE)" \
+"  --ssh-private-key <text>  Inline SSH private key content (env: FORGE_SSH_PRIVATE_KEY)" \
+"  --ssh-public-key <text>   Inline SSH public key content (env: FORGE_SSH_PUBLIC_KEY)" \
+"                            Without a public key, ~/.ssh/id_ed25519.pub, id_ecdsa.pub, id_rsa.pub is auto-detected." \
+"                            Without a private key, an ECDSA keypair is generated inside the VM on first boot." \
+"                            Password login (nkpadmin / Nutanix.123) and ssh-copy-id always remain enabled." \
 "  --dry-run                 Simulate and print all remote SSH and qm commands without executing" \
 "  --print-manual-steps      Print verbatim manual Proxmox CLI runbook with interpolated variables and exit" \
 "  -h, --help                Show this help message and exit" \
@@ -80,6 +97,12 @@ usage() {
 "" \
 "  # Enforce scratch bring-up with static IP" \
 "  ./scripts/bootstrap-forge-central-vm.sh --mode scratch --vmid 150 --ip 10.123.238.150/24,gw=10.123.238.1" \
+"" \
+"  # Supply your own SSH keypair (files)" \
+"  ./scripts/bootstrap-forge-central-vm.sh --ssh-key-file ~/.ssh/id_nkpadmin_ecdsa --ssh-pubkey-file ~/.ssh/id_nkpadmin_ecdsa.pub" \
+"" \
+"  # Authorize only your workstation public key (VM generates its own cluster keypair)" \
+"  FORGE_SSH_PUBKEY_FILE=~/.ssh/id_ed25519.pub ./scripts/bootstrap-forge-central-vm.sh" \
 "" \
 "  # Dry-run inspection" \
 "  ./scripts/bootstrap-forge-central-vm.sh --dry-run --mode scratch" \
@@ -189,6 +212,38 @@ while [[ $# -gt 0 ]]; do
       IP_CONFIG="${1#--ip=}"
       shift
       ;;
+    --ssh-key-file)
+      SSH_KEY_FILE="${2:?--ssh-key-file requires a value}"; SSH_PRIVATE_KEY=""
+      shift 2
+      ;;
+    --ssh-key-file=*)
+      SSH_KEY_FILE="${1#--ssh-key-file=}"; SSH_PRIVATE_KEY=""
+      shift
+      ;;
+    --ssh-pubkey-file)
+      SSH_PUBKEY_FILE="${2:?--ssh-pubkey-file requires a value}"; SSH_PUBLIC_KEY=""
+      shift 2
+      ;;
+    --ssh-pubkey-file=*)
+      SSH_PUBKEY_FILE="${1#--ssh-pubkey-file=}"; SSH_PUBLIC_KEY=""
+      shift
+      ;;
+    --ssh-private-key)
+      SSH_PRIVATE_KEY="${2:?--ssh-private-key requires a value}"; SSH_KEY_FILE=""
+      shift 2
+      ;;
+    --ssh-private-key=*)
+      SSH_PRIVATE_KEY="${1#--ssh-private-key=}"; SSH_KEY_FILE=""
+      shift
+      ;;
+    --ssh-public-key)
+      SSH_PUBLIC_KEY="${2:?--ssh-public-key requires a value}"; SSH_PUBKEY_FILE=""
+      shift 2
+      ;;
+    --ssh-public-key=*)
+      SSH_PUBLIC_KEY="${1#--ssh-public-key=}"; SSH_PUBKEY_FILE=""
+      shift
+      ;;
     --dry-run)
       DRY_RUN=true
       shift
@@ -239,6 +294,72 @@ if ! [[ "${MEMORY}" =~ ^[0-9]+$ ]]; then
   echo "ERROR: --memory must be an integer in MB, got '${MEMORY}'." >&2
   exit 1
 fi
+
+# -----------------------------------------------------------------------------
+# SSH Key Resolution (no secrets are ever embedded in this script)
+# -----------------------------------------------------------------------------
+expand_tilde() {
+  local p="$1"
+  printf '%s' "${p/#\~/${HOME}}"
+}
+
+b64_stdin() {
+  base64 | tr -d '\n'
+}
+
+resolve_ssh_keys() {
+  local f cand
+
+  # Private key: inline content wins, else file.
+  if [[ -n "${SSH_PRIVATE_KEY}" ]]; then
+    SSH_PRIVATE_KEY_B64="$(printf '%s\n' "${SSH_PRIVATE_KEY}" | b64_stdin)"
+  elif [[ -n "${SSH_KEY_FILE}" ]]; then
+    f="$(expand_tilde "${SSH_KEY_FILE}")"
+    if [[ ! -r "${f}" ]]; then
+      echo "ERROR: --ssh-key-file '${SSH_KEY_FILE}' not found or not readable." >&2
+      exit 1
+    fi
+    SSH_PRIVATE_KEY_B64="$(b64_stdin < "${f}")"
+  fi
+
+  # Public key: inline content wins, else file, else local auto-detection.
+  local pub=""
+  if [[ -n "${SSH_PUBLIC_KEY}" ]]; then
+    pub="${SSH_PUBLIC_KEY}"
+    SSH_PUBKEY_SOURCE="inline"
+  elif [[ -n "${SSH_PUBKEY_FILE}" ]]; then
+    f="$(expand_tilde "${SSH_PUBKEY_FILE}")"
+    if [[ ! -r "${f}" ]]; then
+      echo "ERROR: --ssh-pubkey-file '${SSH_PUBKEY_FILE}' not found or not readable." >&2
+      exit 1
+    fi
+    pub="$(head -n1 "${f}")"
+    SSH_PUBKEY_SOURCE="file:${SSH_PUBKEY_FILE}"
+  fi
+
+  if [[ -n "${pub}" ]]; then
+    if ! [[ "${pub}" =~ ^(ssh-|ecdsa-|sk-) ]]; then
+      echo "ERROR: Supplied SSH public key does not look like an OpenSSH public key." >&2
+      exit 1
+    fi
+    SSH_AUTH_PUB_B64="$(printf '%s\n' "${pub}" | b64_stdin)"
+    # An explicit public key paired with an explicit private key is staged as its .pub.
+    if [[ -n "${SSH_PRIVATE_KEY_B64}" ]]; then
+      SSH_PAIR_PUB_B64="${SSH_AUTH_PUB_B64}"
+    fi
+  else
+    for cand in id_ed25519.pub id_ecdsa.pub id_rsa.pub; do
+      f="${HOME}/.ssh/${cand}"
+      if [[ -r "${f}" ]]; then
+        SSH_AUTH_PUB_B64="$(head -n1 "${f}" | b64_stdin)"
+        SSH_PUBKEY_SOURCE="auto-detected:~/.ssh/${cand}"
+        break
+      fi
+    done
+  fi
+}
+
+resolve_ssh_keys
 
 # -----------------------------------------------------------------------------
 # Remote Command Execution Helpers
@@ -325,6 +446,11 @@ get_bastion_overlay_snippet() {
 }
 
 get_unified_init_snippet() {
+  # $1 = "mask" redacts the private key payload (used for human-readable output).
+  local priv_b64="${SSH_PRIVATE_KEY_B64}"
+  if [[ "${1:-}" == "mask" && -n "${priv_b64}" ]]; then
+    priv_b64="<BASE64_OF_YOUR_PRIVATE_KEY>"
+  fi
   printf '%s\n' \
 '#!/usr/bin/env bash' \
 'set -euo pipefail' \
@@ -356,23 +482,37 @@ get_unified_init_snippet() {
 'mkdir -p "${NKP_SSH_DIR}"' \
 'chmod 700 "${NKP_SSH_DIR}"' \
 '' \
-'cat > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" <<\PRIV_KEY_EOF' \
-'-----BEGIN OPENSSH PRIVATE KEY-----' \
-'b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAaAAAABNlY2RzYS' \
-'1zaGEyLW5pc3RwMjU2AAAACG5pc3RwMjU2AAAAQQQqWmeNGmS+KNY6NNDwRVGZn+cs+ZuV' \
-'+Bq1SlrvSyEKpRxGqU3sV8J3Hetjz1kOxGK+NvlK+bJwMEIRDI2pH3t5AAAAsBhjcl4YY3' \
-'JeAAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCpaZ40aZL4o1jo0' \
-'0PBFUZmf5yz5m5X4GrVKWu9LIQqlHEapTexXwncd62PPWQ7EYr42+Ur5snAwQhEMjakfe3' \
-'kAAAAhAMsXpe9exqAeexKC29wavVk6EBg6IjV2KTRn1od/rn9IAAAAFG5rcGFkbWluQG51' \
-'dGFuaXguY29tAQID' \
-'-----END OPENSSH PRIVATE KEY-----' \
-'PRIV_KEY_EOF' \
+"NKP_PRIV_KEY_B64='${priv_b64}'" \
+"NKP_PAIR_PUB_B64='${SSH_PAIR_PUB_B64}'" \
+"NKP_AUTH_PUB_B64='${SSH_AUTH_PUB_B64}'" \
 '' \
-'echo "ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCpaZ40aZL4o1jo00PBFUZmf5yz5m5X4GrVKWu9LIQqlHEapTexXwncd62PPWQ7EYr42+Ur5snAwQhEMjakfe3k= nkpadmin@nutanix.com" > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub"' \
+'add_authorized_key() {' \
+'  grep -qxF "$1" "${NKP_SSH_DIR}/authorized_keys" 2>/dev/null || echo "$1" >> "${NKP_SSH_DIR}/authorized_keys"' \
+'}' \
+'touch "${NKP_SSH_DIR}/authorized_keys"' \
+'' \
+'if [ -n "${NKP_PRIV_KEY_B64}" ]; then' \
+'  echo "Staging operator-supplied SSH private key as ${NKP_SSH_DIR}/id_nkpadmin_ecdsa"' \
+'  echo "${NKP_PRIV_KEY_B64}" | base64 -d > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa"' \
+'  chmod 600 "${NKP_SSH_DIR}/id_nkpadmin_ecdsa"' \
+'  if [ -n "${NKP_PAIR_PUB_B64}" ]; then' \
+'    echo "${NKP_PAIR_PUB_B64}" | base64 -d > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub"' \
+'  else' \
+'    ssh-keygen -y -P "" -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub" </dev/null' \
+'  fi' \
+'elif [ ! -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" ]; then' \
+'  echo "No SSH private key supplied; generating a fresh ECDSA keypair in the guest"' \
+'  rm -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub"' \
+'  ssh-keygen -t ecdsa -b 256 -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" -N "" -C "nkpadmin@forge-central"' \
+'fi' \
 '' \
 'cp "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" "${NKP_SSH_DIR}/id_ecdsa"' \
 'cp "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub" "${NKP_SSH_DIR}/id_ecdsa.pub"' \
-'cat "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub" >> "${NKP_SSH_DIR}/authorized_keys"' \
+'add_authorized_key "$(cat "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub")"' \
+'if [ -n "${NKP_AUTH_PUB_B64}" ]; then' \
+'  add_authorized_key "$(echo "${NKP_AUTH_PUB_B64}" | base64 -d)"' \
+'fi' \
+'unset NKP_PRIV_KEY_B64' \
 '' \
 'printf "%s\n" "Host *" "    StrictHostKeyChecking no" "    UserKnownHostsFile /dev/null" "    LogLevel ERROR" > "${NKP_SSH_DIR}/config"' \
 '' \
@@ -463,6 +603,19 @@ print_manual_runbook() {
 " Resources:           ${CORES} vCPU, ${MEMORY} MB RAM, ${DISK} Disk, ${STORAGE} Storage" \
 " Network:             Bridge ${BRIDGE}, IP: ${IP_CONFIG}" \
 "================================================================================" \
+"" \
+"SSH KEY OPTIONS (no keys are hardcoded in this script; pick one):" \
+"  a) Key files:      --ssh-key-file ~/.ssh/id_nkpadmin_ecdsa --ssh-pubkey-file ~/.ssh/id_nkpadmin_ecdsa.pub" \
+"                     (env: FORGE_SSH_KEY_FILE, FORGE_SSH_PUBKEY_FILE)" \
+"  b) Inline content: --ssh-private-key \"\$(cat <private-key>)\" --ssh-public-key \"\$(cat <public-key>)\"" \
+"                     (env: FORGE_SSH_PRIVATE_KEY, FORGE_SSH_PUBLIC_KEY)" \
+"  c) Auto-detect:    with no public key given, ~/.ssh/id_ed25519.pub, id_ecdsa.pub or id_rsa.pub is authorized" \
+"  d) Generate:       with no private key given, the VM generates an ECDSA keypair on first boot:" \
+"                     ssh-keygen -t ecdsa -b 256 -f ~/.ssh/id_nkpadmin_ecdsa -N \"\" -C \"nkpadmin@forge-central\"" \
+"  Password login (nkpadmin / Nutanix.123) stays enabled, so 'ssh-copy-id nkpadmin@<ASSIGNED_IP>' always works." \
+"  Public key resolved for this run: ${SSH_PUBKEY_SOURCE}; private key: $([[ -n "${SSH_PRIVATE_KEY_B64}" ]] && echo 'operator-supplied (masked below)' || echo 'generated in guest')" \
+"  In the unified snippet below, NKP_PRIV_KEY_B64 is the base64 of your private key:" \
+"  replace <BASE64_OF_YOUR_PRIVATE_KEY> with: base64 < ~/.ssh/id_nkpadmin_ecdsa | tr -d '\\n'  (or leave '' to generate in guest)." \
 ""
 
   if [[ "${MODE}" == "clone" || "${MODE}" == "auto" ]]; then
@@ -525,7 +678,7 @@ print_manual_runbook() {
 "5. Create unified cloud-init initialization snippet at ${UNIFIED_SNIPPET_PATH}:" \
 "   mkdir -p ${SNIPPET_DIR}" \
 "   cat << 'EOF_UNIFIED' > ${UNIFIED_SNIPPET_PATH}" \
-"$(get_unified_init_snippet)" \
+"$(get_unified_init_snippet mask)" \
 "EOF_UNIFIED" \
 "   chmod +x ${UNIFIED_SNIPPET_PATH}" \
 "" \
@@ -546,8 +699,9 @@ print_manual_runbook() {
 "DAY-1 POST-BOOTSTRAP VERIFICATION" \
 "--------------------------------------------------------------------------------" \
 "1. SSH login:" \
-"   ssh -i ~/.ssh/id_nkpadmin_ecdsa nkpadmin@<ASSIGNED_IP>" \
-"   # or with password Nutanix.123:" \
+"   ssh nkpadmin@<ASSIGNED_IP>                      # uses your authorized public key" \
+"   ssh -i ~/.ssh/id_nkpadmin_ecdsa nkpadmin@<ASSIGNED_IP>   # if you supplied this keypair" \
+"   # or with password Nutanix.123 (and push your key: ssh-copy-id nkpadmin@<ASSIGNED_IP>):" \
 "   ssh nkpadmin@<ASSIGNED_IP>" \
 "" \
 "2. Verify runtime packages in guest:" \
@@ -579,6 +733,12 @@ echo " Mode:          ${MODE}"
 echo " Target VMID:   ${VMID} (${VM_NAME})"
 echo " Resources:     ${CORES} cores, ${MEMORY} MB RAM, ${DISK} disk"
 echo " Network:       ${BRIDGE} bridge, IP: ${IP_CONFIG}"
+echo " SSH Pubkey:    ${SSH_PUBKEY_SOURCE}"
+if [[ -n "${SSH_PRIVATE_KEY_B64}" ]]; then
+  echo " SSH Privkey:   operator-supplied (content not printed)"
+else
+  echo " SSH Privkey:   none supplied; will generate ECDSA keypair in guest"
+fi
 echo " Dry Run:       ${DRY_RUN}"
 echo "================================================================================"
 
@@ -721,7 +881,12 @@ else
   echo "  SSH Command:  ssh nkpadmin@<assigned-ip>"
 fi
 echo "  Default Pass: Nutanix.123"
-echo "  SSH Key:       staged ~/.ssh/id_nkpadmin_ecdsa"
+if [[ -n "${SSH_PRIVATE_KEY_B64}" ]]; then
+  echo "  SSH Key:      operator-supplied key staged as ~/.ssh/id_nkpadmin_ecdsa"
+else
+  echo "  SSH Key:      generated in guest; fetch with: scp nkpadmin@<ip>:.ssh/id_nkpadmin_ecdsa ~/.ssh/"
+fi
+echo "  Authorized:   ${SSH_PUBKEY_SOURCE} (+ VM keypair); password login enabled (ssh-copy-id works)"
 echo "================================================================================"
 echo ""
 echo "Next steps:"

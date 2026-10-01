@@ -188,3 +188,120 @@ def test_custom_parameters_interpolation():
     assert "tank-zfs:vm-220-disk-0" in stdout
     assert "qm resize 220 scsi0 100G" in stdout
     assert "bridge=vmbr1" in stdout
+
+
+def run_script_env(env_extra: dict[str, str], *args: str) -> subprocess.CompletedProcess[str]:
+    """Execute the bootstrap script with a sandboxed HOME and extra environment variables."""
+    import os
+
+    env = {**os.environ, **env_extra}
+    return subprocess.run(
+        [str(SCRIPT_PATH), *args],
+        capture_output=True,
+        text=True,
+        check=False,
+        env=env,
+    )
+
+
+def test_script_has_no_hardcoded_private_key():
+    """The script must never embed literal private key material."""
+    content = SCRIPT_PATH.read_text()
+    assert "BEGIN OPENSSH PRIVATE KEY" not in content
+    assert "PRIV_KEY_EOF" not in content
+    assert "nkpadmin@nutanix.com" not in content
+
+
+def test_help_lists_ssh_key_options():
+    res = run_script("--help")
+    assert res.returncode == 0
+    for opt in ("--ssh-key-file", "--ssh-pubkey-file", "--ssh-private-key", "--ssh-public-key"):
+        assert opt in res.stdout
+    for env in ("FORGE_SSH_KEY_FILE", "FORGE_SSH_PUBKEY_FILE", "FORGE_SSH_PRIVATE_KEY", "FORGE_SSH_PUBLIC_KEY"):
+        assert env in res.stdout
+
+
+def test_ssh_key_file_and_pubkey_file_handling(tmp_path):
+    """--ssh-key-file / --ssh-pubkey-file are accepted and key content is never printed."""
+    priv = tmp_path / "id_test"
+    pub = tmp_path / "id_test.pub"
+    priv.write_text("-----BEGIN FAKE KEY-----\nSECRETPAYLOAD\n-----END FAKE KEY-----\n")
+    pub.write_text("ssh-ed25519 AAAATESTPUBKEY test@example\n")
+
+    res = run_script("--dry-run", "--mode", "scratch", "--ssh-key-file", str(priv), "--ssh-pubkey-file", str(pub))
+    assert res.returncode == 0
+    assert "operator-supplied (content not printed)" in res.stdout
+    assert f"file:{pub}" in res.stdout
+    assert "SECRETPAYLOAD" not in res.stdout + res.stderr
+    assert "BEGIN FAKE KEY" not in res.stdout + res.stderr
+
+
+def test_ssh_public_key_inline_and_manual_steps_mask(tmp_path):
+    """Inline public key is accepted; --print-manual-steps masks a supplied private key."""
+    priv = tmp_path / "id_test"
+    priv.write_text("-----BEGIN FAKE KEY-----\nSECRETPAYLOAD\n-----END FAKE KEY-----\n")
+
+    res = run_script(
+        "--print-manual-steps", "--mode", "scratch",
+        "--ssh-public-key", "ssh-ed25519 AAAATESTPUBKEY test@example",
+        "--ssh-key-file", str(priv),
+    )
+    assert res.returncode == 0
+    out = res.stdout
+    assert "SSH KEY OPTIONS" in out
+    assert "inline" in out
+    assert "<BASE64_OF_YOUR_PRIVATE_KEY>" in out
+    assert "SECRETPAYLOAD" not in out
+    assert "U0VDUkVUUEFZTE9BRA" not in out  # base64("SECRETPAYLOAD")
+    assert 'ssh-keygen -t ecdsa -b 256 -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" -N "" -C "nkpadmin@forge-central"' in out
+    assert "BEGIN OPENSSH PRIVATE KEY" not in out
+    assert 'cp "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" "${NKP_SSH_DIR}/id_ecdsa"' in out
+    assert "PasswordAuthentication yes" in out
+    assert "Nutanix.123" in out
+
+
+def test_ssh_env_vars_honoured(tmp_path):
+    pub = tmp_path / "k.pub"
+    pub.write_text("ssh-rsa AAAATESTPUBKEY test@example\n")
+    res = run_script_env({"FORGE_SSH_PUBKEY_FILE": str(pub)}, "--dry-run", "--mode", "scratch")
+    assert res.returncode == 0
+    assert f"file:{pub}" in res.stdout
+
+    res = run_script_env({"FORGE_SSH_PUBLIC_KEY": "ecdsa-sha2-nistp256 AAAATEST x"}, "--dry-run", "--mode", "scratch")
+    assert res.returncode == 0
+    assert "SSH Pubkey:    inline" in res.stdout
+
+
+def test_ssh_pubkey_autodetect_and_generate_fallback(tmp_path):
+    """With a HOME holding id_ed25519.pub it is auto-detected; with an empty HOME the guest generates keys."""
+    home = tmp_path / "home"
+    (home / ".ssh").mkdir(parents=True)
+    (home / ".ssh" / "id_ed25519.pub").write_text("ssh-ed25519 AAAATESTPUBKEY test@example\n")
+    env = {"HOME": str(home)}
+    for var in ("FORGE_SSH_KEY_FILE", "FORGE_SSH_PUBKEY_FILE", "FORGE_SSH_PRIVATE_KEY", "FORGE_SSH_PUBLIC_KEY"):
+        env[var] = ""
+    res = run_script_env(env, "--dry-run", "--mode", "scratch")
+    assert res.returncode == 0
+    assert "auto-detected:~/.ssh/id_ed25519.pub" in res.stdout
+    assert "will generate ECDSA keypair in guest" in res.stdout
+
+    empty_home = tmp_path / "empty"
+    empty_home.mkdir()
+    res = run_script_env({**env, "HOME": str(empty_home)}, "--dry-run", "--mode", "scratch")
+    assert res.returncode == 0
+    assert "SSH Pubkey:    none" in res.stdout
+
+
+def test_missing_ssh_key_files_rejected(tmp_path):
+    res = run_script("--dry-run", "--ssh-key-file", str(tmp_path / "nope"))
+    assert res.returncode != 0
+    assert "--ssh-key-file" in res.stderr
+    res = run_script("--dry-run", "--ssh-pubkey-file", str(tmp_path / "nope.pub"))
+    assert res.returncode != 0
+    assert "--ssh-pubkey-file" in res.stderr
+
+
+def test_invalid_public_key_rejected():
+    res = run_script("--dry-run", "--ssh-public-key", "not-a-key")
+    assert res.returncode != 0
+    assert "OpenSSH public key" in res.stderr

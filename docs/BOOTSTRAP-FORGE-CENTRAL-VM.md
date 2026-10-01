@@ -2,6 +2,8 @@
 
 This runbook documents the automated and manual provisioning procedures for the dedicated **Forge Central / Bastion VM** on a Proxmox Virtual Environment (VE) host (e.g. Nutanix lab host `10.123.238.110`).
 
+> **Note on Directory Paths:** In commands throughout this documentation, `~/forge-central` represents the default deployment directory on the Forge Central VM. If you are developing locally on a workstation (e.g. `~/work/git/forge-central` or another directory), adjust the path to your clone root accordingly.
+
 ---
 
 ## 1. Architecture & Sizing Recommendations
@@ -52,6 +54,8 @@ From the operator workstation or runner:
 - SSH access with root credentials or SSH key to the Proxmox VE host (`10.123.238.110`).
 - Bash 4+ and standard tools (`ssh`, `sed`, `grep`).
 
+> **Note on Directory Paths:** In commands throughout this documentation, `~/forge-central` represents the default deployment directory on the Forge Central VM. If you are developing locally on a workstation (e.g. `~/work/git/forge-central` or another directory), adjust the path to your clone root accordingly.
+
 ### Quickstart Commands
 
 ```bash
@@ -71,12 +75,37 @@ From the operator workstation or runner:
   --disk 60G \
   --ip 10.123.238.150/24,gw=10.123.238.1
 
-# 4. Dry-run inspection (simulates all SSH and qm commands without touching Proxmox)
+# 4. Supply your own SSH keypair (files) -- or use env FORGE_SSH_KEY_FILE / FORGE_SSH_PUBKEY_FILE
+./scripts/bootstrap-forge-central-vm.sh --mode scratch \
+  --ssh-key-file ~/.ssh/id_nkpadmin_ecdsa \
+  --ssh-pubkey-file ~/.ssh/id_nkpadmin_ecdsa.pub
+
+# 5. Dry-run inspection (simulates all SSH and qm commands without touching Proxmox)
 ./scripts/bootstrap-forge-central-vm.sh --dry-run --mode scratch
 
-# 5. Print verbatim copy-pasteable manual shell commands for an operator
+# 6. Print verbatim copy-pasteable manual shell commands for an operator
 ./scripts/bootstrap-forge-central-vm.sh --print-manual-steps
 ```
+
+### SSH Key Handling
+
+No SSH key material is stored in the script or this guide. Keys are supplied at run time (CLI option wins over environment variable; inline content wins over a file path):
+
+| CLI option | Environment variable | Purpose |
+| :--- | :--- | :--- |
+| `--ssh-key-file <path>` | `FORGE_SSH_KEY_FILE` | Private key file staged in the VM as `~/.ssh/id_nkpadmin_ecdsa` |
+| `--ssh-pubkey-file <path>` | `FORGE_SSH_PUBKEY_FILE` | Public key file authorized in the VM |
+| `--ssh-private-key "<content>"` | `FORGE_SSH_PRIVATE_KEY` | Inline private key content |
+| `--ssh-public-key "<content>"` | `FORGE_SSH_PUBLIC_KEY` | Inline public key content |
+
+Resolution rules:
+
+- **Public key auto-detection:** if no public key is supplied, the script uses the first of `~/.ssh/id_ed25519.pub`, `~/.ssh/id_ecdsa.pub`, `~/.ssh/id_rsa.pub` found on the workstation and appends it to the VM's `authorized_keys`.
+- **Private key supplied:** staged to `~/.ssh/id_nkpadmin_ecdsa` and copied to `~/ssh-key/`. If no paired public key is given, it is derived in the guest (`ssh-keygen -y`).
+- **No private key supplied:** a fresh keypair is generated in the guest on first boot (`ssh-keygen -t ecdsa -b 256 -N "" -C "nkpadmin@forge-central"`). Retrieve it with `scp nkpadmin@<ASSIGNED_IP>:.ssh/id_nkpadmin_ecdsa ~/.ssh/`.
+- `~/.ssh/id_ecdsa` is always created and copied to `~/ssh-key/` for `./forge` cluster scripts.
+- Password login (`nkpadmin` / `Nutanix.123`) stays enabled, so `ssh-copy-id nkpadmin@<ASSIGNED_IP>` always works.
+- Private key content is never printed: `--dry-run` and `--print-manual-steps` show it masked. A supplied private key is embedded (base64) in the cloud-init snippet on the Proxmox host, so protect `/var/lib/vz/snippets/` accordingly. These keys apply to scratch bring-up (Option B); clone mode (Option A) inherits keys from the golden template.
 
 ---
 
@@ -271,25 +300,39 @@ systemctl restart ssh || systemctl restart sshd
 mkdir -p "${NKP_SSH_DIR}"
 chmod 700 "${NKP_SSH_DIR}"
 
-cat > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" <<'PRIV_KEY_EOF'
------BEGIN OPENSSH PRIVATE KEY-----
-b3BlbnNzaC1rZXktdjEAAAAABG5vbmUAAAAEbm9uZQAAAAAAAAABAAAAaAAAABNlY2RzYS
-1zaGEyLW5pc3RwMjU2AAAACG5pc3RwMjU2AAAAQQQqWmeNGmS+KNY6NNDwRVGZn+cs+ZuV
-+Bq1SlrvSyEKpRxGqU3sV8J3Hetjz1kOxGK+NvlK+bJwMEIRDI2pH3t5AAAAsBhjcl4YY3
-JeAAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCpaZ40aZL4o1jo0
-0PBFUZmf5yz5m5X4GrVKWu9LIQqlHEapTexXwncd62PPWQ7EYr42+Ur5snAwQhEMjakfe3
-kAAAAhAMsXpe9exqAeexKC29wavVk6EBg6IjV2KTRn1od/rn9IAAAAFG5rcGFkbWluQG51
-dGFuaXguY29tAQID
------END OPENSSH PRIVATE KEY-----
-PRIV_KEY_EOF
+# --- SSH keys (no key material is hardcoded) ---------------------------------
+# Optional: base64 of YOUR private key / public keys, produced on your workstation:
+#   base64 < ~/.ssh/id_nkpadmin_ecdsa | tr -d '\n'
+# Leave NKP_PRIV_KEY_B64 empty to generate a fresh ECDSA keypair in the guest.
+NKP_PRIV_KEY_B64=''   # base64 of operator private key (optional)
+NKP_PAIR_PUB_B64=''   # base64 of the public key paired with that private key (optional)
+NKP_AUTH_PUB_B64=''   # base64 of an operator public key to authorize, e.g. ~/.ssh/id_ed25519.pub (optional)
 
-cat > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub" <<'PUB_KEY_EOF'
-ecdsa-sha2-nistp256 AAAAE2VjZHNhLXNoYTItbmlzdHAyNTYAAAAIbmlzdHAyNTYAAABBBCpaZ40aZL4o1jo00PBFUZmf5yz5m5X4GrVKWu9LIQqlHEapTexXwncd62PPWQ7EYr42+Ur5snAwQhEMjakfe3k= nkpadmin@nutanix.com
-PUB_KEY_EOF
+add_authorized_key() {
+  grep -qxF "$1" "${NKP_SSH_DIR}/authorized_keys" 2>/dev/null || echo "$1" >> "${NKP_SSH_DIR}/authorized_keys"
+}
+touch "${NKP_SSH_DIR}/authorized_keys"
+
+if [ -n "${NKP_PRIV_KEY_B64}" ]; then
+  echo "${NKP_PRIV_KEY_B64}" | base64 -d > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa"
+  chmod 600 "${NKP_SSH_DIR}/id_nkpadmin_ecdsa"
+  if [ -n "${NKP_PAIR_PUB_B64}" ]; then
+    echo "${NKP_PAIR_PUB_B64}" | base64 -d > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub"
+  else
+    ssh-keygen -y -P "" -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" > "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub" </dev/null
+  fi
+elif [ ! -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" ]; then
+  rm -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub"
+  ssh-keygen -t ecdsa -b 256 -f "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" -N "" -C "nkpadmin@forge-central"
+fi
 
 cp "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" "${NKP_SSH_DIR}/id_ecdsa"
 cp "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub" "${NKP_SSH_DIR}/id_ecdsa.pub"
-cat "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub" >> "${NKP_SSH_DIR}/authorized_keys"
+add_authorized_key "$(cat "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub")"
+if [ -n "${NKP_AUTH_PUB_B64}" ]; then
+  add_authorized_key "$(echo "${NKP_AUTH_PUB_B64}" | base64 -d)"
+fi
+unset NKP_PRIV_KEY_B64
 
 cat > "${NKP_SSH_DIR}/config" <<'CONFIG_EOF'
 Host *
@@ -399,9 +442,12 @@ qm guest cmd 150 network-get-interfaces
 Once the VM is running and reports an IP address, perform these quick sanity checks:
 
 ### 1. SSH Connectivity
-Connect using the pre-staged ECDSA key or default password:
+Connect using your authorized public key, the staged ECDSA key, or the default password:
 ```bash
-# Pubkey auth (if using staged id_nkpadmin_ecdsa):
+# Pubkey auth (your authorized workstation key):
+ssh nkpadmin@<ASSIGNED_IP>
+
+# Pubkey auth with the staged keypair (if you supplied --ssh-key-file, or fetched the generated key):
 ssh -i ~/.ssh/id_nkpadmin_ecdsa nkpadmin@<ASSIGNED_IP>
 
 # Password auth (password: Nutanix.123):

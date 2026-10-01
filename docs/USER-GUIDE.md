@@ -2,10 +2,12 @@
 
 ## Web Console Launch
 
+> **Note on Directory Paths:** In commands throughout this documentation, `~/forge-central` represents the default deployment directory on the Forge Central VM. If you are developing locally on a workstation (e.g. `~/work/git/forge-central` or another directory), adjust the path to your clone root accordingly.
+
 Start the frontend locally:
 
 ```bash
-cd ~/work/git/forge-central/ui
+cd ~/forge-central/ui
 npm install
 npm run dev
 ```
@@ -335,14 +337,19 @@ Forge Central can be provisioned as a dedicated host or bastion VM on Proxmox VE
 
 # Print manual Proxmox CLI runbook
 ./scripts/bootstrap-forge-central-vm.sh --print-manual-steps
+
+# Supply your own SSH keypair (or env FORGE_SSH_KEY_FILE / FORGE_SSH_PUBKEY_FILE)
+./scripts/bootstrap-forge-central-vm.sh --ssh-key-file ~/.ssh/id_nkpadmin_ecdsa --ssh-pubkey-file ~/.ssh/id_nkpadmin_ecdsa.pub
 ```
+
+SSH keys are never hardcoded: pass `--ssh-key-file`, `--ssh-pubkey-file`, `--ssh-private-key` or `--ssh-public-key` (env `FORGE_SSH_KEY_FILE`, `FORGE_SSH_PUBKEY_FILE`, `FORGE_SSH_PRIVATE_KEY`, `FORGE_SSH_PUBLIC_KEY`). If no public key is given, your local `~/.ssh/id_ed25519.pub`, `id_ecdsa.pub` or `id_rsa.pub` is authorized; if no private key is given, the VM generates an ECDSA keypair on first boot. Password login (`nkpadmin` / `Nutanix.123`) and `ssh-copy-id` remain available.
 
 For complete architecture sizing, step-by-step Proxmox commands, and Day-1 post-bootstrap verification checks, see [docs/BOOTSTRAP-FORGE-CENTRAL-VM.md](BOOTSTRAP-FORGE-CENTRAL-VM.md).
 
 ## Frontend Validation Commands
 
 ```bash
-cd ~/work/git/forge-central/ui
+cd ~/forge-central/ui
 npm test
 npm run build
 ```
