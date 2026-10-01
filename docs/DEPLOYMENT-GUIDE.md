@@ -47,6 +47,26 @@ docker compose down
 
 Try it offline: `FORGE_MOCK_MODE=true docker compose up -d --build`, then open `http://localhost:8000`.
 
+## Standalone Release Packaging & Air-Gapped Upgrade
+
+For lab environments without internet access, build a self-contained tarball on a connected host:
+
+```bash
+scripts/build-release-bundle.sh                       # version from api/app/config.py
+scripts/build-release-bundle.sh --version 1.1.0 --output-dir ./release
+scripts/build-release-bundle.sh --dry-run             # print actions only
+```
+
+Output: `forge-central-v<VERSION>.tar.gz` plus `forge-central-v<VERSION>.tar.gz.sha256` (default directory `dist-release/`). The archive contains `api/app`, `api/requirements.txt`, the compiled `ui/dist` (built with `npm --prefix ui run build` if missing), `docs/`, `README.md`, `Dockerfile`, `docker-compose.yml` and `scripts/`.
+
+Upgrade workflow:
+
+1. Copy the `.tar.gz` and its `.sha256` file to the air-gapped host (same directory).
+2. Open the Web Console at `/settings/upgrade`, enter the bundle path and press **Inspect Bundle** (or call `POST /api/v1/upgrade/inspect`). Pre-flight checks: bundle format, SHA-256 against the companion file, bundle version >= current version (parsed from the filename), and more than 1 GB free disk space.
+3. When all checks pass, apply the upgrade with `./scripts/install-upgrade.sh --bundle <path>`.
+
+`GET /api/v1/upgrade/status` returns the running version, architecture and platform.
+
 ## Notes
 
 - The `./forge` CLI engine is not bundled; set `FORGE_BIN` and mount it into the container for real (non-mock) runs.

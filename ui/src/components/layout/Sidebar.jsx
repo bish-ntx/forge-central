@@ -4,6 +4,7 @@ import {
   FolderCog,
   FolderKanban,
   Network,
+  PackageCheck,
   Server,
   Settings,
   SquareStack,
@@ -42,6 +43,12 @@ const NAV_ITEMS = [
     label: 'Path Configuration',
     icon: FolderCog,
     testId: 'link-settings-paths',
+  },
+  {
+    to: '/settings/upgrade',
+    label: 'Upgrade',
+    icon: PackageCheck,
+    testId: 'link-settings-upgrade',
   },
 ]
 

@@ -676,6 +676,33 @@ Example response:
 }
 ```
 
+## Air-Gapped Upgrade API
+
+### `GET /api/v1/upgrade/status`
+
+Returns the running version and host details.
+
+```json
+{ "current_version": "1.0.0", "last_upgrade_at": null, "arch": "arm64", "platform": "Darwin" }
+```
+
+### `POST /api/v1/upgrade/inspect`
+
+Runs pre-flight checks on a release bundle built by `scripts/build-release-bundle.sh`. Request: `{"bundle_path": "/mnt/forge-central-v1.1.0.tar.gz"}`. Always returns `200`; failures are reported per check.
+
+Checks (in order): `Bundle format` (existing `.tar.gz`), `Checksum` (SHA-256 vs companion `<bundle>.sha256`), `Version compatibility` (version in filename >= current), `Disk space` (> 1 GB free).
+
+```json
+{
+  "valid": true,
+  "current_version": "1.0.0",
+  "bundle_version": "1.1.0",
+  "checks": [
+    {"name": "Bundle format", "passed": true, "message": "Found forge-central-v1.1.0.tar.gz"}
+  ]
+}
+```
+
 ## CLI Schema Reflection & Snippet API
 
 ### `GET /api/v1/cli/schema/{verb}`

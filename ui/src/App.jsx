@@ -9,6 +9,7 @@ import FleetDashboardPage from './pages/FleetDashboardPage.jsx'
 import IpamPage from './pages/IpamPage.jsx'
 import PathSettingsPage from './pages/PathSettingsPage.jsx'
 import SettingsPage from './pages/SettingsPage.jsx'
+import UpgradePage from './pages/UpgradePage.jsx'
 import VmListPage from './pages/VmListPage.jsx'
 
 function App() {
@@ -25,6 +26,7 @@ function App() {
         <Route path="ipam" element={<IpamPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="settings/paths" element={<PathSettingsPage />} />
+        <Route path="settings/upgrade" element={<UpgradePage />} />
       </Route>
     </Routes>
   )

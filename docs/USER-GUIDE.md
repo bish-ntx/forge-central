@@ -48,6 +48,7 @@ Current route pages:
 - `IpamPage.jsx` (`/ipam`)
 - `SettingsPage.jsx` (`/settings`)
 - `PathSettingsPage.jsx` (`/settings/paths`)
+- `UpgradePage.jsx` (`/settings/upgrade`)
 
 Each page container includes a stable `data-testid` to support automated tests and CI flows.
 
@@ -220,6 +221,16 @@ Open via the sidebar (`Path Configuration`, `data-testid="link-settings-paths"`)
 - **Path inspection grid:** one card per directory (`FORGE_HOME`, `FORGE_DATA_DIR`, `FORGE_CENTRAL_DATA_DIR`, `FORGE_BACKUP_DIR`, `FORGE_LOG_DIR`; `card-path-{NAME}`) showing the resolved path, a status pill (`accessible`, `read-only`, `missing`) and a disk usage bar. Locations are set with the matching environment variables; they are never hardcoded.
 - **State directory migration (`card-path-migration`):** enter a source (`input-migration-source`, default `~/forge-state`) and target (`input-migration-target`, default `~/forge-data`), then press the submit button (`btn-trigger-migration`). Tick **Dry run** (`checkbox-migration-dry-run`) to preview what would be copied without touching disk. Only `*.ini`, `*.yaml`, `*.json` and `*.log` files are copied; the source is left in place.
 - **Result banner (`alert-migration-result`):** shows scanned/migrated file counts and the outcome message. Each migration is recorded in the audit trail as `paths-migrated`.
+
+## Air-Gapped Upgrade (`/settings/upgrade`)
+
+Open via the sidebar (`Upgrade`, `data-testid="link-settings-upgrade"`) or the Command Palette (`Air-Gapped Upgrade`).
+
+- **Current Version card (`card-current-version`):** running version, platform, architecture and last upgrade time.
+- **Bundle Inspection card (`card-upgrade-inspect`):** enter the path of a `forge-central-v<VERSION>.tar.gz` release bundle (`input-upgrade-bundle-path`) and press **Inspect Bundle** (`btn-inspect-upgrade`). The pre-flight checklist (`list-upgrade-preflight`) shows a green check or red cross with a message for bundle format, checksum, version compatibility and free disk space.
+- **CLI snippet:** shows `./scripts/build-release-bundle.sh` to build a bundle, or `./scripts/install-upgrade.sh --bundle <path>` once all checks pass.
+
+Build bundles with `scripts/build-release-bundle.sh` (see `docs/DEPLOYMENT-GUIDE.md`).
 
 ## Copy as CLI Snippet Cards
 

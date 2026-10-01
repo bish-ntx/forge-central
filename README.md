@@ -152,6 +152,10 @@ docker compose up -d --build
 
 Open `http://localhost:8000`. See `docs/DEPLOYMENT-GUIDE.md` for volumes, environment variables and health checks.
 
+## Air-Gapped Release Bundle
+
+Build a self-contained `forge-central-v<VERSION>.tar.gz` (plus `.sha256`) with `scripts/build-release-bundle.sh [--version V] [--output-dir DIR] [--dry-run]`, then inspect it in the Web Console at `/settings/upgrade` (`POST /api/v1/upgrade/inspect`). See `docs/DEPLOYMENT-GUIDE.md`.
+
 ## Environment Variables
 
 - `FORGE_BIN`: Absolute or relative path to the forge executable. Default is `./forge` from the current working directory.

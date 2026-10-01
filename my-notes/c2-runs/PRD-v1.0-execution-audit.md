@@ -1379,3 +1379,46 @@ Duration  2.82s
   cd ~/work/git/forge-central
   git push origin main
   ```
+
+## Task 19 — Standalone Release Tarball Packaging & Air-Gapped Upgrade Engine
+
+### Execution Status
+- **SUCCESS**
+
+### Acceptance Criteria Matrix
+- [x] `scripts/build-release-bundle.sh` (`set -euo pipefail`, executable, `--version`, `--output-dir` default `dist-release/`, `--dry-run`, builds `ui/dist` if missing, writes `.tar.gz` + `.sha256`); real build verified with `shasum -c` OK and `--dry-run` verified
+- [x] `api/app/schemas/upgrade.py` (`UpgradeStatusResponse`, `ValidationCheck`, `UpgradeInspectRequest`, `UpgradeInspectResponse`)
+- [x] `GET /api/v1/upgrade/status` and `POST /api/v1/upgrade/inspect` (format, checksum, version, disk >1GB checks) registered under `/api/v1` in `main.py`
+- [x] `UpgradePage.jsx` at `/settings/upgrade` with `card-current-version`, `card-upgrade-inspect`, `input-upgrade-bundle-path`, `btn-inspect-upgrade`, `list-upgrade-preflight`, `CliSnippetCard`; sidebar `link-settings-upgrade`; command palette entry
+- [x] `api/tests/test_upgrade.py` (4 tests) and `UpgradePage.test.jsx` (2 tests)
+- [x] `docs/DEPLOYMENT-GUIDE.md`, `docs/USER-GUIDE.md`, `docs/API-GUIDE.md`, `README.md` updated
+- [ ] `scripts/install-upgrade.sh` (only referenced in the CLI snippet; out of Task 19 scope)
+
+### Test Results
+- `pytest api/tests/`: 52 passed
+- `npm test` (vitest): 16 files, 62 passed
+
+### Files Created / Modified
+- Created: `scripts/build-release-bundle.sh`, `api/app/schemas/upgrade.py`, `api/app/routers/upgrade.py`, `api/tests/test_upgrade.py`, `ui/src/pages/UpgradePage.jsx`, `ui/src/pages/__tests__/UpgradePage.test.jsx`
+- Modified: `api/app/main.py`, `ui/src/App.jsx`, `ui/src/components/layout/Sidebar.jsx`, `ui/src/components/common/CommandPalette.jsx`, `docs/DEPLOYMENT-GUIDE.md`, `docs/USER-GUIDE.md`, `docs/API-GUIDE.md`, `README.md`, `.gitignore`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only: `feat(upgrade): Task-19 — standalone release tarball packaging script & air-gapped upgrade engine` (NOT pushed; hash reported in C2 hand-off)
+
+### C1 Planner Verification Verdict
+- **Date/Time:** 2026-09-30 17:15 PDT / 24:15 UTC
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** 100% APPROVED
+- **Disk Inspection:**
+  - Local commit `4d362a4` created cleanly (`feat(upgrade): Task-19 — standalone release tarball packaging script & air-gapped upgrade engine`).
+  - Standalone release packager script `scripts/build-release-bundle.sh` created with executable permissions, supporting `--version`, `--output-dir`, and `--dry-run` modes, outputting `.tar.gz` and `.sha256` checksums.
+  - Upgrade pre-flight endpoints `GET /api/v1/upgrade/status` and `POST /api/v1/upgrade/inspect` implemented in `api/app/routers/upgrade.py` with multi-step validations (format, checksum, version compatibility, free disk space).
+  - Web Console Upgrade Page `UpgradePage.jsx` implemented at `/settings/upgrade` with current version card, bundle inspection card, preflight checklist with visual status indicators, and dynamic `CliSnippetCard`.
+  - Pytest suite passed 52/52 tests across all endpoints in `api/tests/`.
+  - Vitest component suite passed 62/62 tests across 16 test files in `ui/`.
+  - Documentation updated in `docs/DEPLOYMENT-GUIDE.md`, `docs/USER-GUIDE.md`, `docs/API-GUIDE.md`, and `README.md`.
+- **Authorized Git Push Command:**
+  ```bash
+  cd ~/work/git/forge-central
+  git push origin main
+  ```

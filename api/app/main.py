@@ -23,6 +23,7 @@ from .routers.inventory import router as inventory_router
 from .routers.nodes import router as nodes_router
 from .routers.paths import router as paths_router
 from .routers.pipeline import router as pipeline_router
+from .routers.upgrade import router as upgrade_router
 from .routers.vms import router as vms_router
 from .services.log_publisher import LogPublisher
 from .services.process_runner import ProcessRunner
@@ -44,6 +45,7 @@ app.include_router(inventory_router)
 app.include_router(fleet_router)
 app.include_router(paths_router)
 app.include_router(nodes_router, prefix="/api/v1")
+app.include_router(upgrade_router, prefix="/api/v1")
 
 
 def mount_ui_static(application: FastAPI, ui_dist_path: Path | None = None) -> bool:
