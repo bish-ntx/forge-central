@@ -8,7 +8,10 @@
 
 from __future__ import annotations
 
+from pathlib import Path
+
 from fastapi import FastAPI
+from fastapi.staticfiles import StaticFiles
 
 from .config import get_settings
 from .routers.cli import router as cli_router
@@ -41,3 +44,21 @@ app.include_router(inventory_router)
 app.include_router(fleet_router)
 app.include_router(paths_router)
 app.include_router(nodes_router, prefix="/api/v1")
+
+
+def mount_ui_static(application: FastAPI, ui_dist_path: Path | None = None) -> bool:
+    """Serve the compiled UI from `ui/dist` (or `/app/ui/dist` in the container) as a static fallback.
+
+    Mounted last so API routers always match first.
+    """
+    if ui_dist_path is None:
+        ui_dist_path = Path(__file__).resolve().parents[2] / "ui" / "dist"
+        if not ui_dist_path.exists():
+            ui_dist_path = Path("/app/ui/dist")
+    if not ui_dist_path.exists():
+        return False
+    application.mount("/", StaticFiles(directory=str(ui_dist_path), html=True), name="static")
+    return True
+
+
+mount_ui_static(app)

@@ -139,7 +139,22 @@ Pages under `ui/src/pages/` expose deterministic `data-testid` selectors for aut
 - `ui/src/hooks/useEventSource.js` manages SSE connection lifecycle with reconnect behavior.
 - `ui/src/components/common/LiveTerminal.jsx` renders real-time stdout/stderr output, line numbers, stderr highlighting, status/elapsed metadata, and copy/auto-scroll controls.
 
+## Docker Deployment
+
+Forge Central ships as a single multi-stage image (Node 20 UI build + Python 3.11 FastAPI runtime). FastAPI serves the compiled UI from `/app/ui/dist` after all API routes.
+
+```bash
+docker build -t forge-central:latest .
+docker run -d -p 8000:8000 -v ~/forge-state:/forge-state -v ~/forge-data:/forge-data -v ~/cacrt:/cacrt forge-central:latest
+# or
+docker compose up -d --build
+```
+
+Open `http://localhost:8000`. See `docs/DEPLOYMENT-GUIDE.md` for volumes, environment variables and health checks.
+
 ## Environment Variables
 
 - `FORGE_BIN`: Absolute or relative path to the forge executable. Default is `./forge` from the current working directory.
 - `FORGE_MOCK_MODE`: Set to `true` to run offline with synthetic VMs, clusters, NFS shares and simulated `./forge` runs (no Proxmox or Kubernetes needed). Default is `false`.
+- `PORT`: (Compose only) host port mapped to container port 8000. Default is `8000`.
+- `FORGE_HOME`: Forge state directory. Container default is `/forge-state`.

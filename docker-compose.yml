@@ -1,0 +1,21 @@
+# Forge Central — single-service Compose deployment
+services:
+  forge-central:
+    build: .
+    image: forge-central:latest
+    container_name: forge-central
+    ports:
+      - "${PORT:-8000}:8000"
+    environment:
+      FORGE_MOCK_MODE: "${FORGE_MOCK_MODE:-false}"
+      FORGE_HOME: "${FORGE_HOME:-/forge-state}"
+    volumes:
+      - ~/forge-state:/forge-state
+      - ~/forge-data:/forge-data
+      - ~/cacrt:/cacrt
+    restart: unless-stopped
+    deploy:
+      resources:
+        reservations:
+          cpus: "0.50"
+          memory: 256M
