@@ -1,16 +1,18 @@
-import React, { useState } from 'react'
+import React, { useCallback, useEffect, useMemo, useState } from 'react'
 import CliSnippetCard from '../components/common/CliSnippetCard.jsx'
-import { useRole } from '../context/RoleContext.jsx'
+import Timestamp from '../components/common/Timestamp.jsx'
+import { roleHeaders, useRole } from '../context/RoleContext.jsx'
+import { suggestIpPlan } from '../utils/ipamSuggest.js'
 import {
   ArrowLeft,
   CheckCircle2,
   ChevronRight,
-  Cpu,
+  CircleAlert,
   Database,
-  HardDrive,
   Loader2,
   Network,
   Play,
+  RefreshCw,
   Server,
   ShieldCheck,
   Terminal,
@@ -18,53 +20,38 @@ import {
 import { useNavigate } from 'react-router-dom'
 import LiveTerminal from '../components/common/LiveTerminal.jsx'
 
-const PIPELINE_STAGES = [
-  { id: '01-konvoy', name: '01-konvoy', label: 'Konvoy Infrastructure', description: 'Bootstrap control plane and worker nodes' },
-  { id: '02-metallb', name: '02-metallb', label: 'MetalLB LoadBalancer', description: 'Configure Layer-2 VIP address pools' },
-  { id: '03-csi', name: '03-csi', label: 'Nutanix CSI Storage', description: 'Install Nutanix CSI driver and storage classes' },
-  { id: '04-kommander', name: '04-kommander', label: 'Kommander Addons', description: 'Deploy governance and observability stack' },
-  { id: '05-validation', name: '05-validation', label: 'Cluster Validation', description: 'Run end-to-end readiness checks' },
+const DEFAULT_NKP_VERSION = 'v2.18.0'
+const CLUSTER_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/
+const STORAGE_MODES = ['local', 'nutanix-csi-pe', 'nutanix-csi-pc']
+const REGISTRY_TYPES = ['dockerhub', 'harbor', 'mirror']
+const STEP_MARKER_RE = /^==> Step (\d+)\/(\d+):/
+
+const WIZARD_STEPS = [
+  { number: 1, title: 'Basics & Lab', stage: 'lab inheritance' },
+  { number: 2, title: 'Sizing & IPAM', stage: 'free IP slots' },
+  { number: 3, title: 'Runner Target', stage: 'central | bastion' },
+  { number: 4, title: 'Config Preview', stage: 'input.ini + CLI' },
+  { number: 5, title: 'Live Execution', stage: 'SSE stream' },
 ]
 
-const INVENTORY_PREVIEWS = {
-  'inventory-lab-01.yaml': `apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
-kind: PreprovisionedInventory
-metadata:
-  name: lab-proxmox-inventory
-  namespace: default
-spec:
-  nodes:
-    - address: 10.10.40.11
-      hostRef: { name: cp-node-01 }
-    - address: 10.10.40.12
-      hostRef: { name: cp-node-02 }
-    - address: 10.10.40.13
-      hostRef: { name: cp-node-03 }
-    - address: 10.10.40.21
-      hostRef: { name: worker-node-01 }
-    - address: 10.10.40.22
-      hostRef: { name: worker-node-02 }
-    - address: 10.10.40.23
-      hostRef: { name: worker-node-03 }`,
-  'inventory-ahv-prod.yaml': `apiVersion: infrastructure.cluster.x-k8s.io/v1alpha1
-kind: PreprovisionedInventory
-metadata:
-  name: prod-ahv-inventory
-  namespace: default
-spec:
-  nodes:
-    - address: 10.20.50.11
-      hostRef: { name: ahv-cp-01 }
-    - address: 10.20.50.12
-      hostRef: { name: ahv-cp-02 }
-    - address: 10.20.50.13
-      hostRef: { name: ahv-cp-03 }
-    - address: 10.20.50.21
-      hostRef: { name: ahv-worker-01 }
-    - address: 10.20.50.22
-      hostRef: { name: ahv-worker-02 }
-    - address: 10.20.50.23
-      hostRef: { name: ahv-worker-03 }`,
+function defaultDeploySteps(runner) {
+  return runner === 'bastion'
+    ? ['Sync config to bastion', 'Provision VMs (bastion)', 'Create cluster (bastion)']
+    : ['Provision VMs', 'Create cluster']
+}
+
+function stepState(index, progress) {
+  if (progress.status === 'COMPLETED') return 'done'
+  if (index < progress.current) return 'done'
+  if (index === progress.current) return progress.status === 'FAILED' ? 'failed' : 'running'
+  return 'pending'
+}
+
+async function readError(response, fallback) {
+  const data = await response.json().catch(() => ({}))
+  if (typeof data.detail === 'string') return data.detail
+  if (Array.isArray(data.detail) && data.detail[0]?.msg) return data.detail[0].msg
+  return fallback
 }
 
 function ClusterDeployPage() {
@@ -77,20 +64,41 @@ function ClusterDeployPage() {
   // Form State
   const [formData, setFormData] = useState({
     cluster_name: 'nkp-prod-01',
-    kubernetes_version: 'v1.31.1',
+    lab_name: '',
+    nkp_version: DEFAULT_NKP_VERSION,
     hypervisor_type: 'proxmox',
     control_plane_nodes: 3,
     worker_nodes: 3,
-    inventory_file: 'inventory-lab-01.yaml',
-    metallb_ip_range: '10.10.40.100-10.10.40.120',
-    control_plane_vip: '10.10.40.99',
-    nutanix_csi_enabled: true,
-    kommander_addons_enabled: true,
+    registry_type: 'dockerhub',
+    storage_mode: 'local',
+    target_runner: 'central',
+    bastion_ip: '',
   })
 
-  // Execution State
+  // Stage 1: labs discovered from /api/v1/lab/config
+  const [labs, setLabs] = useState([])
+  const [labConfig, setLabConfig] = useState(null)
+  const [labsState, setLabsState] = useState('loading') // loading | ready | error
+  const [labsError, setLabsError] = useState('')
+
+  // Stage 2: free IPAM slots from /api/v1/ipam/free
+  const [freeSlots, setFreeSlots] = useState([])
+  const [ipamState, setIpamState] = useState('idle') // idle | loading | ready | error
+  const [ipamError, setIpamError] = useState('')
+
+  // Stage 4: generated cluster config (POST /api/v1/clusters/init-config)
+  const [configResult, setConfigResult] = useState(null)
+  const [configState, setConfigState] = useState('idle') // idle | loading | ready | error
+  const [configError, setConfigError] = useState('')
+  const [configNonce, setConfigNonce] = useState(0)
+  const [syncState, setSyncState] = useState({ status: 'idle', runId: '', message: '' })
+
+  // Stage 5: execution state
   const [runId, setRunId] = useState(null)
   const [streamUrl, setStreamUrl] = useState('')
+  const [startedAt, setStartedAt] = useState('')
+  const [deploySteps, setDeploySteps] = useState([])
+  const [progress, setProgress] = useState({ current: 0, status: 'RUNNING' })
 
   function handleInputChange(field, value) {
     setFormData((previous) => ({
@@ -99,8 +107,165 @@ function ClusterDeployPage() {
     }))
   }
 
+  const applyLab = useCallback((config) => {
+    setLabConfig(config)
+    setFormData((previous) => ({
+      ...previous,
+      lab_name: config.lab_name || previous.lab_name,
+      nkp_version: config.nkp_version || previous.nkp_version,
+      registry_type: REGISTRY_TYPES.includes(config.registry_type) ? config.registry_type : previous.registry_type,
+      storage_mode: config.storage_mode || previous.storage_mode,
+    }))
+  }, [])
+
+  // Load the active lab + the list of labs.
+  useEffect(() => {
+    let cancelled = false
+    async function loadLabs() {
+      try {
+        const response = await fetch('/api/v1/lab/config')
+        if (!response.ok) throw new Error(await readError(response, 'Failed to load lab configuration'))
+        const config = await response.json()
+        if (cancelled) return
+        setLabs(Array.isArray(config.labs) ? config.labs : [])
+        if (config.configured) applyLab(config)
+        setLabsState('ready')
+      } catch (error) {
+        if (cancelled) return
+        setLabsError(error instanceof Error ? error.message : 'Failed to load lab configuration')
+        setLabsState('error')
+      }
+    }
+    loadLabs()
+    return () => {
+      cancelled = true
+    }
+  }, [applyLab])
+
+  async function handleLabChange(labName) {
+    handleInputChange('lab_name', labName)
+    setLabConfig(null)
+    if (!labName) return
+    try {
+      const response = await fetch(`/api/v1/lab/config?lab=${encodeURIComponent(labName)}`)
+      if (!response.ok) throw new Error(await readError(response, `Failed to load lab ${labName}`))
+      applyLab(await response.json())
+      setLabsError('')
+    } catch (error) {
+      setLabsError(error instanceof Error ? error.message : 'Failed to load lab configuration')
+    }
+  }
+
+  // Fetch real free IPAM slots whenever Stage 2 is shown.
+  const loadFreeSlots = useCallback(async () => {
+    setIpamState('loading')
+    setIpamError('')
+    try {
+      const response = await fetch('/api/v1/ipam/free')
+      if (!response.ok) throw new Error(await readError(response, 'Failed to load free IP slots'))
+      const slots = await response.json()
+      setFreeSlots(Array.isArray(slots) ? slots : [])
+      setIpamState('ready')
+    } catch (error) {
+      setIpamError(error instanceof Error ? error.message : 'Failed to load free IP slots')
+      setIpamState('error')
+    }
+  }, [])
+
+  useEffect(() => {
+    if (currentStep === 2) loadFreeSlots()
+  }, [currentStep, loadFreeSlots])
+
+  const ipPlan = useMemo(() => suggestIpPlan(freeSlots), [freeSlots])
+
+  // Generate the real <cluster>-input.ini whenever Stage 4 is shown (or regenerated on demand).
+  useEffect(() => {
+    if (currentStep !== 4) return undefined
+    let cancelled = false
+    async function generateConfig() {
+      setConfigState('loading')
+      setConfigError('')
+      try {
+        const response = await fetch('/api/v1/clusters/init-config', {
+          method: 'POST',
+          headers: roleHeaders({ 'Content-Type': 'application/json' }),
+          body: JSON.stringify({
+            cluster_name: formData.cluster_name.trim(),
+            lab_name: formData.lab_name,
+            nkp_version: formData.nkp_version.trim(),
+            registry_type: formData.registry_type,
+            storage_mode: formData.storage_mode,
+            control_plane_nodes: Number(formData.control_plane_nodes),
+            worker_nodes: Number(formData.worker_nodes),
+            target_runner: formData.target_runner,
+            bastion_ip: formData.target_runner === 'bastion' ? formData.bastion_ip.trim() : null,
+            hypervisor_type: formData.hypervisor_type,
+          }),
+        })
+        if (!response.ok) throw new Error(await readError(response, 'Failed to generate cluster config'))
+        const result = await response.json()
+        if (cancelled) return
+        setConfigResult(result)
+        setConfigState('ready')
+      } catch (error) {
+        if (cancelled) return
+        setConfigError(error instanceof Error ? error.message : 'Failed to generate cluster config')
+        setConfigState('error')
+      }
+    }
+    generateConfig()
+    return () => {
+      cancelled = true
+    }
+    // formData is intentionally read once per visit to Stage 4 (inputs are not editable there).
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentStep, configNonce])
+
+  async function syncToBastion() {
+    setSyncState({ status: 'syncing', runId: '', message: '' })
+    try {
+      const response = await fetch('/api/v1/clusters/sync-bastion', {
+        method: 'POST',
+        headers: roleHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({
+          cluster_name: formData.cluster_name.trim(),
+          bastion_ip: formData.bastion_ip.trim(),
+          nfs_mount: true,
+        }),
+      })
+      if (!response.ok) throw new Error(await readError(response, 'Failed to queue bastion sync'))
+      const payload = await response.json()
+      setSyncState({ status: payload.status, runId: payload.run_id, message: '' })
+    } catch (error) {
+      setSyncState({
+        status: 'error',
+        runId: '',
+        message: error instanceof Error ? error.message : 'Failed to queue bastion sync',
+      })
+    }
+  }
+
+  const clusterNameValid = CLUSTER_NAME_RE.test(formData.cluster_name.trim())
+  const countsValid =
+    Number(formData.control_plane_nodes) >= 1 &&
+    Number(formData.control_plane_nodes) <= 9 &&
+    Number(formData.worker_nodes) >= 0 &&
+    Number(formData.worker_nodes) <= 64
+  const bastionValid = formData.target_runner !== 'bastion' || formData.bastion_ip.trim().length > 0
+
+  const nextBlocker = (() => {
+    if (currentStep === 1) {
+      if (!formData.lab_name) return 'Select a lab to inherit infrastructure settings from.'
+      if (!clusterNameValid) return 'Cluster name must be 1-63 letters, digits, ".", "_" or "-".'
+      if (!formData.nkp_version.trim()) return 'Enter the NKP version.'
+    }
+    if (currentStep === 2 && !countsValid) return 'Control plane nodes: 1-9, worker nodes: 0-64.'
+    if (currentStep === 3 && !bastionValid) return 'Enter the bastion IP or hostname.'
+    return ''
+  })()
+
   function goToNextStep() {
-    if (currentStep < 5) {
+    if (currentStep < 5 && !nextBlocker) {
       setCurrentStep((previous) => previous + 1)
     }
   }
@@ -117,29 +282,30 @@ function ClusterDeployPage() {
     try {
       const response = await fetch('/api/v1/clusters/create', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
+        headers: roleHeaders({ 'Content-Type': 'application/json' }),
         body: JSON.stringify({
-          cluster_name: formData.cluster_name,
+          cluster_name: formData.cluster_name.trim(),
+          lab_name: formData.lab_name,
           control_plane_nodes: Number(formData.control_plane_nodes),
           worker_nodes: Number(formData.worker_nodes),
-          kubernetes_version: formData.kubernetes_version,
           hypervisor_type: formData.hypervisor_type,
-          metallb_ip_range: formData.metallb_ip_range,
-          control_plane_vip: formData.control_plane_vip,
-          nutanix_csi_enabled: formData.nutanix_csi_enabled,
-          kommander_addons_enabled: formData.kommander_addons_enabled,
+          target_runner: formData.target_runner,
+          bastion_ip: formData.target_runner === 'bastion' ? formData.bastion_ip.trim() : null,
+          nfs_mount: true,
         }),
       })
 
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || 'Failed to initiate cluster deployment pipeline')
+        throw new Error(await readError(response, 'Failed to initiate cluster deployment pipeline'))
       }
 
       const payload = await response.json()
       setRunId(payload.run_id)
+      setStartedAt(payload.started_at || new Date().toISOString())
+      setDeploySteps(
+        Array.isArray(payload.steps) && payload.steps.length > 0 ? payload.steps : defaultDeploySteps(formData.target_runner),
+      )
+      setProgress({ current: 0, status: 'RUNNING' })
       setStreamUrl(import.meta.env.VITE_TERMINAL_STREAM_URL || `/api/v1/pipeline/${payload.run_id}/stream`)
       setCurrentStep(5)
     } catch (error) {
@@ -149,13 +315,23 @@ function ClusterDeployPage() {
     }
   }
 
-  const steps = [
-    { number: 1, title: 'Basics', stage: '01-konvoy' },
-    { number: 2, title: 'Topology & Preprov', stage: '02-metallb' },
-    { number: 3, title: 'Network & VIP', stage: '03-csi' },
-    { number: 4, title: 'Storage & Addons', stage: '04-kommander' },
-    { number: 5, title: 'Deploy & Execution', stage: '05-validation' },
-  ]
+  // Derive per-step progress from the "==> Step i/n:" markers in the streamed log.
+  const handleTerminalProgress = useCallback(({ lines, status }) => {
+    let current = 0
+    for (const line of lines) {
+      const match = STEP_MARKER_RE.exec(line)
+      if (match) current = Math.max(current, Number(match[1]))
+    }
+    setProgress((previous) =>
+      previous.current === current && previous.status === status ? previous : { current, status },
+    )
+  }, [])
+
+  const centralHint = formData.target_runner === 'bastion' ? '<forge-central-ip>' : ''
+  const bastionHost = formData.bastion_ip.trim() || '<bastion-ip>'
+  const shownDeploySteps = deploySteps.length > 0 ? deploySteps : defaultDeploySteps(formData.target_runner)
+  const inputClass =
+    'mt-1.5 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-accent-teal focus:outline-none'
 
   return (
     <section className="rounded border border-slate-700 bg-card-slate p-6" data-testid="page-clusters-deploy">
@@ -175,7 +351,7 @@ function ClusterDeployPage() {
           </div>
           <h2 className="mt-1 text-xl font-semibold text-slate-100">NKP Cluster Deployment Wizard</h2>
           <p className="mt-1 text-xs text-slate-400">
-            Interactive 5-Stage Preprovisioned Nutanix Kubernetes Platform (NKP) Cluster Provisioning
+            Guided cluster config generator: lab inheritance, IPAM-backed sizing and Central / Bastion execution
           </p>
         </div>
         {runId && (
@@ -189,7 +365,7 @@ function ClusterDeployPage() {
       {/* 5-Stage Stepper Navigation */}
       <nav className="mt-6 mb-8" aria-label="Wizard Steps">
         <ol className="grid grid-cols-1 gap-2 sm:grid-cols-5">
-          {steps.map((s) => {
+          {WIZARD_STEPS.map((s) => {
             const isActive = currentStep === s.number
             const isCompleted = currentStep > s.number
             return (
@@ -234,15 +410,39 @@ function ClusterDeployPage() {
         </div>
       )}
 
-      {/* Stage 1: Cluster Basics */}
+      {/* Stage 1: Cluster Basics & Lab Inheritance */}
       {currentStep === 1 && (
         <div className="space-y-6" data-testid="stage-1-container">
           <div className="border-b border-slate-800 pb-3">
-            <h3 className="text-base font-medium text-slate-200">Stage 1: Cluster Basics</h3>
-            <p className="mt-1 text-xs text-slate-400">Specify cluster identity, target hypervisor engine, and Kubernetes version.</p>
+            <h3 className="text-base font-medium text-slate-200">Stage 1: Cluster Basics & Lab Inheritance</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Pick the lab the cluster lives in; Proxmox host, bridge, storage pool and NKP version are inherited from it.
+            </p>
           </div>
 
           <div className="grid gap-6 md:grid-cols-2">
+            <div>
+              <label htmlFor="select-lab" className="block text-xs font-medium text-slate-300">
+                Lab
+              </label>
+              <select
+                id="select-lab"
+                className={inputClass}
+                value={formData.lab_name}
+                onChange={(e) => handleLabChange(e.target.value)}
+                data-testid="select-lab"
+                disabled={labsState === 'loading'}
+              >
+                <option value="">{labsState === 'loading' ? 'Loading labs…' : 'Select a lab…'}</option>
+                {labs.map((lab) => (
+                  <option key={lab} value={lab}>
+                    {lab}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-slate-400">Labs discovered from the Day-0 lab-infra files.</p>
+            </div>
+
             <div>
               <label htmlFor="input-cluster-name" className="block text-xs font-medium text-slate-300">
                 Cluster Name
@@ -250,7 +450,7 @@ function ClusterDeployPage() {
               <input
                 id="input-cluster-name"
                 type="text"
-                className="mt-1.5 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-accent-teal focus:outline-none"
+                className={inputClass}
                 value={formData.cluster_name}
                 onChange={(e) => handleInputChange('cluster_name', e.target.value)}
                 data-testid="input-cluster-name"
@@ -265,7 +465,7 @@ function ClusterDeployPage() {
               </label>
               <select
                 id="select-hypervisor"
-                className="mt-1.5 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-accent-teal focus:outline-none"
+                className={inputClass}
                 value={formData.hypervisor_type}
                 onChange={(e) => handleInputChange('hypervisor_type', e.target.value)}
                 data-testid="select-hypervisor"
@@ -277,33 +477,74 @@ function ClusterDeployPage() {
             </div>
 
             <div>
-              <label htmlFor="input-k8s-version" className="block text-xs font-medium text-slate-300">
-                Kubernetes Version
+              <label htmlFor="input-nkp-version" className="block text-xs font-medium text-slate-300">
+                NKP Version
               </label>
               <input
-                id="input-k8s-version"
+                id="input-nkp-version"
                 type="text"
-                className="mt-1.5 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-accent-teal focus:outline-none"
-                value={formData.kubernetes_version}
-                onChange={(e) => handleInputChange('kubernetes_version', e.target.value)}
-                data-testid="input-k8s-version"
-                placeholder="v1.31.1"
+                className={inputClass}
+                value={formData.nkp_version}
+                onChange={(e) => handleInputChange('nkp_version', e.target.value)}
+                data-testid="input-nkp-version"
+                placeholder={DEFAULT_NKP_VERSION}
               />
-              <p className="mt-1 text-[11px] text-slate-400">Target NKP Kubernetes release build.</p>
+              <p className="mt-1 text-[11px] text-slate-400">Defaults to the lab's NKP CLI version when it defines one.</p>
             </div>
           </div>
+
+          {labsState === 'error' && (
+            <div className="rounded border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-300" data-testid="lab-load-error">
+              <CircleAlert size={12} className="mr-1 inline" />
+              {labsError}
+            </div>
+          )}
+          {labsState === 'ready' && labs.length === 0 && (
+            <div className="rounded border border-amber-500/40 bg-amber-500/10 p-3 text-xs text-amber-300" data-testid="lab-empty-notice">
+              No labs found. Create one with the Day-0 Lab Wizard in Settings first.
+            </div>
+          )}
+
+          {labConfig && (
+            <div className="rounded border border-slate-700 bg-slate-900/80 p-4" data-testid="lab-inheritance-card">
+              <div className="flex items-center gap-2 border-b border-slate-800 pb-2">
+                <ShieldCheck className="h-4 w-4 text-emerald-400" />
+                <h4 className="text-xs font-semibold text-slate-200">Inherited from lab {labConfig.lab_name}</h4>
+              </div>
+              <dl className="mt-3 grid gap-3 text-xs sm:grid-cols-2 md:grid-cols-4">
+                <div>
+                  <dt className="text-[10px] text-slate-400">Proxmox host</dt>
+                  <dd className="font-mono text-teal-300" data-testid="text-lab-pve-host">{labConfig.pve_host || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] text-slate-400">Network bridge</dt>
+                  <dd className="font-mono text-teal-300" data-testid="text-lab-bridge">{labConfig.network_bridge || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] text-slate-400">Storage pool</dt>
+                  <dd className="font-mono text-teal-300" data-testid="text-lab-storage-pool">{labConfig.storage_pool || '—'}</dd>
+                </div>
+                <div>
+                  <dt className="text-[10px] text-slate-400">Default NKP version</dt>
+                  <dd className="font-mono text-teal-300" data-testid="text-lab-nkp-version">{labConfig.nkp_version || '—'}</dd>
+                </div>
+              </dl>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Stage 2: Node Topology & Preprovisioned Inventory Selection */}
+      {/* Stage 2: Node Sizing & IPAM Allocation */}
       {currentStep === 2 && (
         <div className="space-y-6" data-testid="stage-2-container">
           <div className="border-b border-slate-800 pb-3">
-            <h3 className="text-base font-medium text-slate-200">Stage 2: Node Topology & Preprovisioned Inventory</h3>
-            <p className="mt-1 text-xs text-slate-400">Define cluster control plane / worker topology and verify pre-flight inventory nodes.</p>
+            <h3 className="text-base font-medium text-slate-200">Stage 2: Node Sizing & IPAM Allocation</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Size the cluster; the control-plane VIP and MetalLB range are suggested from live free IPAM slots.
+            </p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-3">
+          <div className="grid gap-6 md:grid-cols-4">
             <div>
               <label htmlFor="input-control-plane-count" className="block text-xs font-medium text-slate-300">
                 Control Plane Node Count
@@ -313,7 +554,7 @@ function ClusterDeployPage() {
                 type="number"
                 min="1"
                 max="9"
-                className="mt-1.5 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-accent-teal focus:outline-none"
+                className={inputClass}
                 value={formData.control_plane_nodes}
                 onChange={(e) => handleInputChange('control_plane_nodes', e.target.value)}
                 data-testid="input-control-plane-count"
@@ -328,9 +569,9 @@ function ClusterDeployPage() {
               <input
                 id="input-worker-count"
                 type="number"
-                min="1"
-                max="32"
-                className="mt-1.5 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-accent-teal focus:outline-none"
+                min="0"
+                max="64"
+                className={inputClass}
                 value={formData.worker_nodes}
                 onChange={(e) => handleInputChange('worker_nodes', e.target.value)}
                 data-testid="input-worker-count"
@@ -339,194 +580,319 @@ function ClusterDeployPage() {
             </div>
 
             <div>
-              <label htmlFor="select-inventory-file" className="block text-xs font-medium text-slate-300">
-                Preprovisioned Inventory File
+              <label htmlFor="select-storage-mode" className="block text-xs font-medium text-slate-300">
+                Storage Mode
               </label>
               <select
-                id="select-inventory-file"
-                className="mt-1.5 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-accent-teal focus:outline-none"
-                value={formData.inventory_file}
-                onChange={(e) => handleInputChange('inventory_file', e.target.value)}
-                data-testid="select-inventory-file"
+                id="select-storage-mode"
+                className={inputClass}
+                value={formData.storage_mode}
+                onChange={(e) => handleInputChange('storage_mode', e.target.value)}
+                data-testid="select-storage-mode"
               >
-                <option value="inventory-lab-01.yaml">inventory-lab-01.yaml (Proxmox Lab)</option>
-                <option value="inventory-ahv-prod.yaml">inventory-ahv-prod.yaml (Nutanix AHV Cluster)</option>
+                {[...new Set([formData.storage_mode, ...STORAGE_MODES])].map((mode) => (
+                  <option key={mode} value={mode}>
+                    {mode}
+                  </option>
+                ))}
               </select>
-              <p className="mt-1 text-[11px] text-slate-400">YAML manifest specifying node SSH details.</p>
+              <p className="mt-1 text-[11px] text-slate-400">Inherited from the lab; override per cluster.</p>
+            </div>
+
+            <div>
+              <label htmlFor="select-registry-type" className="block text-xs font-medium text-slate-300">
+                Registry Type
+              </label>
+              <select
+                id="select-registry-type"
+                className={inputClass}
+                value={formData.registry_type}
+                onChange={(e) => handleInputChange('registry_type', e.target.value)}
+                data-testid="select-registry-type"
+              >
+                {REGISTRY_TYPES.map((type) => (
+                  <option key={type} value={type}>
+                    {type}
+                  </option>
+                ))}
+              </select>
+              <p className="mt-1 text-[11px] text-slate-400">Image registry used by the cluster.</p>
             </div>
           </div>
 
-          {/* Pre-flight PreprovisionedInventory YAML inspection & node status checks */}
-          <div className="rounded border border-slate-700 bg-slate-900/80 p-4" data-testid="inventory-inspection-card">
+          {/* Live IPAM suggestion */}
+          <div className="rounded border border-slate-700 bg-slate-900/80 p-4" data-testid="ipam-preview-card">
             <div className="flex items-center justify-between border-b border-slate-800 pb-3">
               <div className="flex items-center gap-2">
-                <ShieldCheck className="h-4 w-4 text-emerald-400" />
-                <h4 className="text-xs font-semibold text-slate-200">Pre-flight Inventory Inspection & Node Checks</h4>
+                <Network className="h-4 w-4 text-teal-400" />
+                <h4 className="text-xs font-semibold text-slate-200">Suggested IP allocation (from free IPAM slots)</h4>
               </div>
-              <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[11px] font-medium text-emerald-300">
-                6/6 Nodes Verified
-              </span>
+              <button
+                type="button"
+                onClick={loadFreeSlots}
+                disabled={ipamState === 'loading'}
+                className="inline-flex items-center gap-1 rounded border border-slate-600 px-2 py-1 text-[11px] text-slate-200 hover:border-slate-400 disabled:opacity-50"
+                data-testid="btn-refresh-ipam"
+              >
+                <RefreshCw size={12} className={ipamState === 'loading' ? 'animate-spin' : ''} />
+                Refresh
+              </button>
             </div>
 
-            {/* Node Status Summary */}
-            <div className="mt-3 grid gap-3 sm:grid-cols-2 lg:grid-cols-3" data-testid="preflight-status-checks">
-              {[
-                { name: 'cp-node-01', role: 'Control Plane', ip: '10.10.40.11', specs: '16 vCPU / 32GB', status: 'READY' },
-                { name: 'cp-node-02', role: 'Control Plane', ip: '10.10.40.12', specs: '16 vCPU / 32GB', status: 'READY' },
-                { name: 'cp-node-03', role: 'Control Plane', ip: '10.10.40.13', specs: '16 vCPU / 32GB', status: 'READY' },
-                { name: 'worker-node-01', role: 'Worker', ip: '10.10.40.21', specs: '16 vCPU / 32GB', status: 'READY' },
-                { name: 'worker-node-02', role: 'Worker', ip: '10.10.40.22', specs: '16 vCPU / 32GB', status: 'READY' },
-                { name: 'worker-node-03', role: 'Worker', ip: '10.10.40.23', specs: '16 vCPU / 32GB', status: 'READY' },
-              ].map((node) => (
-                <div key={node.name} className="flex items-center justify-between rounded border border-slate-800 bg-slate-950/60 p-2.5 text-xs">
+            {ipamState === 'loading' && (
+              <p className="mt-3 text-xs text-slate-400" data-testid="ipam-loading">
+                <Loader2 size={12} className="mr-1 inline animate-spin" />
+                Loading free IP slots…
+              </p>
+            )}
+            {ipamState === 'error' && (
+              <p className="mt-3 text-xs text-rose-300" data-testid="ipam-error">
+                <CircleAlert size={12} className="mr-1 inline" />
+                {ipamError}
+              </p>
+            )}
+            {ipamState === 'ready' && (
+              <div className="mt-3 space-y-3">
+                <div className="grid gap-3 text-xs sm:grid-cols-3">
                   <div>
-                    <div className="flex items-center gap-1.5 font-mono text-slate-200">
-                      <Server size={12} className="text-slate-400" />
-                      {node.name}
-                    </div>
-                    <div className="mt-0.5 text-[10px] text-slate-400">{node.role} • {node.ip}</div>
-                  </div>
-                  <div className="text-right">
-                    <span className="inline-flex items-center gap-1 text-[10px] font-medium text-emerald-400">
-                      <CheckCircle2 size={10} />
-                      {node.status}
+                    <span className="block text-[10px] text-slate-400">Control Plane VIP</span>
+                    <span className="font-mono text-teal-300" data-testid="text-vip-preview">
+                      {ipPlan.vip || 'none free — IPAM will allocate'}
                     </span>
-                    <div className="text-[10px] text-slate-400">{node.specs}</div>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-400">MetalLB Range</span>
+                    <span className="font-mono text-teal-300" data-testid="text-metallb-preview">
+                      {ipPlan.metallbRange || 'none free — IPAM will allocate'}
+                    </span>
+                  </div>
+                  <div>
+                    <span className="block text-[10px] text-slate-400">Free Slots</span>
+                    <span className="font-semibold text-slate-200" data-testid="text-ipam-free-count">{freeSlots.length}</span>
                   </div>
                 </div>
-              ))}
-            </div>
-
-            {/* Inventory YAML Preview */}
-            <div className="mt-4">
-              <label className="block text-[11px] font-medium text-slate-400 mb-1">
-                PreprovisionedInventory Manifest YAML ({formData.inventory_file})
-              </label>
-              <pre
-                className="max-h-40 overflow-y-auto rounded border border-slate-800 bg-black/80 p-3 font-mono text-[11px] text-teal-300"
-                data-testid="inventory-yaml-preview"
-              >
-                {INVENTORY_PREVIEWS[formData.inventory_file] || INVENTORY_PREVIEWS['inventory-lab-01.yaml']}
-              </pre>
-            </div>
+                <div className="flex flex-wrap gap-1.5" data-testid="ipam-free-slots">
+                  {freeSlots.slice(0, 16).map((slot) => (
+                    <span key={slot.ip} className="rounded bg-slate-800 px-2 py-0.5 font-mono text-[10px] text-slate-300">
+                      {slot.ip}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-[11px] text-slate-400">
+                  These are previews: the addresses are reserved when the cluster config is generated in Stage 4.
+                </p>
+              </div>
+            )}
           </div>
         </div>
       )}
 
-      {/* Stage 3: Networking & VIP Config */}
+      {/* Stage 3: Deployment Runner Target */}
       {currentStep === 3 && (
         <div className="space-y-6" data-testid="stage-3-container">
           <div className="border-b border-slate-800 pb-3">
-            <h3 className="text-base font-medium text-slate-200">Stage 3: Networking & Virtual IP (VIP) Config</h3>
-            <p className="mt-1 text-xs text-slate-400">Configure MetalLB Layer-2 address pools and Kubernetes Control Plane VIP.</p>
+            <h3 className="text-base font-medium text-slate-200">Stage 3: Deployment Runner Target</h3>
+            <p className="mt-1 text-xs text-slate-400">Choose where the deployment commands execute.</p>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-2">
-            <div>
-              <label htmlFor="input-metallb-range" className="block text-xs font-medium text-slate-300">
-                MetalLB IP Range
-              </label>
+          <div className="grid gap-4 md:grid-cols-2" role="radiogroup" aria-label="Deployment runner">
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded border p-4 ${
+                formData.target_runner === 'central' ? 'border-accent-teal bg-slate-800/80' : 'border-slate-700 bg-slate-900/60'
+              }`}
+            >
               <input
-                id="input-metallb-range"
-                type="text"
-                className="mt-1.5 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-accent-teal focus:outline-none font-mono"
-                value={formData.metallb_ip_range}
-                onChange={(e) => handleInputChange('metallb_ip_range', e.target.value)}
-                data-testid="input-metallb-range"
-                placeholder="10.10.40.100-10.10.40.120"
+                type="radio"
+                name="target-runner"
+                className="mt-1 h-4 w-4 text-teal-500"
+                checked={formData.target_runner === 'central'}
+                onChange={() => handleInputChange('target_runner', 'central')}
+                data-testid="radio-runner-central"
               />
-              <p className="mt-1 text-[11px] text-slate-400">Allocated range for LoadBalancer services.</p>
-            </div>
+              <div>
+                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-100">
+                  <Server size={12} /> Option A: Execute on Forge Central
+                </span>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Runs <code className="font-mono">./forge provision vms</code> and{' '}
+                  <code className="font-mono">./forge create cluster</code> directly on this host.
+                </p>
+              </div>
+            </label>
 
-            <div>
-              <label htmlFor="input-cp-vip" className="block text-xs font-medium text-slate-300">
-                Control Plane Virtual IP (VIP)
-              </label>
+            <label
+              className={`flex cursor-pointer items-start gap-3 rounded border p-4 ${
+                formData.target_runner === 'bastion' ? 'border-accent-teal bg-slate-800/80' : 'border-slate-700 bg-slate-900/60'
+              }`}
+            >
               <input
-                id="input-cp-vip"
-                type="text"
-                className="mt-1.5 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100 focus:border-accent-teal focus:outline-none font-mono"
-                value={formData.control_plane_vip}
-                onChange={(e) => handleInputChange('control_plane_vip', e.target.value)}
-                data-testid="input-cp-vip"
-                placeholder="10.10.40.99"
+                type="radio"
+                name="target-runner"
+                className="mt-1 h-4 w-4 text-teal-500"
+                checked={formData.target_runner === 'bastion'}
+                onChange={() => handleInputChange('target_runner', 'bastion')}
+                data-testid="radio-runner-bastion"
               />
-              <p className="mt-1 text-[11px] text-slate-400">Floating Virtual IP address for API server HA endpoints.</p>
-            </div>
+              <div>
+                <span className="flex items-center gap-1.5 text-xs font-medium text-slate-100">
+                  <Database size={12} /> Option B: Stage & Execute on Cluster Bastion
+                </span>
+                <p className="mt-1 text-[11px] text-slate-400">
+                  Syncs the generated config, mounts the product shares and runs the pipeline on the bastion over SSH.
+                </p>
+              </div>
+            </label>
           </div>
+
+          {formData.target_runner === 'bastion' && (
+            <div className="space-y-4 rounded border border-slate-700 bg-slate-900/80 p-4" data-testid="bastion-options">
+              <div className="max-w-md">
+                <label htmlFor="input-bastion-ip" className="block text-xs font-medium text-slate-300">
+                  Bastion IP / Hostname
+                </label>
+                <input
+                  id="input-bastion-ip"
+                  type="text"
+                  className={`${inputClass} font-mono`}
+                  value={formData.bastion_ip}
+                  onChange={(e) => handleInputChange('bastion_ip', e.target.value)}
+                  data-testid="input-bastion-ip"
+                  placeholder="10.0.0.50"
+                />
+              </div>
+              <ol className="space-y-1.5 text-[11px] text-slate-300" data-testid="bastion-sync-steps">
+                <li>
+                  1. Write <code className="font-mono text-teal-300">{formData.cluster_name || '<cluster>'}-input.ini</code> on Forge Central
+                </li>
+                <li>
+                  2. Mount product shares:{' '}
+                  <code className="font-mono text-teal-300">
+                    ./forge share mount --from {centralHint} --target {bastionHost}
+                  </code>
+                </li>
+                <li>
+                  3. Run <code className="font-mono text-teal-300">provision vms</code> and{' '}
+                  <code className="font-mono text-teal-300">create cluster</code> on the bastion over SSH
+                </li>
+              </ol>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Stage 4: Storage & Addons */}
+      {/* Stage 4: Config Preview & Copy as CLI */}
       {currentStep === 4 && (
         <div className="space-y-6" data-testid="stage-4-container">
           <div className="border-b border-slate-800 pb-3">
-            <h3 className="text-base font-medium text-slate-200">Stage 4: Storage & Management Addons</h3>
-            <p className="mt-1 text-xs text-slate-400">Enable CSI storage provider and Kommander lifecycle extensions.</p>
+            <h3 className="text-base font-medium text-slate-200">Stage 4: Config Preview & Copy as CLI</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              The generated cluster config inherits the lab settings; review it, then launch.
+            </p>
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
-            <label className="flex items-start gap-3 rounded border border-slate-700 bg-slate-900/60 p-4 cursor-pointer hover:border-slate-500">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-800 text-teal-500 focus:ring-teal-400"
-                checked={formData.nutanix_csi_enabled}
-                onChange={(e) => handleInputChange('nutanix_csi_enabled', e.target.checked)}
-                data-testid="toggle-csi"
-              />
-              <div>
-                <span className="text-xs font-medium text-slate-100">Nutanix CSI Storage Driver</span>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Deploys Nutanix Container Storage Interface (CSI) for dynamic PVC volumes backed by Nutanix Volumes/Files.
-                </p>
-              </div>
-            </label>
-
-            <label className="flex items-start gap-3 rounded border border-slate-700 bg-slate-900/60 p-4 cursor-pointer hover:border-slate-500">
-              <input
-                type="checkbox"
-                className="mt-1 h-4 w-4 rounded border-slate-600 bg-slate-800 text-teal-500 focus:ring-teal-400"
-                checked={formData.kommander_addons_enabled}
-                onChange={(e) => handleInputChange('kommander_addons_enabled', e.target.checked)}
-                data-testid="toggle-kommander"
-              />
-              <div>
-                <span className="text-xs font-medium text-slate-100">Kommander Management Addons</span>
-                <p className="mt-1 text-[11px] text-slate-400">
-                  Installs Kommander management services including Prometheus, Grafana, Traefik, and FluentBit.
-                </p>
-              </div>
-            </label>
-          </div>
-
-          {/* Configuration Review */}
           <div className="rounded border border-slate-700 bg-slate-900/80 p-4">
-            <h4 className="text-xs font-semibold text-slate-200 border-b border-slate-800 pb-2 mb-3">
-              Deployment Configuration Summary
+            <h4 className="mb-3 border-b border-slate-800 pb-2 text-xs font-semibold text-slate-200">
+              Deployment Summary
             </h4>
-            <div className="grid gap-3 text-xs sm:grid-cols-2 md:grid-cols-4">
+            <div className="grid gap-3 text-xs sm:grid-cols-2 md:grid-cols-4" data-testid="deploy-summary">
               <div>
-                <span className="text-slate-400 block text-[10px]">Cluster Identity</span>
-                <span className="font-semibold text-slate-200">{formData.cluster_name}</span> ({formData.hypervisor_type.toUpperCase()})
+                <span className="block text-[10px] text-slate-400">Cluster / Lab</span>
+                <span className="font-semibold text-slate-200">{formData.cluster_name}</span> @ {formData.lab_name}
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">Topology</span>
-                <span className="font-semibold text-slate-200">{formData.control_plane_nodes} CP / {formData.worker_nodes} Workers</span>
+                <span className="block text-[10px] text-slate-400">Topology</span>
+                <span className="font-semibold text-slate-200">
+                  {formData.control_plane_nodes} CP / {formData.worker_nodes} Workers
+                </span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">VIP Network</span>
-                <span className="font-mono text-teal-300">{formData.control_plane_vip}</span>
+                <span className="block text-[10px] text-slate-400">Control Plane VIP</span>
+                <span className="font-mono text-teal-300" data-testid="text-config-vip">
+                  {configResult?.vip_preview || '—'}
+                </span>
               </div>
               <div>
-                <span className="text-slate-400 block text-[10px]">Addons</span>
-                <span className="text-slate-200">CSI: {formData.nutanix_csi_enabled ? 'ON' : 'OFF'} • Kommander: {formData.kommander_addons_enabled ? 'ON' : 'OFF'}</span>
+                <span className="block text-[10px] text-slate-400">MetalLB Range</span>
+                <span className="font-mono text-teal-300" data-testid="text-config-metallb">
+                  {configResult?.metallb_range_preview || '—'}
+                </span>
+              </div>
+              <div>
+                <span className="block text-[10px] text-slate-400">Runner</span>
+                <span className="text-slate-200" data-testid="text-config-runner">
+                  {formData.target_runner === 'bastion' ? `Bastion (${formData.bastion_ip})` : 'Forge Central'}
+                </span>
               </div>
             </div>
           </div>
 
-          <CliSnippetCard
-            command={`./forge cluster-create --cluster-name ${formData.cluster_name} --control-plane-nodes ${formData.control_plane_nodes} --worker-nodes ${formData.worker_nodes} --kubernetes-version ${formData.kubernetes_version} --hypervisor-type ${formData.hypervisor_type}`}
-          />
+          {configState === 'loading' && (
+            <p className="text-xs text-slate-400" data-testid="config-loading">
+              <Loader2 size={12} className="mr-1 inline animate-spin" />
+              Generating cluster config…
+            </p>
+          )}
+          {configState === 'error' && (
+            <div className="rounded border border-rose-500/40 bg-rose-500/10 p-3 text-xs text-rose-300" data-testid="config-error">
+              <CircleAlert size={12} className="mr-1 inline" />
+              {configError}
+              <button
+                type="button"
+                onClick={() => setConfigNonce((value) => value + 1)}
+                className="ml-3 rounded border border-rose-400/60 px-2 py-0.5 text-[11px] hover:border-rose-300"
+                data-testid="btn-retry-config"
+              >
+                Retry
+              </button>
+            </div>
+          )}
+          {configState === 'ready' && configResult && (
+            <>
+              <div>
+                <label className="mb-1 block text-[11px] font-medium text-slate-400">
+                  {formData.cluster_name}-input.ini <span className="font-mono">({configResult.config_path})</span>
+                </label>
+                <pre
+                  className="max-h-64 overflow-y-auto rounded border border-slate-800 bg-black/80 p-3 font-mono text-[11px] text-teal-300"
+                  data-testid="config-preview"
+                >
+                  {configResult.config_preview}
+                </pre>
+              </div>
+              <CliSnippetCard title="Copy as CLI" command={configResult.commands.join('\n')} />
+            </>
+          )}
+
+          {formData.target_runner === 'bastion' && (
+            <div className="rounded border border-slate-700 bg-slate-900/80 p-4" data-testid="bastion-sync-card">
+              <div className="flex flex-wrap items-center justify-between gap-3">
+                <div>
+                  <h4 className="text-xs font-semibold text-slate-200">Stage config on bastion {formData.bastion_ip}</h4>
+                  <p className="mt-1 text-[11px] text-slate-400">
+                    Optional dry stage: mounts the product shares now. Launch also performs this step.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={syncToBastion}
+                  className="inline-flex items-center gap-1.5 rounded border border-slate-600 px-3 py-1.5 text-xs text-slate-200 hover:border-slate-400 disabled:opacity-50"
+                  data-testid="btn-sync-bastion"
+                  {...mutationProps(syncState.status === 'syncing' || configState !== 'ready')}
+                >
+                  {syncState.status === 'syncing' ? <Loader2 size={12} className="animate-spin" /> : <Terminal size={12} />}
+                  Sync to Bastion
+                </button>
+              </div>
+              {syncState.runId && (
+                <p className="mt-2 text-[11px] text-slate-300" data-testid="sync-bastion-status">
+                  Sync {syncState.status} — run <code className="font-mono text-teal-400" data-testid="text-sync-run-id">{syncState.runId}</code>
+                </p>
+              )}
+              {syncState.status === 'error' && (
+                <p className="mt-2 text-[11px] text-rose-300" data-testid="sync-bastion-error">{syncState.message}</p>
+              )}
+            </div>
+          )}
         </div>
       )}
 
@@ -534,23 +900,50 @@ function ClusterDeployPage() {
       {currentStep === 5 && (
         <div className="space-y-6" data-testid="stage-5-container">
           <div className="border-b border-slate-800 pb-3">
-            <h3 className="text-base font-medium text-slate-200">Stage 5: Live Pipeline Execution</h3>
-            <p className="mt-1 text-xs text-slate-400">Real-time SSE log output for 5-stage preprovisioned NKP cluster deployment.</p>
+            <h3 className="text-base font-medium text-slate-200">Stage 5: Live Execution</h3>
+            <p className="mt-1 text-xs text-slate-400">
+              Real-time SSE log output for the {formData.target_runner === 'bastion' ? 'bastion' : 'Forge Central'} deployment run.
+            </p>
+            {startedAt && (
+              <p className="mt-1 text-[11px] text-slate-400" data-testid="run-started-at">
+                Started — UTC: <span className="font-mono text-slate-300">{startedAt}</span> | Local:{' '}
+                <span className="font-mono text-slate-300">
+                  <Timestamp value={startedAt} />
+                </span>
+              </p>
+            )}
           </div>
 
-          {/* Pipeline Stage Status Cards */}
-          <div className="grid gap-2 grid-cols-2 sm:grid-cols-5">
-            {PIPELINE_STAGES.map((stg) => (
-              <div
-                key={stg.id}
-                data-testid={`stage-timer-${stg.id}`}
-                className="rounded border border-slate-800 bg-slate-950/70 p-2.5 text-xs"
-              >
-                <div className="font-mono font-medium text-teal-400">{stg.name}</div>
-                <div className="mt-0.5 text-[10px] text-slate-400 truncate">{stg.label}</div>
-              </div>
-            ))}
-          </div>
+          {/* Step progress indicators */}
+          <ol className="grid gap-2 sm:grid-cols-3" data-testid="deploy-step-progress">
+            {shownDeploySteps.map((label, index) => {
+              const state = stepState(index + 1, progress)
+              const tone =
+                state === 'done'
+                  ? 'border-emerald-600/50 text-emerald-300'
+                  : state === 'running'
+                    ? 'border-accent-teal text-teal-300'
+                    : state === 'failed'
+                      ? 'border-rose-500/60 text-rose-300'
+                      : 'border-slate-800 text-slate-400'
+              return (
+                <li
+                  key={label}
+                  data-testid={`step-progress-${index + 1}`}
+                  data-state={state}
+                  className={`flex items-center gap-2 rounded border bg-slate-950/70 p-2.5 text-xs ${tone}`}
+                >
+                  {state === 'done' && <CheckCircle2 size={14} />}
+                  {state === 'running' && <Loader2 size={14} className="animate-spin" />}
+                  {state === 'failed' && <CircleAlert size={14} />}
+                  {state === 'pending' && <span className="h-3.5 w-3.5 rounded-full border border-slate-600" />}
+                  <span className="font-mono">
+                    {index + 1}. {label}
+                  </span>
+                </li>
+              )
+            })}
+          </ol>
 
           {/* Live Terminal Stream Component */}
           {streamUrl ? (
@@ -558,6 +951,7 @@ function ClusterDeployPage() {
               streamUrl={streamUrl}
               activeStepName={`NKP Deploy (${formData.cluster_name})`}
               autoConnect={true}
+              onProgress={handleTerminalProgress}
             />
           ) : (
             <div className="rounded border border-dashed border-slate-700 bg-slate-900/50 p-8 text-center text-sm text-slate-400">
@@ -580,11 +974,17 @@ function ClusterDeployPage() {
         </button>
 
         <div className="flex items-center gap-3">
+          {nextBlocker && currentStep < 4 && (
+            <span className="text-[11px] text-amber-300" data-testid="text-next-blocker">
+              {nextBlocker}
+            </span>
+          )}
           {currentStep < 4 && (
             <button
               type="button"
               onClick={goToNextStep}
-              className="inline-flex items-center gap-1.5 rounded bg-accent-teal px-4 py-2 text-xs font-medium text-slate-950 hover:bg-teal-400"
+              disabled={Boolean(nextBlocker)}
+              className="inline-flex items-center gap-1.5 rounded bg-accent-teal px-4 py-2 text-xs font-medium text-slate-950 hover:bg-teal-400 disabled:opacity-40"
               data-testid="btn-wizard-next"
             >
               Next Step
@@ -598,7 +998,7 @@ function ClusterDeployPage() {
               onClick={launchDeployment}
               className="inline-flex items-center gap-2 rounded bg-emerald-500 px-5 py-2 text-xs font-semibold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
               data-testid="btn-wizard-launch"
-              {...mutationProps(isSubmitting || Boolean(runId))}
+              {...mutationProps(isSubmitting || Boolean(runId) || configState !== 'ready')}
             >
               {isSubmitting ? (
                 <>

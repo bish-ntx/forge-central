@@ -138,27 +138,27 @@ Shows a single cluster (`page-cluster-detail`): name, status badge, Kubernetes v
 
 ## NKP Cluster Deploy Page (`/clusters/deploy`)
 
-The NKP Cluster Deploy page (`ClusterDeployPage.jsx`) provides an interactive 5-stage wizard for configuring and launching preprovisioned Nutanix Kubernetes Platform (NKP) clusters:
+The NKP Cluster Deploy page (`ClusterDeployPage.jsx`) is a guided, self-service wizard that generates a real cluster config from your lab and runs the `./forge` deployment pipeline either on Forge Central or on a cluster bastion. Prerequisite: create a lab first (Settings -> Lab Infrastructure, or `./forge init lab`). No mock data is shown: labs, IP slots and the config come from the live API.
 
-- **Stage 1: Cluster Basics**
-  - Inputs: Cluster name (`data-testid="input-cluster-name"`), hypervisor engine (`data-testid="select-hypervisor"` with Proxmox VE / Nutanix AHV choices), and Kubernetes release version (`data-testid="input-k8s-version"`).
-- **Stage 2: Node Topology & Preprovisioned Inventory**
-  - Inputs: Control plane node count (`data-testid="input-control-plane-count"`), worker node count (`data-testid="input-worker-count"`), and inventory file selector (`data-testid="select-inventory-file"`).
-  - Pre-flight PreprovisionedInventory inspection card (`data-testid="inventory-inspection-card"`):
-    - Live pre-flight node status check matrix (`data-testid="preflight-status-checks"`) showing node reachability, role assignments, and hardware capacity.
-    - PreprovisionedInventory YAML manifest preview (`data-testid="inventory-yaml-preview"`).
-- **Stage 3: Networking & VIP Configuration**
-  - Inputs: MetalLB Layer-2 IP range (`data-testid="input-metallb-range"`) and Control Plane API Virtual IP (`data-testid="input-cp-vip"`).
-- **Stage 4: Storage & Management Addons**
-  - Toggles: Nutanix CSI Storage Driver (`data-testid="toggle-csi"`) and Kommander Addons (`data-testid="toggle-kommander"`).
-  - Pre-launch deployment summary box summarizing full cluster specifications.
-- **Stage 5: Live Execution & SSE Streaming**
-  - Launches `POST /api/v1/clusters/create` on trigger button click (`data-testid="btn-wizard-launch"`).
-  - Embedded `<LiveTerminal />` (`data-testid="terminal-live-logs"`) streams real-time execution logs from `/api/v1/pipeline/{run_id}/stream`.
-  - Stage status cards (`01-konvoy`, `02-metallb`, `03-csi`, `04-kommander`, `05-validation`) display real-time execution progress.
-- **Navigation Controls:**
-  - Forward/backward navigation (`data-testid="btn-wizard-next"`, `data-testid="btn-wizard-back"`) with client-side form state retention across step transitions.
-  - Launch button debouncing (`disabled={isSubmitting}`) preventing accidental duplicate cluster creation requests.
+1. **Stage 1: Cluster Basics & Lab Inheritance** (`stage-1-container`)
+   - Pick the **Lab** (`select-lab`, populated from `GET /api/v1/lab/config`). The **inheritance card** (`lab-inheritance-card`) shows the Proxmox host, network bridge, storage pool and default NKP version that the cluster inherits; switching labs reloads them.
+   - Enter the cluster name (`input-cluster-name`), hypervisor (`select-hypervisor`) and NKP version (`input-nkp-version`, defaulted from the lab).
+   - **Next** stays disabled (with the reason shown in `text-next-blocker`) until a lab is selected and the name is valid. With no labs, a notice (`lab-empty-notice`) points you to the Day-0 Lab Wizard.
+2. **Stage 2: Node Sizing & IPAM Allocation** (`stage-2-container`)
+   - Control plane count 1-9 (`input-control-plane-count`), workers 0-64 (`input-worker-count`), storage mode (`select-storage-mode`) and registry type (`select-registry-type`), both pre-filled from the lab.
+   - The **IPAM card** (`ipam-preview-card`) fetches the unassigned slots from `GET /api/v1/ipam/free` and previews the suggested **Control Plane VIP** (`text-vip-preview`), **MetalLB range** (`text-metallb-preview`) and free-slot count; **Refresh** (`btn-refresh-ipam`) re-queries.
+3. **Stage 3: Deployment Runner Target** (`stage-3-container`)
+   - **Option A: Execute on Forge Central** (`radio-runner-central`): `./forge provision vms` and `./forge create cluster` run on this host.
+   - **Option B: Stage & Execute on Cluster Bastion** (`radio-runner-bastion`): enter the bastion IP/hostname (`input-bastion-ip`). The list (`bastion-sync-steps`) shows the automated steps: write `<cluster>-input.ini`, `./forge share mount --from <central> --target <bastion>`, then run both commands on the bastion over SSH. Requires passwordless SSH from Forge Central to the bastion.
+4. **Stage 4: Config Preview & Copy as CLI** (`stage-4-container`)
+   - Entering this stage calls `POST /api/v1/clusters/init-config`: the real `<cluster>-input.ini` is written (inheriting the lab, lab credentials never copied) with the VIP and MetalLB range reserved from free IPAM slots. The file content (`config-preview`) and the **Copy as CLI** card list `./forge init nkp-cluster`, `./forge provision vms` and `./forge create cluster` (or the share-mount and SSH variants for a bastion).
+   - Bastion runs also get **Sync to Bastion** (`btn-sync-bastion`) to stage the config ahead of time (`POST /api/v1/clusters/sync-bastion`; the run id appears in `text-sync-run-id`). Launch performs the same sync automatically.
+   - **Launch Deployment** (`btn-wizard-launch`) is enabled once the config exists; a failed generation shows the API error with **Retry** (`btn-retry-config`). Viewers cannot generate or launch.
+5. **Stage 5: Live Execution & SSE Streaming** (`stage-5-container`)
+   - One run streams every step to the terminal (`terminal-live-logs`) with per-line times in your selected timezone; the run start is shown in UTC and local time (`run-started-at`) and the log carries `[TIMESTAMP] UTC: ... | Local (PST): ...` header lines.
+   - **Step progress indicators** (`step-progress-1..n`) turn from pending to running to done (or failed) as the `==> Step i/n` markers arrive. The run stops at the first failing step.
+- **Navigation:** Back/Next (`btn-wizard-back`, `btn-wizard-next`) keep your entries across stages; Back is disabled once a run has started and Launch cannot be double-submitted.
+- **CLI equivalent:** `./forge init nkp-cluster --cluster <name> --lab-infra ~/forge-state/labs/<lab>/<lab>-infra.ini --non-interactive`, then `./forge provision vms --conf <input.ini>` and `./forge create cluster --conf <input.ini>`.
 
 ## Diagnostics & Audit Page (`/diagnostics`)
 

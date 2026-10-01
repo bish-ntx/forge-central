@@ -96,6 +96,7 @@ class LabConfigResponse(BaseModel):
     golden_name: str = "ubuntu-2404-golden"
     registry_type: str = "dockerhub"
     storage_mode: str = "local"
+    nkp_version: str = ""  # lab default NKP CLI version (NKP_CLI_VERSION), blank when the lab sets none
 
 
 class LabInitResponse(BaseModel):

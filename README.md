@@ -24,6 +24,7 @@ It includes:
 - `api/app/routers/paths.py`: Path inspection and state directory migration APIs (`/api/v1/settings/paths`).
 - `api/app/routers/backup.py` / `api/app/services/backup.py`: Atomic state backup archives (`POST /api/v1/backup/create`, `GET /api/v1/backup/list`).
 - `api/app/routers/restore.py` / `api/app/services/restore.py`: Archive integrity verification and 1-click state restore (`POST /api/v1/restore/verify`, `POST /api/v1/restore/execute`).
+- `api/app/routers/clusters.py` / `api/app/services/cluster_config.py`: guided cluster config generator & bastion remote sync (`POST /api/v1/clusters/init-config`, `POST /api/v1/clusters/sync-bastion`, wizard flow of `POST /api/v1/clusters/create`) chaining `./forge init nkp-cluster`, `provision vms`, `create cluster` and `share mount` over one SSE run. UI: `ui/src/pages/ClusterDeployPage.jsx` (`/clusters/deploy`).
 - `api/app/routers/ipam.py` / `api/app/services/ipam.py`: IPAM ledger & subnet manager wrapping `./forge ipam` (`GET /api/v1/ipam`, `GET /api/v1/ipam/free`, `POST /api/v1/ipam/release`, `POST /api/v1/ipam/reconcile`). UI: `ui/src/pages/IpamPage.jsx` (`/ipam`).
 - `api/app/routers/lab.py` / `api/app/services/lab.py`: Day-0 lab wizard (`GET /api/v1/lab/config`, `POST /api/v1/lab/init`, admin only) writing `FORGE_HOME/labs/<lab>/<lab>-infra.ini`.
 - `api/app/routers/secrets.py` / `api/app/services/secrets.py`: Registry secrets vault (`GET /api/v1/secrets`, `POST /api/v1/secrets/save`, `DELETE /api/v1/secrets/{sec_type}`; mutations admin only) staging chmod 600 INIs under `FORGE_CACRT_DIR`.
@@ -169,5 +170,8 @@ Build a self-contained `forge-central-v<VERSION>.tar.gz` (plus `.sha256`) with `
 - `FORGE_DISPLAY_TZ`: IANA zone used only for the local half of the dual-timestamp log headers. Default is `America/Los_Angeles`. All stored/API timestamps remain ISO 8601 UTC (`...Z`); the web console has a Local/UTC toggle (`button-timezone-toggle`).
 - `FORGE_ADMIN_PASSWORD`: passphrase that unlocks the `admin` console role via `POST /api/v1/auth/unlock-admin`. Default is `Nutanix.123`; override it for any shared deployment. Roles: `viewer` (read-only demo), `operator` (default), `admin` (Day-0 setup).
 - `FORGE_CACRT_DIR`: directory for staged registry credentials (`dockerhub/dockerhub-creds.ini`, `<cluster>/harbor-creds.ini`). Default is `~/cacrt`.
+- `FORGE_STATE_DIR`: directory holding generated cluster configs (`<cluster>/<cluster>-input.ini`). Default is `~/forge-state`.
+- `FORGE_CENTRAL_IP`: Forge Central address that bastions mount product shares from (`./forge share mount --from <ip>`). Auto-detected towards the bastion when unset.
+- `FORGE_BASTION_USER` / `FORGE_BASTION_FORGE_PATH` / `FORGE_BASTION_STATE_DIR`: SSH user (`nkpadmin`), forge CLI path (`nkp-forge/forge`) and state directory (`forge-state`) on cluster bastions; the paths are relative to the bastion user's `$HOME`.
 - `PORT`: (Compose only) host port mapped to container port 8000. Default is `8000`.
 - `FORGE_HOME`: Forge state directory. Container default is `/forge-state`.

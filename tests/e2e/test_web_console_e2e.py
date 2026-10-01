@@ -62,9 +62,10 @@ def test_theme_mode_switch(page: Page, base_url: str) -> None:
         expect(root).not_to_have_class("dark")
 
 
-def test_live_terminal_streaming(page: Page, base_url: str) -> None:
+def test_live_terminal_streaming(page: Page, base_url: str, e2e_lab: str) -> None:
     page.goto(f"{base_url}/clusters/deploy")
-    # Advance to Stage 4 and click Launch to trigger Live Terminal in Stage 5
+    # Stage 1 inherits the seeded lab; advance to Stage 4 (config generated) and Launch for Stage 5
+    expect(page.get_by_test_id("select-lab")).to_have_value(e2e_lab)
     page.get_by_test_id("btn-wizard-next").click()
     page.get_by_test_id("btn-wizard-next").click()
     page.get_by_test_id("btn-wizard-next").click()

@@ -22,6 +22,7 @@ function LiveTerminal({
   streamUrl = '',
   activeStepName = 'Pipeline Execution',
   autoConnect = true,
+  onProgress = null,
 }) {
   const terminalBodyRef = useRef(null)
   const [autoScrollEnabled, setAutoScrollEnabled] = useState(true)
@@ -45,6 +46,15 @@ function LiveTerminal({
   )
 
   const pipelineStatus = resolvePipelineStatus(connectionState, endEvent)
+
+  // Lets a parent (e.g. the deploy wizard) derive step progress from the streamed log lines.
+  const onProgressRef = useRef(onProgress)
+  onProgressRef.current = onProgress
+  useEffect(() => {
+    if (onProgressRef.current) {
+      onProgressRef.current({ lines: logLines.map((entry) => entry.line), status: pipelineStatus })
+    }
+  }, [logLines, pipelineStatus])
 
   useEffect(() => {
     if (!autoScrollEnabled || !terminalBodyRef.current) {

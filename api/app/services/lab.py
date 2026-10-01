@@ -90,6 +90,7 @@ def get_lab_config(lab: Optional[str] = None) -> LabConfigResponse:
         golden_name=v.get("GOLDEN_TEMPLATE_NAME") or "ubuntu-2404-golden",
         registry_type=v.get("REGISTRY_TYPE") or "dockerhub",
         storage_mode=v.get("STORAGE_MODE") or "local",
+        nkp_version=v.get("NKP_CLI_VERSION", ""),
     )
 
 

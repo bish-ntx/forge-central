@@ -188,6 +188,29 @@ async def get_free_slots(forge_bin: Path) -> List[IpamSlot]:
     return parse_ipam_list(await _forge_ipam(forge_bin, ["free"]))
 
 
+def parse_free_candidates(output: str) -> List[Tuple[str, Optional[str]]]:
+    """Parse ``forge ipam free`` rows into (control-plane VIP, MetalLB range) candidates."""
+    candidates: List[Tuple[str, Optional[str]]] = []
+    for line in output.splitlines():
+        tokens = line.split()
+        if len(tokens) < 4 or tokens[3].lower() not in _FREE_STATES:
+            continue
+        metallb = tokens[2] if tokens[2] not in {"—", "-"} else None
+        candidates.append((tokens[1], metallb))
+    return candidates
+
+
+async def get_free_candidates(forge_bin: Path) -> List[Tuple[str, Optional[str]]]:
+    """Free (VIP, MetalLB range) candidates; live mode keeps the ledger's own range, mock derives one.
+
+    The MetalLB range is ``None`` when the source only knows single free addresses (the caller
+    then derives a contiguous block from the free list).
+    """
+    if is_mock_mode():
+        return [(slot.ip, None) for slot in MOCK_LEDGER if slot.status == "free"]
+    return parse_free_candidates(await _forge_ipam(forge_bin, ["free"]))
+
+
 async def release_cluster(forge_bin: Path, cluster_name: str) -> int:
     """Release the cluster's reservation; returns the number of IP slots freed (404 if none held)."""
     if is_mock_mode():

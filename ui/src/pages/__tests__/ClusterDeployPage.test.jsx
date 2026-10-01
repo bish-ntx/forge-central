@@ -1,5 +1,5 @@
 import React from 'react'
-import { fireEvent, render, screen, waitFor } from '@testing-library/react'
+import { fireEvent, render, screen, waitFor, within } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import ClusterDeployPage from '../ClusterDeployPage.jsx'
 
@@ -8,11 +8,11 @@ vi.mock('../../hooks/useEventSource.js', () => ({
     events: [
       {
         event: 'log',
-        data: {
-          timestamp: '2026-09-26T22:40:00Z',
-          line: '[01-konvoy] Bootstrapping cluster nodes...',
-          stream: 'stdout',
-        },
+        data: { timestamp: '2026-09-26T22:40:00Z', line: '==> Step 1/2: Provision VMs', stream: 'stdout' },
+      },
+      {
+        event: 'log',
+        data: { timestamp: '2026-09-26T22:40:05Z', line: '==> Step 2/2: Create cluster', stream: 'stdout' },
       },
     ],
     endEvent: null,
@@ -21,11 +21,80 @@ vi.mock('../../hooks/useEventSource.js', () => ({
   }),
 }))
 
+const AMD_LAB = {
+  configured: true,
+  lab_name: 'amd-lab',
+  labs: ['amd-lab', 'cirra-lab'],
+  pve_host: '10.0.0.5',
+  pve_node: 'pve1',
+  network_bridge: 'vmbr1',
+  storage_pool: 'local-lvm',
+  nkp_version: 'v2.18.0',
+  registry_type: 'harbor',
+  storage_mode: 'local',
+}
+const CIRRA_LAB = {
+  ...AMD_LAB,
+  lab_name: 'cirra-lab',
+  pve_host: '10.1.0.5',
+  network_bridge: 'vmbr9',
+  storage_pool: 'tank',
+  nkp_version: 'v2.19.0',
+}
+const FREE_SLOTS = [15, 16, 17, 18, 19, 20, 24, 25].map((octet) => ({
+  ip: `10.0.0.${octet}`,
+  status: 'free',
+  cluster: null,
+}))
+const INIT_RESULT = {
+  cluster_name: 'nkp-prod-01',
+  config_path: '/home/forge/forge-state/nkp-prod-01/nkp-prod-01-input.ini',
+  vip_preview: '10.0.0.15',
+  metallb_range_preview: '10.0.0.16-10.0.0.20',
+  status: 'initialized',
+  lab_name: 'amd-lab',
+  config_preview: 'CLUSTER_NAME="nkp-prod-01"\nKUBE_VIP="10.0.0.15"\n',
+  commands: [
+    './forge init nkp-cluster --cluster nkp-prod-01 --lab-infra /labs/amd-lab-infra.ini',
+    './forge provision vms --skip-bastion --conf /state/nkp-prod-01-input.ini',
+    './forge create cluster --conf /state/nkp-prod-01-input.ini',
+  ],
+  free_ip_count: 8,
+}
+const CREATE_RESULT = {
+  run_id: '12345678-abcd-ef01-2345-6789abcdef01',
+  status: 'PENDING',
+  command: './forge provision vms && ./forge create cluster',
+  started_at: '2026-09-26T22:40:00Z',
+  steps: ['Provision VMs', 'Create cluster'],
+}
+
 function jsonResponse(payload, ok = true) {
-  return Promise.resolve({
-    ok,
-    json: async () => payload,
+  return Promise.resolve({ ok, json: async () => payload })
+}
+
+function installFetch(overrides = {}) {
+  const routes = {
+    'GET /api/v1/lab/config': () => jsonResponse(AMD_LAB),
+    'GET /api/v1/lab/config?lab=cirra-lab': () => jsonResponse(CIRRA_LAB),
+    'GET /api/v1/ipam/free': () => jsonResponse(FREE_SLOTS),
+    'POST /api/v1/clusters/init-config': () => jsonResponse(INIT_RESULT),
+    'POST /api/v1/clusters/sync-bastion': () =>
+      jsonResponse({ run_id: 'sync-run-1', cluster_name: 'nkp-prod-01', bastion_ip: '10.0.0.50', status: 'queued' }),
+    'POST /api/v1/clusters/create': () => jsonResponse(CREATE_RESULT),
+    ...overrides,
+  }
+  const fetchMock = vi.fn().mockImplementation((url, options = {}) => {
+    const key = `${options.method || 'GET'} ${url}`
+    const handler = routes[key]
+    return handler ? handler(options) : jsonResponse({ detail: `unmocked request: ${key}` }, false)
   })
+  vi.stubGlobal('fetch', fetchMock)
+  return fetchMock
+}
+
+function callsTo(fetchMock, method, url) {
+  return fetchMock.mock.calls.filter(([u, o]) => u === url && (o?.method || 'GET') === method)
 }
 
 function renderDeployWizard() {
@@ -39,129 +108,305 @@ function renderDeployWizard() {
   )
 }
 
+async function renderReady() {
+  renderDeployWizard()
+  await waitFor(() => expect(screen.getByTestId('select-lab')).toHaveValue('amd-lab'))
+}
+
+const next = () => fireEvent.click(screen.getByTestId('btn-wizard-next'))
+
 describe('ClusterDeployPage Component', () => {
   beforeEach(() => {
     vi.restoreAllMocks()
+    vi.unstubAllGlobals()
   })
 
-  test('renders Stage 1 by default with wizard locators', () => {
-    renderDeployWizard()
+  test('renders Stage 1 with the active lab pre-selected and inherited infrastructure values', async () => {
+    const fetchMock = installFetch()
+    await renderReady()
 
     expect(screen.getByTestId('page-clusters-deploy')).toBeInTheDocument()
     expect(screen.getByTestId('stage-1-container')).toBeInTheDocument()
+    expect(callsTo(fetchMock, 'GET', '/api/v1/lab/config')).toHaveLength(1)
+
+    const options = within(screen.getByTestId('select-lab')).getAllByRole('option').map((o) => o.value)
+    expect(options).toEqual(['', 'amd-lab', 'cirra-lab'])
+
+    const card = screen.getByTestId('lab-inheritance-card')
+    expect(within(card).getByTestId('text-lab-pve-host')).toHaveTextContent('10.0.0.5')
+    expect(within(card).getByTestId('text-lab-bridge')).toHaveTextContent('vmbr1')
+    expect(within(card).getByTestId('text-lab-storage-pool')).toHaveTextContent('local-lvm')
+    expect(screen.getByTestId('input-nkp-version')).toHaveValue('v2.18.0')
     expect(screen.getByTestId('input-cluster-name')).toHaveValue('nkp-prod-01')
     expect(screen.getByTestId('select-hypervisor')).toHaveValue('proxmox')
-    expect(screen.getByTestId('input-k8s-version')).toHaveValue('v1.31.1')
     expect(screen.getByTestId('btn-wizard-back')).toBeDisabled()
-    expect(screen.getByTestId('btn-wizard-next')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-wizard-next')).toBeEnabled()
   })
 
-  test('navigates forward and backward through steps while preserving form state', () => {
+  test('switching the lab loads that lab and re-inherits its values', async () => {
+    const fetchMock = installFetch()
+    await renderReady()
+
+    fireEvent.change(screen.getByTestId('select-lab'), { target: { value: 'cirra-lab' } })
+
+    await waitFor(() => expect(screen.getByTestId('text-lab-pve-host')).toHaveTextContent('10.1.0.5'))
+    expect(callsTo(fetchMock, 'GET', '/api/v1/lab/config?lab=cirra-lab')).toHaveLength(1)
+    expect(screen.getByTestId('text-lab-bridge')).toHaveTextContent('vmbr9')
+    expect(screen.getByTestId('text-lab-storage-pool')).toHaveTextContent('tank')
+    expect(screen.getByTestId('input-nkp-version')).toHaveValue('v2.19.0')
+  })
+
+  test('blocks Next and explains when no lab exists or the lab list cannot be loaded', async () => {
+    installFetch({ 'GET /api/v1/lab/config': () => jsonResponse({ configured: false, labs: [] }) })
     renderDeployWizard()
 
-    // Modify cluster name in Stage 1
-    fireEvent.change(screen.getByTestId('input-cluster-name'), {
-      target: { value: 'nkp-custom-cluster' },
-    })
-    expect(screen.getByTestId('input-cluster-name')).toHaveValue('nkp-custom-cluster')
+    expect(await screen.findByTestId('lab-empty-notice')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-wizard-next')).toBeDisabled()
+    expect(screen.getByTestId('text-next-blocker')).toHaveTextContent('Select a lab')
+  })
 
-    // Navigate to Stage 2
-    fireEvent.click(screen.getByTestId('btn-wizard-next'))
+  test('shows an error when the lab configuration request fails', async () => {
+    installFetch({ 'GET /api/v1/lab/config': () => jsonResponse({ detail: 'lab backend offline' }, false) })
+    renderDeployWizard()
+
+    expect(await screen.findByTestId('lab-load-error')).toHaveTextContent('lab backend offline')
+    expect(screen.getByTestId('btn-wizard-next')).toBeDisabled()
+  })
+
+  test('validates the cluster name before advancing', async () => {
+    installFetch()
+    await renderReady()
+
+    fireEvent.change(screen.getByTestId('input-cluster-name'), { target: { value: 'bad name!' } })
+    expect(screen.getByTestId('btn-wizard-next')).toBeDisabled()
+
+    fireEvent.change(screen.getByTestId('input-cluster-name'), { target: { value: 'good-name' } })
+    expect(screen.getByTestId('btn-wizard-next')).toBeEnabled()
+  })
+
+  test('navigates forward and backward through steps while preserving form state', async () => {
+    installFetch()
+    await renderReady()
+
+    fireEvent.change(screen.getByTestId('input-cluster-name'), { target: { value: 'nkp-custom-cluster' } })
+    next()
     expect(screen.getByTestId('stage-2-container')).toBeInTheDocument()
+    expect(screen.getByTestId('step-indicator-2')).toHaveClass('border-accent-teal')
 
-    // Navigate back to Stage 1
     fireEvent.click(screen.getByTestId('btn-wizard-back'))
     expect(screen.getByTestId('stage-1-container')).toBeInTheDocument()
-
-    // Verify form state retention
     expect(screen.getByTestId('input-cluster-name')).toHaveValue('nkp-custom-cluster')
+    expect(screen.getByTestId('select-lab')).toHaveValue('amd-lab')
   })
 
-  test('renders Stage 2 node topology and pre-flight inventory inspection', () => {
-    renderDeployWizard()
-
-    // Navigate to Stage 2
-    fireEvent.click(screen.getByTestId('btn-wizard-next'))
+  test('Stage 2 fetches free IPAM slots and previews the VIP and MetalLB range', async () => {
+    const fetchMock = installFetch()
+    await renderReady()
+    next()
 
     expect(screen.getByTestId('input-control-plane-count')).toHaveValue(3)
     expect(screen.getByTestId('input-worker-count')).toHaveValue(3)
-    expect(screen.getByTestId('select-inventory-file')).toHaveValue('inventory-lab-01.yaml')
+    expect(screen.getByTestId('select-storage-mode')).toHaveValue('local')
+    expect(screen.getByTestId('select-registry-type')).toHaveValue('harbor')
 
-    expect(screen.getByTestId('inventory-inspection-card')).toBeInTheDocument()
-    expect(screen.getByTestId('preflight-status-checks')).toBeInTheDocument()
-    expect(screen.getByTestId('inventory-yaml-preview')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('text-vip-preview')).toHaveTextContent('10.0.0.15'))
+    expect(callsTo(fetchMock, 'GET', '/api/v1/ipam/free')).toHaveLength(1)
+    expect(screen.getByTestId('text-metallb-preview')).toHaveTextContent('10.0.0.16-10.0.0.20')
+    expect(screen.getByTestId('text-ipam-free-count')).toHaveTextContent('8')
+    expect(within(screen.getByTestId('ipam-free-slots')).getByText('10.0.0.24')).toBeInTheDocument()
+    // The old hardcoded mockup values are gone.
+    expect(screen.queryByText('10.10.40.99')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('inventory-yaml-preview')).not.toBeInTheDocument()
   })
 
-  test('renders Stage 3 networking inputs and Stage 4 storage toggles', () => {
-    renderDeployWizard()
+  test('Stage 2 refresh re-queries IPAM and surfaces failures', async () => {
+    let calls = 0
+    const fetchMock = installFetch({
+      'GET /api/v1/ipam/free': () => {
+        calls += 1
+        return calls === 1 ? jsonResponse({ detail: 'ipam offline' }, false) : jsonResponse(FREE_SLOTS)
+      },
+    })
+    await renderReady()
+    next()
 
-    // Move to Stage 2
-    fireEvent.click(screen.getByTestId('btn-wizard-next'))
-    // Move to Stage 3
-    fireEvent.click(screen.getByTestId('btn-wizard-next'))
+    expect(await screen.findByTestId('ipam-error')).toHaveTextContent('ipam offline')
+
+    fireEvent.click(screen.getByTestId('btn-refresh-ipam'))
+    await waitFor(() => expect(screen.getByTestId('text-vip-preview')).toHaveTextContent('10.0.0.15'))
+    expect(callsTo(fetchMock, 'GET', '/api/v1/ipam/free')).toHaveLength(2)
+  })
+
+  test('Stage 2 rejects out-of-range node counts', async () => {
+    installFetch()
+    await renderReady()
+    next()
+
+    fireEvent.change(screen.getByTestId('input-control-plane-count'), { target: { value: '0' } })
+    expect(screen.getByTestId('btn-wizard-next')).toBeDisabled()
+    fireEvent.change(screen.getByTestId('input-control-plane-count'), { target: { value: '3' } })
+    expect(screen.getByTestId('btn-wizard-next')).toBeEnabled()
+  })
+
+  test('Stage 3 defaults to Forge Central and requires a bastion address for the bastion runner', async () => {
+    installFetch()
+    await renderReady()
+    next()
+    next()
 
     expect(screen.getByTestId('stage-3-container')).toBeInTheDocument()
-    expect(screen.getByTestId('input-metallb-range')).toHaveValue('10.10.40.100-10.10.40.120')
-    expect(screen.getByTestId('input-cp-vip')).toHaveValue('10.10.40.99')
+    expect(screen.getByTestId('radio-runner-central')).toBeChecked()
+    expect(screen.queryByTestId('input-bastion-ip')).not.toBeInTheDocument()
 
-    // Move to Stage 4
-    fireEvent.click(screen.getByTestId('btn-wizard-next'))
+    fireEvent.click(screen.getByTestId('radio-runner-bastion'))
+    expect(screen.getByTestId('radio-runner-bastion')).toBeChecked()
+    expect(screen.getByTestId('radio-runner-central')).not.toBeChecked()
+    expect(screen.getByTestId('btn-wizard-next')).toBeDisabled()
 
-    expect(screen.getByTestId('stage-4-container')).toBeInTheDocument()
-    expect(screen.getByTestId('toggle-csi')).toBeChecked()
-    expect(screen.getByTestId('toggle-kommander')).toBeChecked()
-    expect(screen.getByTestId('btn-wizard-launch')).toBeInTheDocument()
+    fireEvent.change(screen.getByTestId('input-bastion-ip'), { target: { value: '10.0.0.50' } })
+    expect(screen.getByTestId('btn-wizard-next')).toBeEnabled()
+    const steps = screen.getByTestId('bastion-sync-steps')
+    expect(steps).toHaveTextContent('./forge share mount --from')
+    expect(steps).toHaveTextContent('--target 10.0.0.50')
+
+    fireEvent.click(screen.getByTestId('radio-runner-central'))
+    expect(screen.queryByTestId('bastion-options')).not.toBeInTheDocument()
   })
 
-  test('triggers deployment pipeline launch and renders LiveTerminal in Stage 5', async () => {
-    const fetchMock = vi.fn().mockImplementation(() =>
-      jsonResponse({
-        run_id: '12345678-abcd-ef01-2345-6789abcdef01',
-        status: 'PENDING',
-        command: 'forge',
-        started_at: '2026-09-26T22:40:00Z',
-      }),
-    )
-    vi.stubGlobal('fetch', fetchMock)
-
-    renderDeployWizard()
-
-    // Navigate Stage 1 -> Stage 2 -> Stage 3 -> Stage 4
-    fireEvent.click(screen.getByTestId('btn-wizard-next'))
-    fireEvent.click(screen.getByTestId('btn-wizard-next'))
-    fireEvent.click(screen.getByTestId('btn-wizard-next'))
+  test('Stage 4 generates the real cluster config and renders it with the CLI commands', async () => {
+    const fetchMock = installFetch()
+    await renderReady()
+    fireEvent.change(screen.getByTestId('input-nkp-version'), { target: { value: 'v2.18.1' } })
+    next()
+    fireEvent.change(screen.getByTestId('input-worker-count'), { target: { value: '5' } })
+    next()
+    next()
 
     expect(screen.getByTestId('stage-4-container')).toBeInTheDocument()
+    expect(await screen.findByTestId('config-preview')).toHaveTextContent('KUBE_VIP="10.0.0.15"')
+    expect(screen.getByTestId('text-config-vip')).toHaveTextContent('10.0.0.15')
+    expect(screen.getByTestId('text-config-metallb')).toHaveTextContent('10.0.0.16-10.0.0.20')
+    expect(screen.getByTestId('card-cli-snippet')).toHaveTextContent('./forge init nkp-cluster')
+    expect(screen.getByTestId('card-cli-snippet')).toHaveTextContent('./forge provision vms')
+    expect(screen.getByTestId('card-cli-snippet')).toHaveTextContent('./forge create cluster')
+    expect(screen.queryByTestId('btn-sync-bastion')).not.toBeInTheDocument()
 
-    // Click Launch Deployment
+    const [calls] = [callsTo(fetchMock, 'POST', '/api/v1/clusters/init-config')]
+    expect(calls).toHaveLength(1)
+    const body = JSON.parse(calls[0][1].body)
+    expect(body).toMatchObject({
+      cluster_name: 'nkp-prod-01',
+      lab_name: 'amd-lab',
+      nkp_version: 'v2.18.1',
+      registry_type: 'harbor',
+      storage_mode: 'local',
+      control_plane_nodes: 3,
+      worker_nodes: 5,
+      target_runner: 'central',
+      bastion_ip: null,
+      hypervisor_type: 'proxmox',
+    })
+    expect(calls[0][1].headers['Content-Type']).toBe('application/json')
+  })
+
+  test('Stage 4 reports config generation errors and can retry', async () => {
+    let attempts = 0
+    installFetch({
+      'POST /api/v1/clusters/init-config': () => {
+        attempts += 1
+        return attempts === 1 ? jsonResponse({ detail: 'lab not found: amd-lab' }, false) : jsonResponse(INIT_RESULT)
+      },
+    })
+    await renderReady()
+    next()
+    next()
+    next()
+
+    expect(await screen.findByTestId('config-error')).toHaveTextContent('lab not found: amd-lab')
+    expect(screen.getByTestId('btn-wizard-launch')).toBeDisabled()
+
+    fireEvent.click(screen.getByTestId('btn-retry-config'))
+    expect(await screen.findByTestId('config-preview')).toBeInTheDocument()
+    expect(screen.getByTestId('btn-wizard-launch')).toBeEnabled()
+  })
+
+  test('bastion runner sends the bastion IP and can stage the config before launch', async () => {
+    const fetchMock = installFetch()
+    await renderReady()
+    next()
+    next()
+    fireEvent.click(screen.getByTestId('radio-runner-bastion'))
+    fireEvent.change(screen.getByTestId('input-bastion-ip'), { target: { value: '10.0.0.50' } })
+    next()
+
+    await screen.findByTestId('config-preview')
+    const initBody = JSON.parse(callsTo(fetchMock, 'POST', '/api/v1/clusters/init-config')[0][1].body)
+    expect(initBody).toMatchObject({ target_runner: 'bastion', bastion_ip: '10.0.0.50' })
+    expect(screen.getByTestId('text-config-runner')).toHaveTextContent('Bastion (10.0.0.50)')
+
+    fireEvent.click(screen.getByTestId('btn-sync-bastion'))
+    expect(await screen.findByTestId('text-sync-run-id')).toHaveTextContent('sync-run-1')
+    const syncBody = JSON.parse(callsTo(fetchMock, 'POST', '/api/v1/clusters/sync-bastion')[0][1].body)
+    expect(syncBody).toEqual({ cluster_name: 'nkp-prod-01', bastion_ip: '10.0.0.50', nfs_mount: true })
+  })
+
+  test('launch posts the wizard payload and streams step progress in Stage 5', async () => {
+    const fetchMock = installFetch()
+    await renderReady()
+    next()
+    next()
+    next()
+    await screen.findByTestId('config-preview')
+
     fireEvent.click(screen.getByTestId('btn-wizard-launch'))
 
-    await waitFor(() => {
-      expect(fetchMock).toHaveBeenCalledWith(
-        '/api/v1/clusters/create',
-        expect.objectContaining({
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-        }),
-      )
+    await waitFor(() => expect(screen.getByTestId('stage-5-container')).toBeInTheDocument())
+    const createCalls = callsTo(fetchMock, 'POST', '/api/v1/clusters/create')
+    expect(createCalls).toHaveLength(1)
+    const body = JSON.parse(createCalls[0][1].body)
+    expect(body).toMatchObject({
+      cluster_name: 'nkp-prod-01',
+      lab_name: 'amd-lab',
+      hypervisor_type: 'proxmox',
+      control_plane_nodes: 3,
+      worker_nodes: 3,
+      target_runner: 'central',
+      bastion_ip: null,
     })
 
-    const callBody = JSON.parse(fetchMock.mock.calls[0][1].body)
-    expect(callBody.cluster_name).toBe('nkp-prod-01')
-    expect(callBody.hypervisor_type).toBe('proxmox')
-    expect(callBody.control_plane_nodes).toBe(3)
-    expect(callBody.worker_nodes).toBe(3)
-
-    // Verify transition to Stage 5 with LiveTerminal
-    await waitFor(() => {
-      expect(screen.getByTestId('stage-5-container')).toBeInTheDocument()
-    })
     expect(screen.getByTestId('terminal-live-logs')).toBeInTheDocument()
     expect(screen.getByTestId('text-run-id')).toHaveTextContent('12345678-abcd-ef01-2345-6789abcdef01')
+    expect(screen.getByTestId('run-started-at')).toHaveTextContent('UTC: 2026-09-26T22:40:00Z')
+    expect(screen.getByTestId('run-started-at')).toHaveTextContent('Local:')
+
+    // "==> Step 2/2" has been streamed: step 1 is done, step 2 is running.
+    await waitFor(() => expect(screen.getByTestId('step-progress-2')).toHaveAttribute('data-state', 'running'))
+    expect(screen.getByTestId('step-progress-1')).toHaveAttribute('data-state', 'done')
+    expect(screen.getByTestId('step-progress-1')).toHaveTextContent('Provision VMs')
+    expect(screen.getByTestId('step-progress-2')).toHaveTextContent('Create cluster')
+    expect(screen.queryByTestId('btn-wizard-launch')).not.toBeInTheDocument()
+    expect(screen.getByTestId('btn-wizard-back')).toBeDisabled()
   })
 
-  test('navigates back to clusters list via back header button', () => {
-    renderDeployWizard()
+  test('launch failure surfaces the API error and stays on Stage 4', async () => {
+    installFetch({
+      'POST /api/v1/clusters/create': () => jsonResponse({ detail: 'cluster config not found' }, false),
+    })
+    await renderReady()
+    next()
+    next()
+    next()
+    await screen.findByTestId('config-preview')
+
+    fireEvent.click(screen.getByTestId('btn-wizard-launch'))
+
+    expect(await screen.findByTestId('wizard-error-message')).toHaveTextContent('cluster config not found')
+    expect(screen.getByTestId('stage-4-container')).toBeInTheDocument()
+  })
+
+  test('navigates back to clusters list via back header button', async () => {
+    installFetch()
+    await renderReady()
 
     fireEvent.click(screen.getByTestId('btn-back-to-clusters'))
     expect(screen.getByTestId('page-clusters')).toBeInTheDocument()

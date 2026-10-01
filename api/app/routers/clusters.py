@@ -2,15 +2,21 @@ from __future__ import annotations
 
 import asyncio
 import json
+import time
 from typing import Any, Optional, Union
+from uuid import uuid4
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 
 from ..config import get_settings
 from ..schemas.clusters import (
+    BastionSyncRequest,
+    BastionSyncResponse,
     ClusterCommandResponse,
     ClusterCreateRequest,
     ClusterDetailResponse,
+    ClusterInitRequest,
+    ClusterInitResponse,
     ClusterItem,
     ClusterListResponse,
     ClusterNodeItem,
@@ -19,8 +25,16 @@ from ..schemas.clusters import (
     ClusterNodepoolRequest,
     ClusterResetNodesRequest,
     MetalLbConfig,
+    validate_cluster_name,
 )
 from ..services.backup import create_safety_snapshot
+from ..services.cluster_config import (
+    build_deploy_steps,
+    build_sync_steps,
+    initialize_cluster_config,
+    require_cluster_config,
+    resolve_central_ip,
+)
 from ..services.mock_data import MOCK_CLUSTERS
 from ..services.process_runner import ProcessRunner
 from .audit import record_audit_event
@@ -120,9 +134,134 @@ async def list_clusters(request: Request) -> ClusterListResponse:
     return ClusterListResponse(clusters=cluster_items)
 
 
-@router.post("/create", response_model=ClusterCommandResponse, status_code=202)
+@router.post("/init-config", response_model=ClusterInitResponse, dependencies=[Depends(require_mutating_role)])
+async def init_cluster_config(request: Request, payload: ClusterInitRequest) -> ClusterInitResponse:
+    """Generate `<FORGE_STATE_DIR>/<cluster>/<cluster>-input.ini` for the guided deploy wizard.
+
+    Discovers the lab (`<FORGE_HOME>/labs/<lab>/<lab>-infra.ini`, 404 when unknown), inherits its
+    non-secret fields, pre-selects a free control-plane VIP and MetalLB range from IPAM and
+    returns the file content plus the equivalent `./forge` commands. Records a
+    `cluster-config-initialized` audit event. Requires the Operator or Admin role.
+    """
+    started = time.monotonic()
+    result = await initialize_cluster_config(get_runner(request).forge_bin, payload)
+    record_audit_event(
+        run_id=f"cluster-init-{uuid4().hex[:8]}",
+        verb="cluster-config-initialized",
+        user="lab-operator",
+        status="succeeded",
+        duration_sec=round(time.monotonic() - started, 3),
+        details={
+            "cluster_name": payload.cluster_name,
+            "lab_name": payload.lab_name,
+            "nkp_version": payload.nkp_version,
+            "target_runner": payload.target_runner,
+            "hypervisor_type": payload.hypervisor_type,
+            "config_path": result.config_path,
+            "vip": result.vip_preview,
+            "metallb_range": result.metallb_range_preview,
+        },
+    )
+    return result
+
+
+@router.post(
+    "/sync-bastion",
+    response_model=BastionSyncResponse,
+    status_code=202,
+    dependencies=[Depends(require_mutating_role)],
+)
+async def sync_bastion(request: Request, payload: BastionSyncRequest) -> BastionSyncResponse:
+    """Stage the generated cluster config on a bastion and queue the run (SSE via `/api/v1/pipeline/{run_id}/stream`).
+
+    `nfs_mount=true` runs `./forge share mount --from <central_ip> --target <bastion_ip>` (the
+    bastion then sees `~/forge-state`); `nfs_mount=false` copies `<cluster>-input.ini` with ssh + scp.
+    404 when `init-config` has not generated the cluster config yet. Records a
+    `cluster-bastion-sync` audit event.
+    """
+    require_cluster_config(payload.cluster_name)
+    central_ip = await resolve_central_ip(payload.bastion_ip) if payload.nfs_mount else ""
+    steps = build_sync_steps(payload.cluster_name, payload.bastion_ip, central_ip, payload.nfs_mount)
+    run = await get_runner(request).start_sequence(steps)
+    record_audit_event(
+        run_id=str(run.run_id),
+        verb="cluster-bastion-sync",
+        user="lab-operator",
+        status="succeeded",
+        duration_sec=0.0,
+        details={
+            "cluster_name": payload.cluster_name,
+            "bastion_ip": payload.bastion_ip,
+            "nfs_mount": payload.nfs_mount,
+        },
+    )
+    return BastionSyncResponse(
+        run_id=str(run.run_id),
+        cluster_name=payload.cluster_name,
+        bastion_ip=payload.bastion_ip,
+        status="queued",
+        steps=[step.display for step in steps],
+    )
+
+
+async def _create_from_wizard(request: Request, payload: ClusterCreateRequest) -> ClusterCommandResponse:
+    """Chain `provision vms` + `create cluster` (on Central or the bastion) for a wizard-generated config."""
+    try:
+        cluster_name = validate_cluster_name(payload.cluster_name)
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
+    require_cluster_config(cluster_name)
+    central_ip = ""
+    if payload.target_runner == "bastion" and payload.nfs_mount:
+        central_ip = await resolve_central_ip(payload.bastion_ip or "")
+    steps = build_deploy_steps(
+        cluster_name,
+        payload.target_runner,
+        payload.bastion_ip,
+        central_ip,
+        nfs_mount=payload.nfs_mount,
+        provision_vms=payload.provision_vms,
+    )
+    run = await get_runner(request).start_sequence(steps)
+    record_audit_event(
+        run_id=str(run.run_id),
+        verb="cluster-create-dispatched",
+        user="lab-operator",
+        status="succeeded",
+        duration_sec=0.0,
+        details={
+            "cluster_name": cluster_name,
+            "lab_name": payload.lab_name,
+            "target_runner": payload.target_runner,
+            "bastion_ip": payload.bastion_ip,
+            "hypervisor_type": payload.hypervisor_type,
+        },
+    )
+    return ClusterCommandResponse(
+        run_id=run.run_id,
+        status=run.status.value,
+        command=run.command,
+        started_at=run.started_at,
+        steps=[step.label for step in steps],
+    )
+
+
+@router.post(
+    "/create",
+    response_model=ClusterCommandResponse,
+    status_code=202,
+    dependencies=[Depends(require_mutating_role)],
+)
 async def create_cluster(request: Request, payload: ClusterCreateRequest) -> ClusterCommandResponse:
-    """Queue 01-05 preprovisioned NKP cluster creation workflow."""
+    """Queue NKP cluster creation with live SSE progress (`/api/v1/pipeline/{run_id}/stream`).
+
+    With `lab_name` (guided wizard) the run chains `./forge provision vms` and
+    `./forge create cluster` against the `<cluster>-input.ini` produced by `init-config`; for
+    `target_runner=bastion` it first stages the config (NFS mount or scp) and runs both commands
+    on the bastion over SSH. Without `lab_name` the legacy 01-05 preprovisioned pipeline is queued.
+    """
+    if payload.lab_name:
+        return await _create_from_wizard(request, payload)
     runner = get_runner(request)
     args = [
         "cluster-create",

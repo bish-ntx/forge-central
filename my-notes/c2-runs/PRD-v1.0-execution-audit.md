@@ -1729,3 +1729,41 @@ Duration  2.82s
 
 ### Git
 - Local commit only: `feat(ipam): Task-26 — live Proxmox-backed IPAM ledger & subnet manager` (NOT pushed; hash via `git log -1`)
+
+---
+
+## Task 27 — Guided Cluster Config Generator & Bastion Remote Sync Workflow
+
+### Execution Status: SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] 1. `pytest api/tests/` passes 100% (126 passed)
+- [x] 2. `POST /api/v1/clusters/init-config` generates `<FORGE_STATE_DIR>/<cluster>/<cluster>-input.ini` (chmod 600) inheriting the lab's non-secret fields, pre-selecting a free VIP + MetalLB range from IPAM and recording audit event `cluster-config-initialized`
+- [x] 3. `POST /api/v1/clusters/sync-bastion` queues `./forge share mount --from <central_ip> --target <bastion_ip>` (or ssh mkdir + scp when `nfs_mount=false`) and records `cluster-bastion-sync`
+- [x] 4. `ClusterDeployPage.jsx` loads labs from `/api/v1/lab/config` and renders real VIP/MetalLB previews from `/api/v1/ipam/free` (hardcoded 10.10.40.x / inventory mockups removed)
+- [x] 5. Stage 3 radio toggle selects Forge Central (Option A) or Cluster Bastion (Option B, bastion IP required)
+- [x] 6. `npm test` passes 100% (22 files, 119 tests)
+- [x] 7. `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
+- [x] 8. Local commit: `feat(cluster): Task-27 — guided cluster config generator & bastion remote sync workflow`
+- [x] 9. NOT pushed
+- Notes:
+  - `POST /clusters/create` keeps the legacy 01-05 payload unchanged; adding `lab_name` selects the wizard flow, which chains `provision vms --skip-bastion` + `create cluster` against the generated INI (404 if `init-config` has not run). For `target_runner=bastion` the same run first stages the config (share mount, or ssh+scp) and then runs both commands on the bastion over SSH. The run stops at the first failing step.
+  - New `ProcessRunner.start_sequence(steps)` runs a chain of `RunStep`s in ONE run id / SSE stream, emitting `==> Step i/n: <label>` markers (the UI derives step progress from them). External commands are allowlisted to `ssh`/`scp` only; the mock/real decision is made once per run. Bastion host input is validated (no leading `-`, no shell characters) because it reaches ssh/scp argv; remote commands are `shlex`-quoted.
+  - Like `forge init lab` in Task 25, the INI is rendered by the API (testable, deterministic) instead of spawning the interactive `./forge init nkp-cluster`; the Copy-as-CLI card shows the equivalent `--non-interactive` command. Lab credentials (`PVE_PASSWORD`) are never copied into the cluster INI or audit details.
+  - IPAM selection: first free slot = VIP; MetalLB = the free run right after it (up to 5), else the next run of 2+; in live mode the ledger's own MetalLB range from `forge ipam free` is used verbatim. The UI mirrors the algorithm in `ui/src/utils/ipamSuggest.js` for the Stage 2 preview; Stage 4 shows the authoritative backend result. Note live `forge ipam free` still uses the first discovered lab's `--conf` (Task 26 behaviour).
+  - New settings (no hardcoded paths): `FORGE_STATE_DIR`, `FORGE_CENTRAL_IP` (auto-detected via a UDP route lookup towards the bastion when unset), `FORGE_BASTION_USER`, `FORGE_BASTION_FORGE_PATH`, `FORGE_BASTION_STATE_DIR`. `LabConfigResponse` gains `nkp_version` (from `NKP_CLI_VERSION`).
+  - `init-config`, `sync-bastion` and `create` use `require_mutating_role` (viewer gets 403). `LiveTerminal` gained an optional `onProgress({lines, status})` callback.
+  - E2E harness (`tests/e2e/conftest.py`): backend now starts in `FORGE_MOCK_MODE` with temp `FORGE_HOME`/`FORGE_STATE_DIR`/backup dirs and an `e2e_lab` fixture seeds a lab, since the wizard requires one. Syntax-checked only; Playwright was not run in this environment.
+  - `npm run build` was not re-run for this task.
+  - Existing share-mount endpoint (`POST /api/v1/shares/mount`) passes `--from-ip`/`--target-bastion`, which differ from the CLI's `--from`/`--target`; left untouched (out of scope) — the new sync uses the documented CLI flags.
+
+### Test Results
+- `pytest api/tests/`: 126 passed (20 new in `api/tests/test_cluster_deploy_wizard.py`: config init/lab inheritance/secret hygiene/audit, IPAM candidate selection, sync-bastion NFS + scp + validation, wizard create on central/bastion, `start_sequence` against a fake `forge` incl. failure stop and allowlist)
+- `npm test` (vitest): 22 files, 119 passed (`ClusterDeployPage.test.jsx` rewritten: 16 tests; new `ipamSuggest.test.js`: 4)
+
+### Files Created / Modified
+- Created: `api/app/services/cluster_config.py`, `api/tests/test_cluster_deploy_wizard.py`, `ui/src/utils/ipamSuggest.js`, `ui/src/utils/__tests__/ipamSuggest.test.js`
+- Modified: `api/app/{config.py}`, `api/app/routers/clusters.py`, `api/app/schemas/{clusters,lab}.py`, `api/app/services/{ipam,lab,process_runner}.py`, `ui/src/pages/ClusterDeployPage.jsx`, `ui/src/pages/__tests__/ClusterDeployPage.test.jsx`, `ui/src/components/common/LiveTerminal.jsx`, `tests/e2e/{conftest,test_web_console_e2e}.py`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Git
+- Local commit only: `feat(cluster): Task-27 — guided cluster config generator & bastion remote sync workflow` (NOT pushed; hash via `git log -1`)
