@@ -62,7 +62,7 @@ function Layout() {
   }
 
   return (
-    <div className="flex min-h-screen bg-slate-900 text-slate-100" data-testid="app-layout">
+    <div className="flex min-h-screen bg-slate-50 text-slate-900 dark:bg-slate-900 dark:text-slate-100" data-testid="app-layout">
       <Sidebar mode={mode} onModeChange={setMode} />
       <div className="flex min-w-0 flex-1 flex-col">
         <Header

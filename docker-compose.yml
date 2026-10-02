@@ -14,10 +14,13 @@ services:
       FORGE_DATA_DIR: "${FORGE_DATA_DIR:-/forge-data}"
       FORGE_CACRT_DIR: "${FORGE_CACRT_DIR:-/cacrt}"
       FORGE_LOG_DIR: "${FORGE_LOG_DIR:-/var/log/forge-central}"
+      FORGE_BIN: "${FORGE_BIN:-/nkp-forge/forge}"
     volumes:
       - ~/forge-state:/forge-state
       - ~/forge-data:/forge-data
       - ~/cacrt:/cacrt
+      - ~/nkp-forge:/nkp-forge:ro
+      - ~/.ssh:/home/forgecentral/.ssh:ro
     restart: unless-stopped
     deploy:
       resources:

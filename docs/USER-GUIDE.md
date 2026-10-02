@@ -319,6 +319,14 @@ All data is stored and transmitted in UTC (ISO 8601, `...Z`). The console conver
 - **Where it applies:** Diagnostics (support bundles, audit trail), Clusters (Last Updated), Path Settings (backup and safety-snapshot tables), Fleet (last sync), Upgrade (last upgrade) and each line of the Live Terminal.
 - **Live logs:** pipeline runs begin and end with a dual-timestamp header, e.g. `[TIMESTAMP] UTC: 2026-10-01T01:15:30Z | Local (PST): 2026-09-30 18:15:30 PDT`.
 
+## Theme Mode (Dark / Light / System)
+
+The header button `toggle-theme-mode` cycles **Dark -> Light -> System**:
+
+- **Dark / Light:** sets or clears the `dark` class on `<html>` (Tailwind `darkMode: 'class'`); body, layout and header switch between slate-50/white and slate-900 palettes.
+- **System:** follows the operating system `prefers-color-scheme` and updates live when the OS setting changes.
+- **Persistence:** saved in `localStorage` (`forge_theme_preference`); default is Dark.
+
 ## Dedicated VM Bootstrapping on Proxmox VE
 
 Forge Central can be provisioned as a dedicated host or bastion VM on Proxmox VE using the automated bootstrap script `scripts/bootstrap-forge-central-vm.sh`:

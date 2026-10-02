@@ -1985,3 +1985,28 @@ Duration  2.82s
 - Register Updated: Marked `BUG-001` as `Verified` in `my-notes/BUGS-AND-ENHANCEMENTS.md` with complete 45/45 scorecard.
 
 
+
+---
+
+## [C2-P32] Task 32 — CLI container mounts, SSH keys & Dark/Light/System theme engine (2026-10-01)
+
+- **Execution Status:** SUCCESS
+- **Strategy:** Ponytail Minimalist (no new dependencies; utility-class edits only)
+- **Acceptance Criteria Matrix:**
+  - [x] 1. `docker-compose.yml`: `FORGE_BIN: "${FORGE_BIN:-/nkp-forge/forge}"`, `~/nkp-forge:/nkp-forge:ro`, `~/.ssh:/home/forgecentral/.ssh:ro`
+  - [x] 2. `Dockerfile` runtime stage installs `curl openssh-client`
+  - [x] 3. `ui/tailwind.config.js` has `darkMode: 'class'`
+  - [x] 4. `Layout.jsx` / `Header.jsx` / `index.css` use light + `dark:` classes (`applyThemeClass` already toggles `dark` on `<html>` and listens to system changes)
+  - [x] 5. Vitest theme-toggle and Layout tests pass (`npm test`)
+  - [x] 6. `pytest api/tests/` passes
+  - [x] 7. `docs/DEPLOYMENT-GUIDE.md` and `docs/USER-GUIDE.md` updated
+  - [x] 8. Local commit created with exact message
+  - [x] 9. No `git push` performed
+- **Test Results:**
+  - `pytest api/tests/`: 149 passed
+  - `pytest tests/scripts`: 31 passed
+  - `npm test` (ui/): 22 files, 132 passed; `npm run build` OK
+- **Bootstrap script:** `~/.ssh` -> `chmod 755`; `authorized_keys` and `*.pub` -> `644` (private keys and `config` remain `600`).
+- **Commit:** `fix(compose,ui): Task-32 — fix CLI container mounts, SSH keys & Dark/Light/System theme engine` (hash in final report/`git log -1`)
+- **Files Modified:** `Dockerfile`, `docker-compose.yml`, `scripts/bootstrap-forge-central-vm.sh`, `ui/tailwind.config.js`, `ui/src/index.css`, `ui/src/components/layout/Layout.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/components/layout/__tests__/Header.test.jsx`, `ui/src/components/layout/__tests__/Layout.test.jsx`, `docs/DEPLOYMENT-GUIDE.md`, `docs/USER-GUIDE.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- **Follow-up:** private SSH keys remain `600` owned by the host user; container UID 1000 can only read them if the host key owner is UID 1000 (on the bootstrap VM `nkpadmin` is UID 1001, see BUG-001).

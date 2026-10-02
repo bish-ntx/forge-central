@@ -886,7 +886,7 @@ get_unified_init_snippet() {
 'systemctl restart ssh || systemctl restart sshd' \
 '' \
 'mkdir -p "${NKP_SSH_DIR}"' \
-'chmod 700 "${NKP_SSH_DIR}"' \
+'chmod 755 "${NKP_SSH_DIR}"' \
 '' \
 "NKP_PRIV_KEY_B64='${priv_b64}'" \
 "NKP_PAIR_PUB_B64='${SSH_PAIR_PUB_B64}'" \
@@ -922,8 +922,8 @@ get_unified_init_snippet() {
 '' \
 'printf "%s\n" "Host *" "    StrictHostKeyChecking no" "    UserKnownHostsFile /dev/null" "    LogLevel ERROR" > "${NKP_SSH_DIR}/config"' \
 '' \
-'chmod 600 "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" "${NKP_SSH_DIR}/id_ecdsa" "${NKP_SSH_DIR}/authorized_keys" "${NKP_SSH_DIR}/config"' \
-'chmod 644 "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub" "${NKP_SSH_DIR}/id_ecdsa.pub"' \
+'chmod 600 "${NKP_SSH_DIR}/id_nkpadmin_ecdsa" "${NKP_SSH_DIR}/id_ecdsa" "${NKP_SSH_DIR}/config"' \
+'chmod 644 "${NKP_SSH_DIR}/authorized_keys" "${NKP_SSH_DIR}/id_nkpadmin_ecdsa.pub" "${NKP_SSH_DIR}/id_ecdsa.pub"' \
 'chown -R "${NKP_USER}:${NKP_USER}" "${NKP_SSH_DIR}"' \
 '' \
 'mkdir -p "${NKP_HOME}/ssh-key"' \

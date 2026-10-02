@@ -1,5 +1,6 @@
 import React from 'react'
-import { fireEvent, render, screen } from '@testing-library/react'
+import { afterEach, beforeEach, vi } from 'vitest'
+import { act, fireEvent, render, screen } from '@testing-library/react'
 import { MemoryRouter, Route, Routes } from 'react-router-dom'
 import Layout from '../Layout.jsx'
 import ClustersPage from '../../../pages/ClustersPage.jsx'
@@ -85,5 +86,69 @@ describe('Layout', () => {
     expect(screen.getByTestId('header-mode-badge')).toHaveTextContent(
       'Forge Central Console',
     )
+  })
+})
+
+describe('Layout theme engine', () => {
+  let systemPrefersDark
+  let mediaListeners
+
+  beforeEach(() => {
+    window.localStorage.clear()
+    document.documentElement.classList.remove('dark')
+    systemPrefersDark = false
+    mediaListeners = new Set()
+    window.matchMedia = vi.fn().mockImplementation(() => ({
+      get matches() {
+        return systemPrefersDark
+      },
+      addEventListener: (_event, listener) => mediaListeners.add(listener),
+      removeEventListener: (_event, listener) => mediaListeners.delete(listener),
+    }))
+  })
+
+  afterEach(() => {
+    document.documentElement.classList.remove('dark')
+    delete window.matchMedia
+  })
+
+  test('toggle cycles Dark -> Light -> System and updates documentElement dark class', () => {
+    renderLayout()
+    const toggle = screen.getByTestId('toggle-theme-mode')
+    const root = document.documentElement
+
+    expect(screen.getByTestId('app-layout').className).toContain('dark:bg-slate-900')
+    expect(toggle).toHaveTextContent('Theme: Dark')
+    expect(root.classList.contains('dark')).toBe(true)
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveTextContent('Theme: Light')
+    expect(root.classList.contains('dark')).toBe(false)
+    expect(window.localStorage.getItem('forge_theme_preference')).toBe('light')
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveTextContent('Theme: System')
+    expect(root.classList.contains('dark')).toBe(false)
+
+    fireEvent.click(toggle)
+    expect(toggle).toHaveTextContent('Theme: Dark')
+    expect(root.classList.contains('dark')).toBe(true)
+  })
+
+  test('System mode follows prefers-color-scheme changes', () => {
+    window.localStorage.setItem('forge_theme_preference', 'system')
+    systemPrefersDark = true
+    renderLayout()
+    const root = document.documentElement
+
+    expect(root.classList.contains('dark')).toBe(true)
+
+    systemPrefersDark = false
+    act(() => mediaListeners.forEach((listener) => listener()))
+    expect(root.classList.contains('dark')).toBe(false)
+
+    systemPrefersDark = true
+    act(() => mediaListeners.forEach((listener) => listener()))
+    expect(root.classList.contains('dark')).toBe(true)
   })
 })

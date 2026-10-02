@@ -18,7 +18,7 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     FORGE_DATA_DIR=/forge-data \
     FORGE_LOG_DIR=/var/log/forge-central
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends curl \
+    && apt-get install -y --no-install-recommends curl openssh-client \
     && rm -rf /var/lib/apt/lists/*
 WORKDIR /app
 COPY api/requirements.txt api/requirements.txt
