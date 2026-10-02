@@ -14,7 +14,7 @@ FROM python:3.11-slim AS runtime
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     FORGE_HOME=/forge-state \
-    FORGE_CENTRAL_DATA_DIR=/forge-state \
+    FORGE_CENTRAL_DATA_DIR=/forge-central-data \
     FORGE_DATA_DIR=/forge-data \
     FORGE_LOG_DIR=/var/log/forge-central
 RUN apt-get update \
@@ -26,12 +26,12 @@ RUN pip install --no-cache-dir -r api/requirements.txt
 COPY api/ api/
 COPY --from=frontend-builder /build/ui/dist /app/ui/dist
 RUN useradd --uid 1000 --create-home --shell /usr/sbin/nologin forgecentral \
-    && mkdir -p /forge-state /forge-data /cacrt /var/log/forge-central \
-    && chown -R forgecentral:forgecentral /app /forge-state /forge-data /cacrt /var/log/forge-central
+    && mkdir -p /forge-state /forge-data /forge-central-data /cacrt /var/log/forge-central \
+    && chown -R forgecentral:forgecentral /app /forge-state /forge-data /forge-central-data /cacrt /var/log/forge-central
 COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod 755 /usr/local/bin/docker-entrypoint.sh
 # The entrypoint starts as root only to stage SSH keys, then drops to forgecentral (UID 1000) via gosu.
-VOLUME ["/forge-state", "/forge-data", "/cacrt", "/var/log/forge-central"]
+VOLUME ["/forge-state", "/forge-data", "/forge-central-data", "/cacrt", "/var/log/forge-central"]
 EXPOSE 8000
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1

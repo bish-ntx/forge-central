@@ -10,7 +10,7 @@ services:
       FORGE_MOCK_MODE: "${FORGE_MOCK_MODE:-false}"
       FORGE_HOME: "${FORGE_HOME:-/forge-state}"
       FORGE_STATE_DIR: "${FORGE_STATE_DIR:-/forge-state}"
-      FORGE_CENTRAL_DATA_DIR: "${FORGE_CENTRAL_DATA_DIR:-/forge-state}"
+      FORGE_CENTRAL_DATA_DIR: "${FORGE_CENTRAL_DATA_DIR:-/forge-central-data}"
       FORGE_DATA_DIR: "${FORGE_DATA_DIR:-/forge-data}"
       FORGE_CACRT_DIR: "${FORGE_CACRT_DIR:-/cacrt}"
       FORGE_LOG_DIR: "${FORGE_LOG_DIR:-/var/log/forge-central}"
@@ -18,6 +18,7 @@ services:
     volumes:
       - ~/forge-state:/forge-state
       - ~/forge-data:/forge-data
+      - ~/forge-central-data:/forge-central-data
       - ~/cacrt:/cacrt
       - ~/nkp-forge:/nkp-forge:ro
       # Host keys stay read-only and untouched; docker-entrypoint.sh copies them into the container's own ~/.ssh.

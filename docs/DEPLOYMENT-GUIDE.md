@@ -18,12 +18,26 @@ docker build -t forge-central:latest .
 
 | Mount point | Purpose | Host default (Compose) |
 | --- | --- | --- |
-| `/forge-state` | Forge Central state (`FORGE_HOME`, `FORGE_CENTRAL_DATA_DIR`) | `~/forge-state` |
-| `/forge-data` | Lab INI/data (`FORGE_DATA_DIR`) | `~/forge-data` |
+| `/forge-state` | Legacy cluster state path (`FORGE_HOME`, `FORGE_STATE_DIR`); on the host a symlink to `~/forge-data` | `~/forge-state` |
+| `/forge-data` | Canonical cluster state, lab INI/configs (`FORGE_DATA_DIR`) | `~/forge-data` |
+| `/forge-central-data` | Control plane DB, audit logs & app telemetry (`FORGE_CENTRAL_DATA_DIR`) | `~/forge-central-data` |
 | `/cacrt` | CA certificates | `~/cacrt` |
 | `/var/log/forge-central` | Logs (`FORGE_LOG_DIR`) | container volume |
 | `/nkp-forge` (read-only) | `nkp-forge` CLI checkout; `FORGE_BIN` defaults to `/nkp-forge/forge` | `~/nkp-forge` |
 | `/staging/ssh-key` (read-only) | Operator SSH keys, staged by the entrypoint into the container's own `~/.ssh` (see below) | `~/.ssh` (override with `SSH_KEY_DIR`) |
+
+### Host directory layout
+
+| Host path | Contents |
+| --- | --- |
+| `~/forge-central/` | Forge Central code (Product 1) |
+| `~/nkp-forge/` | `nkp-forge` CLI code (Product 2) |
+| `~/forge-central-data/` | Control plane DB & app telemetry (`FORGE_CENTRAL_DATA_DIR`); never overwritten by code updates |
+| `~/forge-data/` | Canonical cluster state & configs (`FORGE_DATA_DIR`) |
+| `~/forge-state/` | Symlink -> `~/forge-data/` (backwards compatibility during the `forge-state` -> `forge-data` transition) |
+| `~/cacrt/` | CA certificates |
+
+`scripts/bootstrap-forge-central-vm.sh` creates these directories and the symlink (`ln -sfn ~/forge-data ~/forge-state`, skipped only when `~/forge-state` is already an independent physical directory). The container entrypoint also ensures `/forge-state`, `/forge-data`, `/forge-central-data` and `/cacrt` are owned by `forgecentral`. Settings → Path Settings (`GET /api/v1/settings/paths`) reports `FORGE_CENTRAL_DATA_DIR` as accessible/writable once the mount exists.
 
 Without the `nkp-forge` and SSH key mounts, `/vms`, `/ipam` and `/clusters` return HTTP 500 in non-mock mode because the CLI engine and SSH credentials are missing. Override the CLI location with `FORGE_BIN=/nkp-forge/forge` (Compose default).
 
@@ -37,14 +51,14 @@ No host `chmod`/`chown` of `~/.ssh` is needed. Compose mounts the host key direc
 
 The host files stay untouched and read-only; the container owns its private copy, refreshed on every restart (`docker compose restart forge-central` after rotating keys). With no `/staging/ssh-key` mount (or an empty one) the step is skipped. `docker run` equivalent: `-v ~/.ssh:/staging/ssh-key:ro`.
 
-Host directories must be writable by container UID 1000 (`sudo chown -R 1000:1001 ~/forge-state ~/forge-data ~/cacrt && sudo chmod -R 2775 ~/forge-state ~/forge-data ~/cacrt`). This allows the container's `forgecentral` process (UID 1000) and the host's `nkpadmin` user (GID 1001) full read/write access.
+Host directories must be writable by container UID 1000 (`sudo chown -R 1000:1001 ~/forge-central-data ~/forge-data ~/cacrt && sudo chmod -R 2775 ~/forge-central-data ~/forge-data ~/cacrt`). This allows the container's `forgecentral` process (UID 1000) and the host's `nkpadmin` user (GID 1001) full read/write access.
 
 ## Docker Run
 
 ```bash
 docker run -d --name forge-central -p 8000:8000 \
   -e FORGE_MOCK_MODE=false \
-  -v ~/forge-state:/forge-state -v ~/forge-data:/forge-data -v ~/cacrt:/cacrt \
+  -v ~/forge-state:/forge-state -v ~/forge-data:/forge-data -v ~/forge-central-data:/forge-central-data -v ~/cacrt:/cacrt \
   forge-central:latest
 ```
 

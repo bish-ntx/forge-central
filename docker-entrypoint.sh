@@ -21,6 +21,15 @@ if [ -d "$STAGING_DIR" ] && [ -n "$(ls -A "$STAGING_DIR" 2>/dev/null)" ]; then
     echo "docker-entrypoint: staged SSH keys into $SSH_DIR"
 fi
 
+# Runtime state dirs (bind mounts may arrive root-owned): make sure the app user can write them.
+if [ "$(id -u)" = "0" ]; then
+    for d in /forge-state /forge-data /forge-central-data /cacrt; do
+        if [ -d "$d" ] && [ "$(stat -c %U "$d" 2>/dev/null)" != "$APP_USER" ]; then
+            chown "$APP_USER:$APP_USER" "$d" 2>/dev/null || echo "docker-entrypoint: could not chown $d" >&2
+        fi
+    done
+fi
+
 if [ "$(id -u)" = "0" ] && command -v gosu >/dev/null 2>&1; then
     exec gosu "$APP_USER" "$@"
 fi

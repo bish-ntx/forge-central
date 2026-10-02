@@ -60,6 +60,19 @@ async def test_get_paths_returns_status_and_disk_info(path_env) -> None:
     assert items["FORGE_HOME"]["total_bytes"] > 0
     assert items["FORGE_DATA_DIR"]["status"] == "missing"
     assert items["FORGE_DATA_DIR"]["exists"] is False
+    central = items["FORGE_CENTRAL_DATA_DIR"]
+    assert central["path"] == str(get_settings().forge_central_data_dir.expanduser())
+    assert central["status"] == "accessible" and central["accessible"] and central["writable"]
+    assert get_settings().forge_central_data_dir_resolved == get_settings().forge_central_data_dir.expanduser().resolve()
+
+
+def test_forge_central_data_dir_default_is_dedicated(monkeypatch) -> None:
+    monkeypatch.delenv("FORGE_CENTRAL_DATA_DIR", raising=False)
+    get_settings.cache_clear()
+    try:
+        assert str(get_settings().forge_central_data_dir) == "~/forge-central-data"
+    finally:
+        get_settings.cache_clear()
 
 
 @pytest.mark.asyncio

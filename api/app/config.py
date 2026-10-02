@@ -48,6 +48,10 @@ class Settings(BaseModel):
     def forge_data_dir_resolved(self) -> Path:
         return self.forge_data_dir.expanduser().resolve()
 
+    @property
+    def forge_central_data_dir_resolved(self) -> Path:
+        return self.forge_central_data_dir.expanduser().resolve()
+
 
 @lru_cache(maxsize=1)
 def get_settings() -> Settings:

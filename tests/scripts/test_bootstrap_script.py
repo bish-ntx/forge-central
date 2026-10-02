@@ -480,3 +480,14 @@ def test_wizard_trims_whitespace_and_quotes(tmp_path):
     assert "155 / forge-central-trimmed" in res.stdout + res.stderr
     assert "local-lvm:vm-155-disk-0" in res.stdout
 
+
+
+def test_manual_steps_create_forge_central_data_and_state_symlink():
+    """Both init snippets create forge-central-data, symlink forge-state -> forge-data and set setgid perms."""
+    out = run_script("--print-manual-steps").stdout
+    mkdir = 'mkdir -p "${NKP_HOME}/forge-central" "${NKP_HOME}/forge-central-data" "${NKP_HOME}/forge-data" "${NKP_HOME}/cacrt"'
+    link = 'if [ ! -d "${NKP_HOME}/forge-state" ] || [ -L "${NKP_HOME}/forge-state" ]; then ln -sfn "${NKP_HOME}/forge-data" "${NKP_HOME}/forge-state"; fi'
+    chown = 'chown -R 1000:"${NKP_USER}" "${NKP_HOME}/forge-central-data" "${NKP_HOME}/forge-data" "${NKP_HOME}/cacrt"'
+    chmod = 'chmod -R 2775 "${NKP_HOME}/forge-central-data" "${NKP_HOME}/forge-data" "${NKP_HOME}/cacrt"'
+    for line in (mkdir, link, chown, chmod):
+        assert line in out

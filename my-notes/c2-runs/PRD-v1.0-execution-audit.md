@@ -2107,3 +2107,62 @@ Duration  2.82s
   - The registry credential guard is advisory (amber warning + link, Next stays enabled) since credentials can be staged on a bastion; a Harbor secret is matched by cluster name or lab name (acts as the lab-level default). Settings deep-links via `/settings?tab=secrets-vault`.
   - Per-cluster Prism override (endpoint/port/user/container, never password) added to `ClusterInitRequest` and rendered into `<cluster>-input.ini` for Nutanix CSI modes so the wizard override is effective; Settings → Lab Infrastructure gained a Storage Mode select and Prism section.
   - Host-side `ssh-key` permission bootstrap in `scripts/bootstrap-forge-central-vm.sh` left unchanged (follow-up: remove the `~/.ssh` chmod step from docs/script if no longer needed). Docker image build not exercised locally (no daemon run); entrypoint logic verified with a temp directory.
+
+### [C1 VERIFICATION VERDICT — APPROVED] Task 34 (2026-10-01)
+
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** **100% APPROVED**
+- **C2 Agent:** C2-P34 ([4ed932e5-282d-41ec-96ef-0169eb019f72](4ed932e5-282d-41ec-96ef-0169eb019f72))
+- **Commit Hash:** `4e853948cf6954e38d54e7bbeaa6c25246551ff8`
+- **Commit Message:** `feat(deploy): Task-34 — in-container SSH staging, default 4 worker nodes, Prism PE/PC & secret guards`
+- **Independent Re-Verification:**
+  - `pytest api/tests/`: **165/165 passed** (C1 re-run)
+  - `npm test` (ui/): **144/144 passed** across 23 files (C1 re-run)
+  - Working tree: `main` ahead of `origin/main` by 1 feature commit (no push performed by C1)
+- **Code Review Spot-Checks:**
+  - `docker-entrypoint.sh` stages `/staging/ssh-key` → `/home/forgecentral/.ssh` (700/600, chown as root, `gosu forgecentral`); compose mounts `${SSH_KEY_DIR:-~/.ssh}:/staging/ssh-key:ro`.
+  - `ClusterCreateRequest` / `ClusterInitRequest` / `ClusterDeployPage` default `worker_nodes=4`.
+  - Lab Prism fields persist as `PRISM_*` / `STORAGE_CONTAINER`; password returned as `***MASKED***`; wizard accordion for `nutanix-csi-pe|pc` with Inherited / Override / Not set badges; per-cluster Prism override wired into cluster input INI (password stays in lab INI).
+  - Harbor/Docker Hub registry secret badges + Settings deep-link (`?tab=secrets-vault`); advisory (Next not hard-blocked).
+  - `AGENTS.md` + `.github/copilot-instructions.md` present; docs updated (`DEPLOYMENT-GUIDE`, `USER-GUIDE`, `API-GUIDE`, `README`).
+- **Accepted Follow-Ups (non-blocking):**
+  - Docker image rebuild / live compose smoke on `ntx-forge-central1` not exercised in this verification pass.
+  - `scripts/bootstrap-forge-central-vm.sh` still contains legacy host `~/.ssh` chmod guidance — remove when next bootstrap prompt touches that script.
+  - Registry credential guard remains advisory by design (bastion-staged secrets).
+- **Checklists Synchronized:** `deliverables/END-TO-END-BUILD-CHECKLIST.md` (Task 16.3), `C1-CONTEXT-NOTES.md` updated; authorized push pending operator approval.
+
+## [C2-P34B] Task 34B — Runtime State Directory Reconciliation (2026-10-01)
+
+**Execution Status:** SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] `docker-compose.yml` mounts `~/forge-central-data:/forge-central-data` and defaults `FORGE_CENTRAL_DATA_DIR` to `/forge-central-data`
+- [x] `Dockerfile` (ENV, mkdir, chown, VOLUME) and `docker-entrypoint.sh` (ownership check of `/forge-state`, `/forge-data`, `/forge-central-data`, `/cacrt`) include `/forge-central-data`
+- [x] Bootstrap script (unified-init and cloud-init overlay snippets) creates `~/forge-central-data` and `forge-state -> forge-data` symlink, with 1000:`${NKP_USER}` ownership and `2775` perms
+- [x] `GET /api/v1/settings/paths` inspects `FORGE_CENTRAL_DATA_DIR` (`settings.forge_central_data_dir`); added `forge_central_data_dir_resolved` property
+- [x] `pytest api/tests/` and `pytest tests/scripts/` pass
+- [x] `npm test` (ui/) passes
+- [x] `docs/DEPLOYMENT-GUIDE.md` updated with directory layout
+- [x] Local commit created; not pushed
+
+### Test Results
+- `pytest api/tests/`: 166 passed
+- `pytest tests/scripts/`: 32 passed
+- `npm test` (ui/): 144 passed across 23 files
+
+### Local Git Commit
+`fix(compose,paths): Task-34B — reconcile runtime state directories, forge-central-data mount & symlink transition` (hash reported to C1 in the handoff; a commit cannot embed its own hash)
+
+### Modified Files
+- `Dockerfile`, `docker-compose.yml`, `docker-entrypoint.sh`
+- `scripts/bootstrap-forge-central-vm.sh`
+- `api/app/config.py`
+- `api/tests/test_paths.py`, `tests/scripts/test_bootstrap_script.py`
+- `docs/DEPLOYMENT-GUIDE.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md` (also carries the pre-existing uncommitted C1 Task 34 verdict block)
+
+### Notes / Deviations
+- `api/app/routers/paths.py` already inspected `FORGE_CENTRAL_DATA_DIR`; no change needed (covered by a strengthened test).
+- Bootstrap changes applied to both snippet blocks (the cloud-init overlay labels the step `[5/5]`, the unified init `[8/8]`).
+- Compose still mounts `~/forge-state:/forge-state` (`FORGE_HOME`/`FORGE_STATE_DIR` default) for compatibility; on hosts bootstrapped by the script it is a symlink to `~/forge-data`.
+- Docker image build not exercised locally; entrypoint/bootstrap verified via `sh -n`/`bash -n` and script tests.
