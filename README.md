@@ -200,6 +200,7 @@ Build a self-contained `forge-central-v<VERSION>.tar.gz` (plus `.sha256`) with `
 - `FORGE_BIN`: Absolute or relative path to the forge executable. Default is `./forge` from the current working directory.
 - `FORGE_MOCK_MODE`: Set to `true` to run offline with synthetic VMs, clusters, NFS shares and simulated `./forge` runs (no Proxmox or Kubernetes needed). Default is `false`.
 - `FORGE_DISPLAY_TZ`: IANA zone used only for the local half of the dual-timestamp log headers. Default is `America/Los_Angeles`. All stored/API timestamps remain ISO 8601 UTC (`...Z`); the web console has a Local/UTC toggle (`button-timezone-toggle`).
+- `FORGE_OTEL_ENABLED` / `FORGE_OTEL_COLLECTOR_URL`: lightweight telemetry exporter flag (default `false`) and OTLP/HTTP collector URL (default `http://localhost:4318`) reported by `GET /api/v1/telemetry/status`. Test runs ingested via `POST /api/v1/telemetry/ingest/test-run` are stored under `$FORGE_DATA_DIR/telemetry/` and surfaced in the Qualification Matrix (`/analytics/correlation`).
 - `FORGE_ADMIN_PASSWORD`: passphrase that unlocks the `admin` console role via `POST /api/v1/auth/unlock-admin`. Default is `Nutanix.123`; override it for any shared deployment. Roles: `viewer` (read-only demo), `operator` (default), `admin` (Day-0 setup).
 - `FORGE_CACRT_DIR`: directory for staged registry credentials (`dockerhub/dockerhub-creds.ini`, `<cluster>/harbor-creds.ini`). Default is `~/cacrt`.
 - `FORGE_STATE_DIR`: directory holding generated cluster configs (`<cluster>/<cluster>-input.ini`). Default is `~/forge-state`.

@@ -2010,3 +2010,50 @@ Duration  2.82s
 - **Commit:** `fix(compose,ui): Task-32 — fix CLI container mounts, SSH keys & Dark/Light/System theme engine` (hash in final report/`git log -1`)
 - **Files Modified:** `Dockerfile`, `docker-compose.yml`, `scripts/bootstrap-forge-central-vm.sh`, `ui/tailwind.config.js`, `ui/src/index.css`, `ui/src/components/layout/Layout.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/components/layout/__tests__/Header.test.jsx`, `ui/src/components/layout/__tests__/Layout.test.jsx`, `docs/DEPLOYMENT-GUIDE.md`, `docs/USER-GUIDE.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
 - **Follow-up:** private SSH keys remain `600` owned by the host user; container UID 1000 can only read them if the host key owner is UID 1000 (on the bootstrap VM `nkpadmin` is UID 1001, see BUG-001).
+
+---
+
+### [C1 VERIFICATION VERDICT — APPROVED] Task 32 (2026-10-01)
+
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** **100% APPROVED**
+- **Commit Hash:** `a3c44bfc74601c4cbaa83fad0b6d17e3eb5c51eb`
+- **Commit Message:** `fix(compose,ui): Task-32 — fix CLI container mounts, SSH keys & Dark/Light/System theme engine`
+- **Verification Details:**
+  - `docker-compose.yml`: Correctly mounts `~/nkp-forge:/nkp-forge:ro`, `~/.ssh:/home/forgecentral/.ssh:ro`, and sets `FORGE_BIN: "${FORGE_BIN:-/nkp-forge/forge}"`.
+  - `Dockerfile`: Stage 2 runtime includes `openssh-client` alongside `curl`.
+  - `ui/tailwind.config.js`: Root specifies `darkMode: 'class'`.
+  - `ui/src/index.css` & `Layout.jsx` & `Header.jsx`: Full support for light and dark classes with reactive system-scheme listener.
+  - Test suites: `pytest api/tests/` 149/149 passed; `pytest tests/scripts` 31/31 passed; `npm test` 132/132 passed; `npm run build` cleanly succeeded.
+  - Documentation: `docs/DEPLOYMENT-GUIDE.md` and `docs/USER-GUIDE.md` updated.
+- **SSH Key Follow-Up Guidance:**
+  - For live VM environments where `nkpadmin` is UID 1001, private keys mounted into the container must be readable by container UID 1000. Operators should run `chmod 644 ~/.ssh/id_*` (or configure group permissions / ACLs) for keys used by Forge Central CLI operations.
+- **Checklists Synchronized:** `deliverables/END-TO-END-BUILD-CHECKLIST.md` (Task 16.1), `deliverables/CURSOR-PROMPTS-FORGE-CENTRAL-v1.md` (`[PROMPT-32]`), and `C1-CONTEXT-NOTES.md` updated.
+
+
+
+---
+
+## [C2-P33] Task 33 — OpenTelemetry Pipeline & Cross-Repo Correlation (2026-10-01)
+
+- **Execution Status:** SUCCESS
+- **Strategy:** Ponytail Minimalist (JSON storage under `FORGE_DATA_DIR/telemetry/`, no `opentelemetry-sdk`; reuses `UtcDatetime`, `record_audit_event`, `list_clusters`, `CliSnippetCard`, `Timestamp`)
+- **Acceptance Criteria Matrix:**
+  - [x] 1. `api/app/schemas/telemetry.py` with status / ingest / run-list / correlation models using `UtcDatetime`
+  - [x] 2. `api/app/services/telemetry.py` persists runs to `<FORGE_DATA_DIR>/telemetry/test-runs.json`; correlation = qualified / failing / untested; exporter buffer metrics; `telemetry-ingested` audit event
+  - [x] 3. `api/app/routers/telemetry.py` (all `async def`): `GET /status`, `POST /ingest/test-run`, `GET /runs?cluster_name=`, `GET /correlation`; registered in `main.py`
+  - [x] 4. `api/tests/test_telemetry.py` (ingest persistence, matrix statuses, status endpoint, UTC serialization)
+  - [x] 5. `CorrelationPage.jsx` at `/analytics/correlation` (header, KPI cards, `table-correlation`, badges, `<Timestamp />`, `card-telemetry-cli-snippet`)
+  - [x] 6. Sidebar link `link-analytics-correlation`, route in `App.jsx`, Command Palette entry
+  - [x] 7. `ui/src/pages/__tests__/CorrelationPage.test.jsx` (KPIs, rows, badges, simulate ingestion, sidebar + palette navigation)
+  - [x] 8. `docs/API-GUIDE.md`, `docs/USER-GUIDE.md` (and `README.md` env vars) updated
+  - [x] 9. `pytest api/tests/` and `npm test` 100% pass
+  - [x] 10. Local commit with exact message; no `git push`
+- **Test Results:**
+  - `pytest api/tests/`: 158 passed (149 existing + 9 new)
+  - `npm test` (ui/): 23 files, 136 passed (132 existing + 4 new)
+- **Design notes:** New settings `FORGE_OTEL_ENABLED` (default `false`) and `FORGE_OTEL_COLLECTOR_URL` (default `http://localhost:4318`). `buffered_count` = stored runs; `last_export_at` stays `null` (no remote exporter wired yet). `nkp_version` is `unknown` because `GET /api/v1/clusters` does not report it.
+- **Commit:** `feat(telemetry): Task-33 — OpenTelemetry pipeline instrumentation, test ingestion & cross-repo correlation engine` (hash in final report/`git log -1`)
+- **Files Created:** `api/app/schemas/telemetry.py`, `api/app/services/telemetry.py`, `api/app/routers/telemetry.py`, `api/tests/test_telemetry.py`, `ui/src/pages/CorrelationPage.jsx`, `ui/src/pages/__tests__/CorrelationPage.test.jsx`
+- **Files Modified:** `api/app/config.py`, `api/app/main.py`, `ui/src/App.jsx`, `ui/src/components/layout/Sidebar.jsx`, `ui/src/components/common/CommandPalette.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- **Follow-up:** wire a real OTLP exporter (flush + `last_export_at`) and surface `nkp_version` from cluster inventory.

@@ -33,6 +33,8 @@ class Settings(BaseModel):
     forge_mock_mode: bool = False
     forge_display_timezone: str = "America/Los_Angeles"  # local label for log headers only
     forge_admin_password: str = "Nutanix.123"  # passphrase that unlocks the admin role
+    forge_otel_enabled: bool = False  # lightweight OTel exporter flag (no SDK dependency)
+    forge_otel_collector_url: str = "http://localhost:4318"  # OTLP/HTTP collector endpoint
 
     @property
     def forge_bin_resolved(self) -> Path:
@@ -72,6 +74,8 @@ def get_settings() -> Settings:
         forge_bastion_forge_path=os.getenv("FORGE_BASTION_FORGE_PATH", "").strip() or "nkp-forge/forge",
         forge_bastion_state_dir=os.getenv("FORGE_BASTION_STATE_DIR", "").strip() or "forge-state",
         forge_admin_password=os.getenv("FORGE_ADMIN_PASSWORD") or "Nutanix.123",
+        forge_otel_enabled=os.getenv("FORGE_OTEL_ENABLED", "").strip().lower() in {"1", "true", "yes", "on"},
+        forge_otel_collector_url=os.getenv("FORGE_OTEL_COLLECTOR_URL", "").strip() or "http://localhost:4318",
         forge_bin=Path(forge_bin).expanduser() if forge_bin else Path.cwd() / "forge",
         **overrides,
     )

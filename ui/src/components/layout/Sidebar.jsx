@@ -7,6 +7,7 @@ import {
   PackageCheck,
   Server,
   Settings,
+  ShieldCheck,
   SquareStack,
 } from 'lucide-react'
 import { NavLink } from 'react-router-dom'
@@ -30,6 +31,12 @@ const NAV_ITEMS = [
     label: 'Diagnostics',
     icon: FileText,
     testId: 'link-diagnostics',
+  },
+  {
+    to: '/analytics/correlation',
+    label: 'Qualification Matrix',
+    icon: ShieldCheck,
+    testId: 'link-analytics-correlation',
   },
   { to: '/ipam', label: 'IPAM Subnets', icon: Network, testId: 'link-ipam' },
   {

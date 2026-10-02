@@ -187,6 +187,17 @@ The Diagnostics page provides a Day-0 operational surface for synthetic support 
 - Safe fallback behavior:
   - If diagnostics or audit APIs are unavailable, the page renders deterministic local mock rows so operators still have stable visibility.
 
+## Qualification Matrix (`/analytics/correlation`)
+
+Open **Qualification Matrix** in the sidebar (`data-testid="link-analytics-correlation"`) or press `⌘K` / `Ctrl+K` and choose **Go to Qualification Matrix**. The page correlates each Forge Central cluster with its latest Day-2 test run (nkpday2 GPU/CSI):
+
+- Header `header-correlation`: "Cross-Repo Qualification & Telemetry Matrix", with a Refresh button.
+- KPI cards: Total Qualified (`card-total-qualified`), Total Failing (`card-total-failing`), Untested (`card-total-untested`).
+- Table `table-correlation`: Cluster Name, NKP Version, K8s Version, Latest Test Suite, Results (passed / failed), Qualification badge (`badge-qualification-status`: QUALIFIED green, FAILING red, UNTESTED yellow) and Last Tested (shown in your selected timezone).
+- Ingest card `card-telemetry-cli-snippet`: a copyable `curl` command that posts a run to `POST /api/v1/telemetry/ingest/test-run`, plus **Simulate Ingestion** (`btn-simulate-ingestion`) which posts a passing sample run for the first cluster and refreshes the matrix.
+
+A cluster is **QUALIFIED** when its latest run has no failures and a passed status, **FAILING** otherwise, and **UNTESTED** when no run was ingested. Backed by `GET /api/v1/telemetry/correlation`.
+
 ## Preprovisioned Inventory Inspection & YAML Viewer Component
 
 The `InventoryYamlViewer` component (`ui/src/components/cluster/InventoryYamlViewer.jsx`) provides dedicated YAML manifest inspection and pre-flight health status display:
@@ -209,7 +220,7 @@ The `InventoryYamlViewer` component (`ui/src/components/cluster/InventoryYamlVie
 - **Open:** press `⌘K` (Mac) / `Ctrl+K`, or click the header button (`data-testid="btn-open-command-palette"`).
 - **Close:** press `Escape` or click outside the modal.
 - **Search:** type to filter by title or category (substring match). `Enter` selects the first result; clicking an item navigates and closes the palette.
-- **Items:** navigation (`Go to VMs`, `Go to Clusters`, `Go to Fleet Dashboard`, `Go to Diagnostics`, `Go to IPAM Subnets`, `Go to Settings`, `Path Configuration & Migration`), quick actions (`Deploy NKP Cluster`, `Create Virtual Machine`, `Capture Diagnostics`), and seeded cluster/VM entries.
+- **Items:** navigation (`Go to VMs`, `Go to Clusters`, `Go to Fleet Dashboard`, `Go to Diagnostics`, `Go to Qualification Matrix`, `Go to IPAM Subnets`, `Go to Settings`, `Path Configuration & Migration`), quick actions (`Deploy NKP Cluster`, `Create Virtual Machine`, `Capture Diagnostics`), and seeded cluster/VM entries.
 - **Locators:** `command-palette-modal`, `input-command-palette`, `command-palette-results`, `command-item-{id}`.
 
 ## Error Remediation Cards

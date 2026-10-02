@@ -29,6 +29,7 @@ from .routers.paths import router as paths_router
 from .routers.pipeline import router as pipeline_router
 from .routers.restore import router as restore_router
 from .routers.secrets import router as secrets_router
+from .routers.telemetry import router as telemetry_router
 from .routers.upgrade import router as upgrade_router
 from .routers.vms import router as vms_router
 from .services.log_publisher import LogPublisher
@@ -58,6 +59,7 @@ app.include_router(restore_router, prefix="/api/v1")
 app.include_router(lab_router)
 app.include_router(secrets_router)
 app.include_router(ipam_router)
+app.include_router(telemetry_router)
 
 
 def mount_ui_static(application: FastAPI, ui_dist_path: Path | None = None) -> bool:

@@ -4,6 +4,7 @@ import Layout from './components/layout/Layout.jsx'
 import ClusterDeployPage from './pages/ClusterDeployPage.jsx'
 import ClusterDetailPage from './pages/ClusterDetailPage.jsx'
 import ClustersPage from './pages/ClustersPage.jsx'
+import CorrelationPage from './pages/CorrelationPage.jsx'
 import DiagnosticsPage from './pages/DiagnosticsPage.jsx'
 import FleetDashboardPage from './pages/FleetDashboardPage.jsx'
 import IpamPage from './pages/IpamPage.jsx'
@@ -23,6 +24,7 @@ function App() {
         <Route path="clusters/:name" element={<ClusterDetailPage />} />
         <Route path="diagnostics" element={<DiagnosticsPage />} />
         <Route path="fleet" element={<FleetDashboardPage />} />
+        <Route path="analytics/correlation" element={<CorrelationPage />} />
         <Route path="ipam" element={<IpamPage />} />
         <Route path="settings" element={<SettingsPage />} />
         <Route path="settings/paths" element={<PathSettingsPage />} />
