@@ -80,6 +80,67 @@ async def test_lab_init_keeps_existing_password_and_backs_up(dirs) -> None:
     assert (dirs / "forge" / "labs" / "amd-lab" / "amd-lab-infra.ini.bak").is_file()
 
 
+PRISM = {
+    "storage_mode": "nutanix-csi-pe",
+    "prism_endpoint": "10.1.1.10",
+    "prism_port": 9441,
+    "prism_user": "admin",
+    "prism_password": "Pr1$m-secret",
+    "storage_container": "default-container",
+}
+
+
+@pytest.mark.asyncio
+async def test_lab_prism_credentials_persist_and_mask_password(dirs) -> None:
+    async with _client() as client:
+        init = await client.post("/api/v1/lab/init", json={**LAB, **PRISM}, headers=ADMIN)
+        config = await client.get("/api/v1/lab/config")
+        audit = await client.get("/api/v1/audit/logs", params={"verb": "lab-initialized"})
+
+    ini = dirs / "forge" / "labs" / "amd-lab" / "amd-lab-infra.ini"
+    text = ini.read_text()
+    assert init.status_code == 200 and stat.S_IMODE(ini.stat().st_mode) == 0o600
+    for expected in (
+        'PRISM_ENDPOINT="10.1.1.10"',
+        'PRISM_PORT="9441"',
+        'PRISM_USER="admin"',
+        'PRISM_PASSWORD="Pr1\\$m-secret"',
+        'STORAGE_CONTAINER="default-container"',
+        'STORAGE_MODE="nutanix-csi-pe"',
+    ):
+        assert expected in text
+    body = config.json()
+    assert (body["prism_endpoint"], body["prism_port"], body["prism_user"]) == ("10.1.1.10", 9441, "admin")
+    assert body["storage_container"] == "default-container" and body["storage_mode"] == "nutanix-csi-pe"
+    assert body["prism_password"] == "***MASKED***"
+    assert "Pr1" not in config.text and "Pr1" not in init.text and "Pr1" not in audit.text
+
+
+@pytest.mark.asyncio
+async def test_lab_prism_defaults_and_password_kept_on_blank_or_masked(dirs) -> None:
+    async with _client() as client:
+        await client.post("/api/v1/lab/init", json=LAB, headers=ADMIN)
+        before = (await client.get("/api/v1/lab/config")).json()
+        await client.post("/api/v1/lab/init", json={**LAB, **PRISM}, headers=ADMIN)
+        await client.post("/api/v1/lab/init", json={**LAB, **PRISM, "prism_password": None, "prism_user": "ops"}, headers=ADMIN)
+        await client.post("/api/v1/lab/init", json={**LAB, **PRISM, "prism_password": "***MASKED***"}, headers=ADMIN)
+        after = (await client.get("/api/v1/lab/config")).json()
+
+    assert before["prism_endpoint"] is None and before["prism_port"] == 9440 and before["prism_password"] is None
+    assert after["prism_password"] == "***MASKED***"
+    assert 'PRISM_PASSWORD="Pr1\\$m-secret"' in (dirs / "forge" / "labs" / "amd-lab" / "amd-lab-infra.ini").read_text()
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("override", [{"prism_port": 0}, {"prism_port": 70000}, {"prism_endpoint": 'h"; rm -rf /'}])
+async def test_lab_init_rejects_invalid_prism_input(override, dirs) -> None:
+    async with _client() as client:
+        response = await client.post("/api/v1/lab/init", json={**LAB, **PRISM, **override}, headers=ADMIN)
+
+    assert response.status_code == 422
+    assert not (dirs / "forge").exists()
+
+
 @pytest.mark.asyncio
 @pytest.mark.parametrize(
     "override",

@@ -20,7 +20,8 @@ services:
       - ~/forge-data:/forge-data
       - ~/cacrt:/cacrt
       - ~/nkp-forge:/nkp-forge:ro
-      - ~/.ssh:/home/forgecentral/.ssh:ro
+      # Host keys stay read-only and untouched; docker-entrypoint.sh copies them into the container's own ~/.ssh.
+      - ${SSH_KEY_DIR:-~/.ssh}:/staging/ssh-key:ro
     restart: unless-stopped
     deploy:
       resources:

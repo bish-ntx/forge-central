@@ -13,6 +13,9 @@ CONTROL_CHARS = re.compile(r"[\x00-\x1f]")
 UNSAFE_INI_CHARS = re.compile(r'[\x00-\x1f"$`\\]')  # lab-infra files are sourced by bash
 
 
+MASKED = "***MASKED***"
+
+
 def safe_ini_text(value: Optional[str]) -> Optional[str]:
     """Reject control characters, quotes, `$`, backticks and backslashes in INI-bound values."""
     if value is not None and UNSAFE_INI_CHARS.search(value):
@@ -36,6 +39,12 @@ class LabConfigRequest(BaseModel):
     golden_name: str = "ubuntu-2404-golden"
     registry_type: str = "dockerhub"
     storage_mode: str = "local"
+    # Nutanix Prism PE/PC target for the Nutanix CSI storage modes (all optional).
+    prism_endpoint: Optional[str] = None
+    prism_port: int = Field(default=9440, ge=1, le=65535)
+    prism_user: Optional[str] = None
+    prism_password: Optional[str] = None  # blank / MASKED keeps the stored value
+    storage_container: Optional[str] = None
 
     @field_validator("lab_name")
     @classmethod
@@ -61,12 +70,13 @@ class LabConfigRequest(BaseModel):
     @field_validator(
         "pve_host", "pve_node", "pve_user", "storage_pool", "resource_pool",
         "network_bridge", "nameserver", "search_domain", "golden_name", "storage_mode",
+        "prism_endpoint", "prism_user", "storage_container",
     )
     @classmethod
     def _safe_text(cls, value: Optional[str]) -> Optional[str]:
         return safe_ini_text(value)
 
-    @field_validator("pve_password")
+    @field_validator("pve_password", "prism_password")
     @classmethod
     def _password(cls, value: Optional[str]) -> Optional[str]:
         # Escaped on write (like the CLI), so only line breaks / control characters are refused.
@@ -96,6 +106,11 @@ class LabConfigResponse(BaseModel):
     golden_name: str = "ubuntu-2404-golden"
     registry_type: str = "dockerhub"
     storage_mode: str = "local"
+    prism_endpoint: Optional[str] = None
+    prism_port: int = 9440
+    prism_user: Optional[str] = None
+    prism_password: Optional[str] = None  # `***MASKED***` when set, never the real value
+    storage_container: Optional[str] = None
     nkp_version: str = ""  # lab default NKP CLI version (NKP_CLI_VERSION), blank when the lab sets none
 
 

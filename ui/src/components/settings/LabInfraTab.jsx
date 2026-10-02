@@ -21,7 +21,20 @@ const EMPTY_FORM = {
   golden_name: 'ubuntu-2404-golden',
   registry_type: 'dockerhub',
   storage_mode: 'local',
+  prism_endpoint: '',
+  prism_port: 9440,
+  prism_user: '',
+  prism_password: '',
+  storage_container: '',
 }
+
+const PRISM_FIELDS = [
+  ['prism_endpoint', 'Prism Endpoint (PE/PC IP or FQDN)'],
+  ['prism_port', 'Prism Port', 'number'],
+  ['prism_user', 'Prism User'],
+  ['prism_password', 'Prism Password (blank keeps existing)', 'password'],
+  ['storage_container', 'Storage Container'],
+]
 
 const FIELDS = [
   ['lab_name', 'Lab Name'],
@@ -54,6 +67,8 @@ const INI_KEYS = [
   ['RESOURCE_POOL', 'resource_pool'], ['STORAGE_POOL', 'storage_pool'], ['NETWORK_BRIDGE', 'network_bridge'],
   ['NAMESERVER', 'nameserver'], ['SEARCH_DOMAIN', 'search_domain'], ['LAB_IP_POOL', 'lab_ip_pool'],
   ['REGISTRY_TYPE', 'registry_type'], ['STORAGE_MODE', 'storage_mode'],
+  ['PRISM_ENDPOINT', 'prism_endpoint'], ['PRISM_PORT', 'prism_port'], ['PRISM_USER', 'prism_user'],
+  ['PRISM_PASSWORD', () => '********'], ['STORAGE_CONTAINER', 'storage_container'],
 ]
 
 export function buildIniPreview(form) {
@@ -73,6 +88,7 @@ function LabInfraTab() {
   const [notice, setNotice] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
+  const [hasPrismPassword, setHasPrismPassword] = useState(false)
 
   useEffect(() => {
     let active = true
@@ -83,8 +99,13 @@ function LabInfraTab() {
         if (!active || !config?.configured) return
         setForm((current) => ({
           ...current,
-          ...Object.fromEntries(Object.keys(EMPTY_FORM).filter((k) => k !== 'pve_password').map((k) => [k, config[k] ?? current[k]])),
+          ...Object.fromEntries(
+            Object.keys(EMPTY_FORM)
+              .filter((k) => k !== 'pve_password' && k !== 'prism_password')
+              .map((k) => [k, config[k] ?? current[k]]),
+          ),
         }))
+        setHasPrismPassword(Boolean(config.prism_password))
       })
       .catch(() => {})
     return () => {
@@ -105,6 +126,11 @@ function LabInfraTab() {
         pve_password: form.pve_password || null,
         resource_pool: form.resource_pool || null,
         search_domain: form.search_domain || null,
+        prism_port: Number(form.prism_port) || 9440,
+        prism_endpoint: form.prism_endpoint || null,
+        prism_user: form.prism_user || null,
+        prism_password: form.prism_password || null,
+        storage_container: form.storage_container || null,
       }
       const response = await fetch(LAB_INIT_API, {
         method: 'POST',
@@ -131,7 +157,8 @@ function LabInfraTab() {
         throw new Error(detail ?? `Lab initialization failed (${response.status})`)
       }
       setNotice(`Lab initialized: ${payload.config_path}`)
-      setForm((current) => ({ ...current, pve_password: '' }))
+      setHasPrismPassword((current) => current || Boolean(form.prism_password))
+      setForm((current) => ({ ...current, pve_password: '', prism_password: '' }))
     } catch (saveError) {
       setError(saveError instanceof Error ? saveError.message : 'Lab initialization failed')
     } finally {
@@ -167,7 +194,47 @@ function LabInfraTab() {
             <option value="mirror">Mirror</option>
           </select>
         </label>
+        <label className="text-xs text-slate-300">
+          Storage Mode
+          <select
+            value={form.storage_mode}
+            onChange={update('storage_mode')}
+            className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+            data-testid="select-lab-storage_mode"
+          >
+            {[...new Set([form.storage_mode, 'local', 'nutanix-csi-pe', 'nutanix-csi-pc'])].map((mode) => (
+              <option key={mode} value={mode}>{mode}</option>
+            ))}
+          </select>
+        </label>
       </div>
+
+      {form.storage_mode.startsWith('nutanix-csi') && (
+        <div className="rounded border border-slate-700 bg-slate-900/80 p-3" data-testid="section-lab-prism">
+          <h4 className="mb-2 text-xs font-semibold text-slate-200">
+            Nutanix Prism ({form.storage_mode === 'nutanix-csi-pc' ? 'Prism Central' : 'Prism Element'}) storage credentials
+            {hasPrismPassword && (
+              <span className="ml-2 rounded border border-emerald-500/40 bg-emerald-500/10 px-1.5 py-0.5 text-[10px] text-emerald-300" data-testid="badge-prism-password-set">
+                password stored
+              </span>
+            )}
+          </h4>
+          <div className="grid gap-3 md:grid-cols-2">
+            {PRISM_FIELDS.map(([field, label, type = 'text']) => (
+              <label key={field} className="text-xs text-slate-300">
+                {label}
+                <input
+                  type={type}
+                  value={form[field]}
+                  onChange={update(field)}
+                  className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                  data-testid={`input-lab-${field}`}
+                />
+              </label>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="flex items-center gap-3">
         <button

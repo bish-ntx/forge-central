@@ -24,6 +24,14 @@ def _pending_run(command: str) -> ProcessRun:
     )
 
 
+def test_cluster_requests_default_to_four_workers() -> None:
+    from api.app.schemas.clusters import ClusterCreateRequest, ClusterInitRequest
+
+    assert ClusterCreateRequest(cluster_name="nkp-prod-01").worker_nodes == 4
+    init = ClusterInitRequest(cluster_name="nkp-prod-01", lab_name="amd-lab", nkp_version="v2.18.0")
+    assert init.worker_nodes == 4
+
+
 @pytest.mark.asyncio
 async def test_list_clusters_returns_normalized_items(monkeypatch: pytest.MonkeyPatch) -> None:
     async def fake_run_forge_json(_runner, _argv):

@@ -7,8 +7,14 @@ const TABS = [
   { id: 'secrets-vault', label: 'Registry & Secrets Vault', Component: SecretsVaultTab },
 ]
 
+// `/settings?tab=secrets-vault` deep-links to a tab (used by the deploy wizard's credential guard).
+function initialTab() {
+  const requested = new URLSearchParams(window.location.search).get('tab')
+  return TABS.some((tab) => tab.id === requested) ? requested : TABS[0].id
+}
+
 function SettingsPage() {
-  const [active, setActive] = useState(TABS[0].id)
+  const [active, setActive] = useState(initialTab)
   const { Component } = TABS.find((tab) => tab.id === active)
 
   return (

@@ -5,8 +5,8 @@ Forge Central is packaged as one self-contained container: the React UI is compi
 ## Image
 
 - Stage 1: `node:20-alpine` runs `npm ci && npm run build` for `ui/`.
-- Stage 2: `python:3.11-slim` installs `api/requirements.txt`, `curl` and `openssh-client` (`ssh`/`scp` for `./forge`), then copies `api/` and the built `dist`.
-- Runs as non-root user `forgecentral` (UID 1000), exposes port `8000`.
+- Stage 2: `python:3.11-slim` installs `api/requirements.txt`, `curl` and `openssh-client` (`ssh`/`scp` for `./forge`) and `gosu`, then copies `api/` and the built `dist`.
+- The app runs as non-root user `forgecentral` (UID 1000) via `gosu` after `docker-entrypoint.sh` stages SSH keys; exposes port `8000`.
 - Healthcheck: `curl -f http://localhost:8000/health || exit 1`.
 - Command: `uvicorn api.app.main:app --host 0.0.0.0 --port 8000`.
 
@@ -23,9 +23,19 @@ docker build -t forge-central:latest .
 | `/cacrt` | CA certificates | `~/cacrt` |
 | `/var/log/forge-central` | Logs (`FORGE_LOG_DIR`) | container volume |
 | `/nkp-forge` (read-only) | `nkp-forge` CLI checkout; `FORGE_BIN` defaults to `/nkp-forge/forge` | `~/nkp-forge` |
-| `/home/forgecentral/.ssh` (read-only) | Operator SSH keys so `./forge`, `ssh` and `scp` can reach Proxmox and cluster nodes | `~/.ssh` |
+| `/staging/ssh-key` (read-only) | Operator SSH keys, staged by the entrypoint into the container's own `~/.ssh` (see below) | `~/.ssh` (override with `SSH_KEY_DIR`) |
 
-Without the `nkp-forge` and `~/.ssh` mounts, `/vms`, `/ipam` and `/clusters` return HTTP 500 in non-mock mode because the CLI engine and SSH credentials are missing. Override the CLI location with `FORGE_BIN=/nkp-forge/forge` (Compose default). The bootstrap script sets `~/.ssh` to `755` and `authorized_keys` plus `*.pub` to `644` so the container user can traverse the mount; private keys stay `600`, so make the key your CLI uses readable by UID 1000 (e.g. owned by UID 1000 or shared via group) on the host.
+Without the `nkp-forge` and SSH key mounts, `/vms`, `/ipam` and `/clusters` return HTTP 500 in non-mock mode because the CLI engine and SSH credentials are missing. Override the CLI location with `FORGE_BIN=/nkp-forge/forge` (Compose default).
+
+### In-container SSH key staging
+
+No host `chmod`/`chown` of `~/.ssh` is needed. Compose mounts the host key directory read-only at `/staging/ssh-key` (set `SSH_KEY_DIR=~/ssh-key` to use a different directory). On start, `docker-entrypoint.sh` (the image `ENTRYPOINT`, which begins as root only for this step):
+
+1. copies the staged keys into `/home/forgecentral/.ssh/` (symlinks are dereferenced; unreadable entries are skipped with a warning);
+2. runs `chown -R forgecentral:forgecentral` (UID 1000), `chmod 700` on the directory and `chmod 600` on every file;
+3. drops privileges with `gosu forgecentral` and execs the app (`uvicorn`).
+
+The host files stay untouched and read-only; the container owns its private copy, refreshed on every restart (`docker compose restart forge-central` after rotating keys). With no `/staging/ssh-key` mount (or an empty one) the step is skipped. `docker run` equivalent: `-v ~/.ssh:/staging/ssh-key:ro`.
 
 Host directories must be writable by container UID 1000 (`sudo chown -R 1000:1001 ~/forge-state ~/forge-data ~/cacrt && sudo chmod -R 2775 ~/forge-state ~/forge-data ~/cacrt`). This allows the container's `forgecentral` process (UID 1000) and the host's `nkpadmin` user (GID 1001) full read/write access.
 
@@ -47,7 +57,7 @@ docker compose logs -f forge-central
 docker compose down
 ```
 
-`docker-compose.yml` passes through `FORGE_MOCK_MODE`, `FORGE_HOME` and `PORT` (host port), uses `restart: unless-stopped` and reserves 0.5 CPU / 256M memory.
+`docker-compose.yml` passes through `FORGE_MOCK_MODE`, `FORGE_HOME` and `PORT` (host port), uses `restart: unless-stopped` and reserves 0.5 CPU / 256M memory. `SSH_KEY_DIR` (default `~/.ssh`) selects the host key directory staged at `/staging/ssh-key`.
 
 Try it offline: `FORGE_MOCK_MODE=true docker compose up -d --build`, then open `http://localhost:8000`.
 

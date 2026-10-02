@@ -17,10 +17,65 @@ import {
   ShieldCheck,
   Terminal,
 } from 'lucide-react'
-import { useNavigate } from 'react-router-dom'
+import { Link, useNavigate } from 'react-router-dom'
 import LiveTerminal from '../components/common/LiveTerminal.jsx'
 
 const DEFAULT_NKP_VERSION = 'v2.18.0'
+const DEFAULT_WORKER_NODES = 4
+const SECRET_REGISTRIES = ['harbor', 'dockerhub']
+const SETTINGS_SECRETS_LINK = '/settings?tab=secrets-vault'
+const isNutanixCsi = (mode) => mode === 'nutanix-csi-pe' || mode === 'nutanix-csi-pc'
+
+// Harbor secrets are per cluster (a lab-named secret acts as the default); Docker Hub has one global secret.
+function hasRegistrySecret(secrets, registryType, clusterName, labName) {
+  return secrets.some(
+    (secret) =>
+      secret.sec_type === registryType &&
+      (registryType === 'dockerhub' || secret.cluster === clusterName || secret.cluster === labName),
+  )
+}
+
+function RegistrySecretNotice({ registryType, status, configured, testId }) {
+  if (!SECRET_REGISTRIES.includes(registryType)) return null
+  if (status === 'loading' || status === 'idle') {
+    return <p className="text-[11px] text-slate-400" data-testid={`${testId}-checking`}>Checking {registryType} credentials…</p>
+  }
+  if (status === 'ready' && configured) {
+    return (
+      <span
+        className="inline-flex items-center gap-1 rounded border border-emerald-500/40 bg-emerald-500/10 px-2 py-0.5 text-[11px] text-emerald-300"
+        data-testid={`${testId}-ok`}
+      >
+        <CheckCircle2 size={12} /> ✓ Credentials Configured
+      </span>
+    )
+  }
+  return (
+    <div className="rounded border border-amber-500/40 bg-amber-500/10 p-2 text-[11px] text-amber-300" data-testid={`${testId}-missing`}>
+      <CircleAlert size={12} className="mr-1 inline" />
+      {status === 'error'
+        ? `Could not verify ${registryType} credentials.`
+        : `No ${registryType} credentials found for this cluster.`}{' '}
+      <Link to={SETTINGS_SECRETS_LINK} className="underline hover:text-amber-200" data-testid={`${testId}-link`}>
+        Configure them in Settings → Registry & Secrets Vault
+      </Link>{' '}
+      before deploying.
+    </div>
+  )
+}
+
+function InheritedBadge({ inherited, overridden, testId }) {
+  const tone = overridden
+    ? 'border-sky-500/40 bg-sky-500/10 text-sky-300'
+    : inherited
+      ? 'border-emerald-500/40 bg-emerald-500/10 text-emerald-300'
+      : 'border-amber-500/40 bg-amber-500/10 text-amber-300'
+  return (
+    <span className={`ml-2 rounded border px-1.5 py-0.5 text-[10px] ${tone}`} data-testid={testId}>
+      {overridden ? 'Override' : inherited ? 'Inherited from lab' : 'Not set in lab'}
+    </span>
+  )
+}
 const CLUSTER_NAME_RE = /^[A-Za-z0-9][A-Za-z0-9._-]{0,62}$/
 const STORAGE_MODES = ['local', 'nutanix-csi-pe', 'nutanix-csi-pc']
 const REGISTRY_TYPES = ['dockerhub', 'harbor', 'mirror']
@@ -68,12 +123,20 @@ function ClusterDeployPage() {
     nkp_version: DEFAULT_NKP_VERSION,
     hypervisor_type: 'proxmox',
     control_plane_nodes: 3,
-    worker_nodes: 3,
+    worker_nodes: DEFAULT_WORKER_NODES,
     registry_type: 'dockerhub',
     storage_mode: 'local',
     target_runner: 'central',
     bastion_ip: '',
+    // Optional per-cluster Prism target override (blank = inherit from the lab).
+    prism_endpoint: '',
+    prism_port: '',
+    prism_user: '',
+    storage_container: '',
   })
+
+  // Registry credential pre-flight (GET /api/v1/secrets)
+  const [secretsState, setSecretsState] = useState({ status: 'idle', items: [] })
 
   // Stage 1: labs discovered from /api/v1/lab/config
   const [labs, setLabs] = useState([])
@@ -115,6 +178,11 @@ function ClusterDeployPage() {
       nkp_version: config.nkp_version || previous.nkp_version,
       registry_type: REGISTRY_TYPES.includes(config.registry_type) ? config.registry_type : previous.registry_type,
       storage_mode: config.storage_mode || previous.storage_mode,
+      // Prism fields auto-populate from the lab; the operator can then override them per cluster.
+      prism_endpoint: config.prism_endpoint || '',
+      prism_port: config.prism_port ? String(config.prism_port) : '',
+      prism_user: config.prism_user || '',
+      storage_container: config.storage_container || '',
     }))
   }, [])
 
@@ -156,6 +224,28 @@ function ClusterDeployPage() {
     }
   }
 
+  // Check staged Harbor / Docker Hub credentials whenever one of those registries is selected.
+  const needsSecretCheck = SECRET_REGISTRIES.includes(formData.registry_type)
+  useEffect(() => {
+    if (!needsSecretCheck) return undefined
+    let cancelled = false
+    setSecretsState((previous) => ({ ...previous, status: 'loading' }))
+    fetch('/api/v1/secrets')
+      .then(async (response) => {
+        if (!response.ok) throw new Error('secrets unavailable')
+        return response.json()
+      })
+      .then((data) => {
+        if (!cancelled) setSecretsState({ status: 'ready', items: Array.isArray(data?.secrets) ? data.secrets : [] })
+      })
+      .catch(() => {
+        if (!cancelled) setSecretsState({ status: 'error', items: [] })
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [needsSecretCheck, formData.registry_type])
+
   // Fetch real free IPAM slots whenever Stage 2 is shown.
   const loadFreeSlots = useCallback(async () => {
     setIpamState('loading')
@@ -177,6 +267,23 @@ function ClusterDeployPage() {
   }, [currentStep, loadFreeSlots])
 
   const ipPlan = useMemo(() => suggestIpPlan(freeSlots), [freeSlots])
+
+  // Prism target overrides are only sent for Nutanix CSI modes; blank fields inherit the lab value.
+  const prismActive = isNutanixCsi(formData.storage_mode)
+  const prismOverrides = prismActive
+    ? {
+        prism_endpoint: formData.prism_endpoint.trim() || null,
+        prism_port: formData.prism_port ? Number(formData.prism_port) : null,
+        prism_user: formData.prism_user.trim() || null,
+        storage_container: formData.storage_container.trim() || null,
+      }
+    : {}
+  const secretConfigured = hasRegistrySecret(
+    secretsState.items,
+    formData.registry_type,
+    formData.cluster_name.trim(),
+    formData.lab_name,
+  )
 
   // Generate the real <cluster>-input.ini whenever Stage 4 is shown (or regenerated on demand).
   useEffect(() => {
@@ -200,6 +307,7 @@ function ClusterDeployPage() {
             target_runner: formData.target_runner,
             bastion_ip: formData.target_runner === 'bastion' ? formData.bastion_ip.trim() : null,
             hypervisor_type: formData.hypervisor_type,
+            ...prismOverrides,
           }),
         })
         if (!response.ok) throw new Error(await readError(response, 'Failed to generate cluster config'))
@@ -529,6 +637,17 @@ function ClusterDeployPage() {
                   <dd className="font-mono text-teal-300" data-testid="text-lab-nkp-version">{labConfig.nkp_version || '—'}</dd>
                 </div>
               </dl>
+              {needsSecretCheck && (
+                <div className="mt-3 flex flex-wrap items-center gap-2 border-t border-slate-800 pt-3 text-xs text-slate-300">
+                  <span>Registry <code className="font-mono text-teal-300">{formData.registry_type}</code>:</span>
+                  <RegistrySecretNotice
+                    registryType={formData.registry_type}
+                    status={secretsState.status}
+                    configured={secretConfigured}
+                    testId="registry-secret-stage1"
+                  />
+                </div>
+              )}
             </div>
           )}
         </div>
@@ -616,9 +735,67 @@ function ClusterDeployPage() {
                   </option>
                 ))}
               </select>
-              <p className="mt-1 text-[11px] text-slate-400">Image registry used by the cluster.</p>
+              <p className="mt-1 mb-1.5 text-[11px] text-slate-400">Image registry used by the cluster.</p>
+              <RegistrySecretNotice
+                registryType={formData.registry_type}
+                status={secretsState.status}
+                configured={secretConfigured}
+                testId="registry-secret"
+              />
             </div>
           </div>
+
+          {prismActive && (
+            <details open className="rounded border border-slate-700 bg-slate-900/80 p-4" data-testid="prism-accordion">
+              <summary className="cursor-pointer text-xs font-semibold text-slate-200">
+                Nutanix Prism ({formData.storage_mode === 'nutanix-csi-pc' ? 'Prism Central' : 'Prism Element'}) storage target
+              </summary>
+              <p className="mt-2 text-[11px] text-slate-400">
+                Auto-populated from lab {labConfig?.lab_name || formData.lab_name || '—'}; edit a field to override it for this cluster
+                (e.g. a secondary Prism). The Prism password is always inherited from the lab and never shown.
+              </p>
+              <div className="mt-3 grid gap-4 md:grid-cols-2">
+                {[
+                  ['prism_endpoint', 'Prism Endpoint', 'prism_endpoint', 'text'],
+                  ['prism_port', 'Prism Port', 'prism_port', 'number'],
+                  ['prism_user', 'Prism User', 'prism_user', 'text'],
+                  ['storage_container', 'Storage Container', 'storage_container', 'text'],
+                ].map(([field, label, labKey, type]) => {
+                  const labValue = labConfig?.[labKey]
+                  const inherited = labValue !== undefined && labValue !== null && labValue !== ''
+                  const overridden = String(formData[field]).trim() !== String(inherited ? labValue : '')
+                  return (
+                    <div key={field}>
+                      <label htmlFor={`input-${field}`} className="block text-xs font-medium text-slate-300">
+                        {label}
+                        <InheritedBadge
+                          inherited={inherited}
+                          overridden={overridden}
+                          testId={`badge-${field}`}
+                        />
+                      </label>
+                      <input
+                        id={`input-${field}`}
+                        type={type}
+                        className={inputClass}
+                        value={formData[field]}
+                        onChange={(e) => handleInputChange(field, e.target.value)}
+                        data-testid={`input-${field}`}
+                      />
+                    </div>
+                  )
+                })}
+              </div>
+              <p className="mt-3 text-[11px] text-slate-400" data-testid="prism-password-status">
+                Prism password:{' '}
+                {labConfig?.prism_password ? (
+                  <span className="text-emerald-300">{labConfig.prism_password} (inherited from lab)</span>
+                ) : (
+                  <span className="text-amber-300">not set in lab — add it under Settings → Lab Infrastructure</span>
+                )}
+              </p>
+            </details>
+          )}
 
           {/* Live IPAM suggestion */}
           <div className="rounded border border-slate-700 bg-slate-900/80 p-4" data-testid="ipam-preview-card">

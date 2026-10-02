@@ -346,7 +346,7 @@ Request schema:
 {
   "cluster_name": "nkp-prod-01",
   "control_plane_nodes": 3,
-  "worker_nodes": 3,
+  "worker_nodes": 4,
   "kubernetes_version": "v1.31.1",
   "hypervisor_type": "proxmox"
 }
@@ -1009,7 +1009,7 @@ Discovers labs under `FORGE_HOME/labs/` and parses the requested lab (or the fir
 
 ### `POST /api/v1/lab/init` (admin)
 
-Validates and writes the lab-infra INI; an existing file is kept as `<lab>-infra.ini.bak` and an omitted `pve_password` keeps the existing one. Records the `lab-initialized` audit event (no secrets). Body fields: `lab_name`, `pve_host`, `pve_node`, `pve_user` (`root`), `pve_password`, `storage_pool`, `resource_pool`, `network_bridge` (`vmbr0`), `nameserver`, `search_domain`, `lab_ip_pool` (`10.0.0.10-10.0.0.40`), `golden_vmid` (`100`), `golden_name` (`ubuntu-2404-golden`), `registry_type` (`dockerhub|harbor|mirror`), `storage_mode` (`local`). Invalid lab names, IP pools, or values containing quotes/`$`/backticks/control characters return `422`. Response: `{"status": "initialized", "lab_name": "...", "config_path": "...", "updated_at": "...Z"}`. CLI equivalent: `./forge init lab --non-interactive --lab-name amd-lab --pve-host 10.0.0.5 ...`.
+Validates and writes the lab-infra INI; an existing file is kept as `<lab>-infra.ini.bak` and an omitted `pve_password` keeps the existing one. Records the `lab-initialized` audit event (no secrets). Body fields: `lab_name`, `pve_host`, `pve_node`, `pve_user` (`root`), `pve_password`, `storage_pool`, `resource_pool`, `network_bridge` (`vmbr0`), `nameserver`, `search_domain`, `lab_ip_pool` (`10.0.0.10-10.0.0.40`), `golden_vmid` (`100`), `golden_name` (`ubuntu-2404-golden`), `registry_type` (`dockerhub|harbor|mirror`), `storage_mode` (`local|nutanix-csi-pe|nutanix-csi-pc`), and the optional Nutanix Prism target `prism_endpoint`, `prism_port` (`9440`, 1-65535), `prism_user`, `prism_password` and `storage_container` (persisted as `PRISM_ENDPOINT`, `PRISM_PORT`, `PRISM_USER`, `PRISM_PASSWORD`, `STORAGE_CONTAINER`; an omitted/blank/`***MASKED***` `prism_password` keeps the stored one). Invalid lab names, IP pools, or values containing quotes/`$`/backticks/control characters return `422`. Response: `{"status": "initialized", "lab_name": "...", "config_path": "...", "updated_at": "...Z"}`. CLI equivalent: `./forge init lab --non-interactive --lab-name amd-lab --pve-host 10.0.0.5 ...`.
 
 ## Guided Cluster Deployment API (Task-27)
 
@@ -1027,10 +1027,12 @@ Discovers `FORGE_HOME/labs/<lab>/<lab>-infra.ini` (`404` for an unknown lab), wr
 {
   "cluster_name": "nkp-prod-01", "lab_name": "amd-lab", "nkp_version": "v2.18.0",
   "registry_type": "dockerhub", "storage_mode": "local",
-  "control_plane_nodes": 3, "worker_nodes": 3,
+  "control_plane_nodes": 3, "worker_nodes": 4,
   "target_runner": "central", "bastion_ip": null, "hypervisor_type": "proxmox"
 }
 ```
+
+`worker_nodes` defaults to `4` (production baseline; also the default of `POST /api/v1/clusters/create`). For `storage_mode` `nutanix-csi-pe|nutanix-csi-pc` the optional `prism_endpoint`, `prism_port`, `prism_user` and `storage_container` override the lab's Prism target for this cluster; the generated `<cluster>-input.ini` then contains `PRISM_ENDPOINT`, `PRISM_PORT`, `PRISM_USER` and `STORAGE_CONTAINER` (override, else the lab value). The Prism password is never copied: it stays in the lab INI.
 
 Validation (`422`): `cluster_name` is 1-63 chars of letters, digits, `.`, `_`, `-`; `lab_name` is alphanumeric with `-`/`_`; `registry_type` is `dockerhub|harbor|mirror`; `target_runner` is `central|bastion` and `bastion_ip` (plain IP/hostname, no shell characters) is required for `bastion`; `control_plane_nodes` 1-9; `worker_nodes` 0-64.
 
@@ -1088,7 +1090,7 @@ When `lab_name` is present the request chains the deployment in one run (`202`, 
   "hypervisor_type": "proxmox", "target_runner": "bastion", "bastion_ip": "10.0.0.50" }
 ```
 
-`GET /api/v1/lab/config` additionally returns `nkp_version` (the lab's `NKP_CLI_VERSION`, empty when unset) used as the wizard's default.
+`GET /api/v1/lab/config` additionally returns `nkp_version` (the lab's `NKP_CLI_VERSION`, empty when unset) used as the wizard's default, plus the Prism fields `prism_endpoint`, `prism_port`, `prism_user`, `storage_container` and `prism_password` (always `***MASKED***` when a password is stored, otherwise `null`). The wizard also queries `GET /api/v1/secrets` to show a "✓ Credentials Configured" badge (or an amber warning) for Harbor / Docker Hub registries.
 
 ## Registry & Secrets Vault API (`/api/v1/secrets`)
 

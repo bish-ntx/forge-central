@@ -32,6 +32,11 @@ const AMD_LAB = {
   nkp_version: 'v2.18.0',
   registry_type: 'harbor',
   storage_mode: 'local',
+  prism_endpoint: '10.1.1.10',
+  prism_port: 9440,
+  prism_user: 'admin',
+  prism_password: '***MASKED***',
+  storage_container: 'lab-container',
 }
 const CIRRA_LAB = {
   ...AMD_LAB,
@@ -41,6 +46,9 @@ const CIRRA_LAB = {
   storage_pool: 'tank',
   nkp_version: 'v2.19.0',
 }
+const SECRET_ITEM = { user: 'u', path: '/cacrt/x.ini', has_ca: false, password_masked: '********', updated_at: '2026-09-26T22:40:00Z' }
+const HARBOR_SECRET = { ...SECRET_ITEM, sec_type: 'harbor', cluster: 'nkp-prod-01' }
+const DOCKERHUB_SECRET = { ...SECRET_ITEM, sec_type: 'dockerhub', cluster: null }
 const FREE_SLOTS = [15, 16, 17, 18, 19, 20, 24, 25].map((octet) => ({
   ip: `10.0.0.${octet}`,
   status: 'free',
@@ -78,6 +86,7 @@ function installFetch(overrides = {}) {
     'GET /api/v1/lab/config': () => jsonResponse(AMD_LAB),
     'GET /api/v1/lab/config?lab=cirra-lab': () => jsonResponse(CIRRA_LAB),
     'GET /api/v1/ipam/free': () => jsonResponse(FREE_SLOTS),
+    'GET /api/v1/secrets': () => jsonResponse({ secrets: [] }),
     'POST /api/v1/clusters/init-config': () => jsonResponse(INIT_RESULT),
     'POST /api/v1/clusters/sync-bastion': () =>
       jsonResponse({ run_id: 'sync-run-1', cluster_name: 'nkp-prod-01', bastion_ip: '10.0.0.50', status: 'queued' }),
@@ -205,7 +214,7 @@ describe('ClusterDeployPage Component', () => {
     next()
 
     expect(screen.getByTestId('input-control-plane-count')).toHaveValue(3)
-    expect(screen.getByTestId('input-worker-count')).toHaveValue(3)
+    expect(screen.getByTestId('input-worker-count')).toHaveValue(4)
     expect(screen.getByTestId('select-storage-mode')).toHaveValue('local')
     expect(screen.getByTestId('select-registry-type')).toHaveValue('harbor')
 
@@ -369,7 +378,7 @@ describe('ClusterDeployPage Component', () => {
       lab_name: 'amd-lab',
       hypervisor_type: 'proxmox',
       control_plane_nodes: 3,
-      worker_nodes: 3,
+      worker_nodes: 4,
       target_runner: 'central',
       bastion_ip: null,
     })
@@ -402,6 +411,112 @@ describe('ClusterDeployPage Component', () => {
 
     expect(await screen.findByTestId('wizard-error-message')).toHaveTextContent('cluster config not found')
     expect(screen.getByTestId('stage-4-container')).toBeInTheDocument()
+  })
+
+  test('worker nodes default to the 4-node production baseline', async () => {
+    installFetch()
+    await renderReady()
+    next()
+    expect(screen.getByTestId('input-worker-count')).toHaveValue(4)
+  })
+
+  test('shows a green credentials badge when a Harbor secret exists for the cluster', async () => {
+    installFetch({ 'GET /api/v1/secrets': () => jsonResponse({ secrets: [HARBOR_SECRET] }) })
+    await renderReady()
+
+    expect(await screen.findByTestId('registry-secret-stage1-ok')).toHaveTextContent('Credentials Configured')
+    expect(screen.queryByTestId('registry-secret-stage1-missing')).not.toBeInTheDocument()
+    next()
+    expect(await screen.findByTestId('registry-secret-ok')).toHaveTextContent('Credentials Configured')
+  })
+
+  test('warns with a Settings link when Harbor credentials are missing for this cluster', async () => {
+    installFetch({
+      'GET /api/v1/secrets': () => jsonResponse({ secrets: [{ ...HARBOR_SECRET, cluster: 'other-cluster' }] }),
+    })
+    await renderReady()
+
+    const warning = await screen.findByTestId('registry-secret-stage1-missing')
+    expect(warning).toHaveTextContent('No harbor credentials found')
+    expect(screen.getByTestId('registry-secret-stage1-link')).toHaveAttribute('href', '/settings?tab=secrets-vault')
+    expect(screen.queryByTestId('registry-secret-stage1-ok')).not.toBeInTheDocument()
+    // The guard is advisory: the wizard can still proceed.
+    expect(screen.getByTestId('btn-wizard-next')).toBeEnabled()
+  })
+
+  test('checks the global Docker Hub secret and ignores the guard for mirror registries', async () => {
+    const fetchMock = installFetch({
+      'GET /api/v1/lab/config': () => jsonResponse({ ...AMD_LAB, registry_type: 'dockerhub' }),
+      'GET /api/v1/secrets': () => jsonResponse({ secrets: [DOCKERHUB_SECRET] }),
+    })
+    await renderReady()
+    expect(await screen.findByTestId('registry-secret-stage1-ok')).toBeInTheDocument()
+
+    next()
+    fireEvent.change(screen.getByTestId('select-registry-type'), { target: { value: 'mirror' } })
+    expect(screen.queryByTestId('registry-secret-ok')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('registry-secret-missing')).not.toBeInTheDocument()
+    expect(callsTo(fetchMock, 'GET', '/api/v1/secrets')).toHaveLength(1)
+  })
+
+  test('shows an amber warning when the secrets API is unavailable', async () => {
+    installFetch({ 'GET /api/v1/secrets': () => jsonResponse({ detail: 'boom' }, false) })
+    await renderReady()
+
+    expect(await screen.findByTestId('registry-secret-stage1-missing')).toHaveTextContent('Could not verify harbor credentials')
+  })
+
+  test('Nutanix CSI storage modes reveal the Prism accordion auto-populated from the lab', async () => {
+    const fetchMock = installFetch()
+    await renderReady()
+    next()
+    expect(screen.queryByTestId('prism-accordion')).not.toBeInTheDocument()
+
+    fireEvent.change(screen.getByTestId('select-storage-mode'), { target: { value: 'nutanix-csi-pe' } })
+    expect(screen.getByTestId('prism-accordion')).toBeInTheDocument()
+    expect(screen.getByTestId('input-prism_endpoint')).toHaveValue('10.1.1.10')
+    expect(screen.getByTestId('input-prism_port')).toHaveValue(9440)
+    expect(screen.getByTestId('input-prism_user')).toHaveValue('admin')
+    expect(screen.getByTestId('input-storage_container')).toHaveValue('lab-container')
+    expect(screen.getByTestId('badge-prism_endpoint')).toHaveTextContent('Inherited from lab')
+    expect(screen.getByTestId('prism-password-status')).toHaveTextContent('***MASKED***')
+
+    // Operator override for a secondary Prism target.
+    fireEvent.change(screen.getByTestId('input-prism_endpoint'), { target: { value: '10.2.2.20' } })
+    expect(screen.getByTestId('badge-prism_endpoint')).toHaveTextContent('Override')
+    expect(screen.getByTestId('badge-prism_user')).toHaveTextContent('Inherited from lab')
+
+    next()
+    next()
+    await screen.findByTestId('config-preview')
+    const body = JSON.parse(callsTo(fetchMock, 'POST', '/api/v1/clusters/init-config')[0][1].body)
+    expect(body).toMatchObject({
+      storage_mode: 'nutanix-csi-pe',
+      prism_endpoint: '10.2.2.20',
+      prism_port: 9440,
+      prism_user: 'admin',
+      storage_container: 'lab-container',
+    })
+    expect(JSON.stringify(body)).not.toContain('password')
+  })
+
+  test('flags missing lab Prism settings and omits Prism fields for local storage', async () => {
+    const fetchMock = installFetch({
+      'GET /api/v1/lab/config': () => jsonResponse({ ...AMD_LAB, storage_mode: 'nutanix-csi-pc', prism_endpoint: null, prism_password: null }),
+    })
+    await renderReady()
+    next()
+
+    expect(screen.getByTestId('badge-prism_endpoint')).toHaveTextContent('Not set in lab')
+    expect(screen.getByTestId('prism-password-status')).toHaveTextContent('not set in lab')
+
+    fireEvent.change(screen.getByTestId('select-storage-mode'), { target: { value: 'local' } })
+    expect(screen.queryByTestId('prism-accordion')).not.toBeInTheDocument()
+    next()
+    next()
+    await screen.findByTestId('config-preview')
+    const body = JSON.parse(callsTo(fetchMock, 'POST', '/api/v1/clusters/init-config')[0][1].body)
+    expect(body).not.toHaveProperty('prism_endpoint')
   })
 
   test('navigates back to clusters list via back header button', async () => {

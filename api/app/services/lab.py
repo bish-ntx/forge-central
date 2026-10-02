@@ -10,7 +10,7 @@ from typing import Dict, List, Optional
 from fastapi import HTTPException
 
 from ..config import get_settings
-from ..schemas.lab import LabConfigRequest, LabConfigResponse, LabInitResponse, LAB_NAME_RE
+from ..schemas.lab import LabConfigRequest, LabConfigResponse, LabInitResponse, LAB_NAME_RE, MASKED
 from ..timeutil import iso_utc
 
 _INI_LINE = re.compile(r'^\s*([A-Z][A-Z0-9_]*)\s*=\s*"?(.*?)"?\s*$')
@@ -101,6 +101,11 @@ def get_lab_config(lab: Optional[str] = None) -> LabConfigResponse:
         golden_name=v.get("GOLDEN_TEMPLATE_NAME") or "ubuntu-2404-golden",
         registry_type=v.get("REGISTRY_TYPE") or "dockerhub",
         storage_mode=v.get("STORAGE_MODE") or "local",
+        prism_endpoint=v.get("PRISM_ENDPOINT") or None,
+        prism_port=int(v.get("PRISM_PORT") or 9440),
+        prism_user=v.get("PRISM_USER") or None,
+        prism_password=MASKED if v.get("PRISM_PASSWORD") else None,
+        storage_container=v.get("STORAGE_CONTAINER") or None,
         nkp_version=v.get("NKP_CLI_VERSION", ""),
     )
 
@@ -113,6 +118,9 @@ def init_lab(payload: LabConfigRequest) -> LabInitResponse:
     path = lab_ini_path(payload.lab_name)
     existing: Dict[str, str] = read_ini(path) if path.is_file() else {}
     password = payload.pve_password if payload.pve_password is not None else existing.get("PVE_PASSWORD", "")
+    prism_password = payload.prism_password
+    if not prism_password or prism_password == MASKED:
+        prism_password = existing.get("PRISM_PASSWORD", "")
     now = datetime.now(timezone.utc)
     fields = [
         ("PLATFORM", "proxmox"),
@@ -131,6 +139,11 @@ def init_lab(payload: LabConfigRequest) -> LabInitResponse:
         ("LAB_IP_POOL", payload.lab_ip_pool),
         ("REGISTRY_TYPE", payload.registry_type),
         ("STORAGE_MODE", payload.storage_mode),
+        ("PRISM_ENDPOINT", payload.prism_endpoint or ""),
+        ("PRISM_PORT", payload.prism_port),
+        ("PRISM_USER", payload.prism_user or ""),
+        ("PRISM_PASSWORD", prism_password),
+        ("STORAGE_CONTAINER", payload.storage_container or ""),
     ]
     if path.is_file():
         shutil.copy2(path, path.with_name(path.name + ".bak"))

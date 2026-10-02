@@ -2057,3 +2057,53 @@ Duration  2.82s
 - **Files Created:** `api/app/schemas/telemetry.py`, `api/app/services/telemetry.py`, `api/app/routers/telemetry.py`, `api/tests/test_telemetry.py`, `ui/src/pages/CorrelationPage.jsx`, `ui/src/pages/__tests__/CorrelationPage.test.jsx`
 - **Files Modified:** `api/app/config.py`, `api/app/main.py`, `ui/src/App.jsx`, `ui/src/components/layout/Sidebar.jsx`, `ui/src/components/common/CommandPalette.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
 - **Follow-up:** wire a real OTLP exporter (flush + `last_export_at`) and surface `nkp_version` from cluster inventory.
+
+### [C1 VERIFICATION VERDICT — APPROVED] Task 33 (2026-10-01)
+
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** **100% APPROVED**
+- **C2 Agent:** C2-P33 (cf7538c9-56f7-4f78-90d3-e58e316796f0)
+- **Commit Hash:** `d2efa4f0210dd3e60a680a0d23c34bd8f6826603`
+- **Commit Message:** `feat(telemetry): Task-33 — OpenTelemetry pipeline instrumentation, test ingestion & cross-repo correlation engine`
+- **Independent Re-Verification:**
+  - `pytest api/tests/`: **158/158 passed** (C1 re-run)
+  - `npm test` (ui/): **136/136 passed** across 23 files (C1 re-run)
+  - Working tree: `main` ahead of `origin/main` by 1 feature commit (no push performed)
+- **Code Review Spot-Checks:**
+  - Schemas match prompt contract (`TelemetryStatusResponse`, ingest request/response, `ClusterCorrelationRecord`, `CorrelationMatrixResponse`) with `UtcDatetime`.
+  - Service persists to `FORGE_DATA_DIR/telemetry/test-runs.json`, computes `qualified` / `failing` / `untested`, records `telemetry-ingested` audit events.
+  - Router registers four async endpoints under `/api/v1/telemetry` and is included in `main.py`.
+  - UI: `/analytics/correlation` with KPI cards, `table-correlation`, qualification badges, CLI snippet card; Sidebar + Command Palette wired.
+  - Docs updated in `docs/API-GUIDE.md` and `docs/USER-GUIDE.md`.
+- **Accepted Follow-Ups (non-blocking):**
+  - Real OTLP exporter not wired (`last_export_at` remains null; no `opentelemetry-sdk` dependency — intentional Ponytail scope).
+  - `nkp_version` surfaces as `unknown` until cluster inventory exposes it.
+  - Ingest endpoint intentionally unauthenticated for Day-2 / CLI runners; RBAC can be added later if required.
+- **Checklists Synchronized:** `deliverables/END-TO-END-BUILD-CHECKLIST.md` (Task 16.2 / Phase 10.4–10.5), `deliverables/CURSOR-PROMPTS-FORGE-CENTRAL-v1.md` (`[PROMPT-33]`), and `C1-CONTEXT-NOTES.md` updated.
+
+
+## [C2-P34] Task 34 — In-Container SSH Staging, Default 4 Workers, Prism PE/PC & Secret Guards (2026-10-01)
+
+- **Execution Status:** SUCCESS
+- **Acceptance Criteria Matrix:**
+  - [x] 1. `docker-entrypoint.sh` copies `/staging/ssh-key` into `/home/forgecentral/.ssh` (dirs 700, files 600, `chown forgecentral:forgecentral` = UID 1000) then execs the app via `gosu`; host keys mounted `:ro` and untouched (verified locally with a temp staging dir: host file mode unchanged, copy 600)
+  - [x] 2. `ClusterCreateRequest.worker_nodes` and `ClusterDeployPage` `formData.worker_nodes` default to 4 (`ClusterInitRequest` default aligned to 4)
+  - [x] 3. Prism PE/PC params (`prism_endpoint`, `prism_port` 9440, `prism_user`, `prism_password`, `storage_container`) persist as `PRISM_*`/`STORAGE_CONTAINER` in the lab INI, password returned as `***MASKED***`; auto-populate in the deploy wizard (accordion for `nutanix-csi-pe|pc`) with Inherited / Override / Not set badges
+  - [x] 4. Deploy wizard shows "✓ Credentials Configured" badge or amber warning + Settings link for Harbor / Docker Hub (Stage 1 and Stage 2)
+  - [x] 5. `AGENTS.md` and `.github/copilot-instructions.md` created
+  - [x] 6. `pytest api/tests/` 100% pass
+  - [x] 7. `npm test` 100% pass
+  - [x] 8. `docs/DEPLOYMENT-GUIDE.md`, `docs/USER-GUIDE.md` (plus `docs/API-GUIDE.md`, `README.md`) updated
+  - [x] 9. Local commit `feat(deploy): Task-34 — in-container SSH staging, default 4 worker nodes, Prism PE/PC & secret guards`
+  - [x] 10. No `git push` executed
+- **Test Results:**
+  - `pytest api/tests/`: **165 passed** in ~4s (158 existing + 7 new)
+  - `npm test` (ui/): **23 files, 144 passed** (136 existing + 8 new)
+- **Local Git Commit:** `feat(deploy): Task-34 — in-container SSH staging, default 4 worker nodes, Prism PE/PC & secret guards` (hash in final report / `git log -1`)
+- **Files Created:** `docker-entrypoint.sh`, `AGENTS.md`, `.github/copilot-instructions.md`
+- **Files Modified:** `Dockerfile`, `docker-compose.yml`, `api/app/schemas/lab.py`, `api/app/services/lab.py`, `api/app/schemas/clusters.py`, `api/app/services/cluster_config.py`, `ui/src/pages/ClusterDeployPage.jsx`, `ui/src/pages/SettingsPage.jsx`, `ui/src/components/settings/LabInfraTab.jsx`, `api/tests/test_lab_secrets.py`, `api/tests/test_clusters.py`, `api/tests/test_cluster_deploy_wizard.py`, `ui/src/pages/__tests__/ClusterDeployPage.test.jsx`, `ui/src/pages/__tests__/SettingsPage.test.jsx`, `docs/DEPLOYMENT-GUIDE.md`, `docs/USER-GUIDE.md`, `docs/API-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- **Design notes / deviations:**
+  - Compose mount is `${SSH_KEY_DIR:-~/.ssh}:/staging/ssh-key:ro`; the old `~/.ssh:/home/forgecentral/.ssh:ro` mount is removed. The image now starts as root only for the entrypoint and drops to `forgecentral` via `gosu` (no `USER` directive); non-root runs skip chown/gosu.
+  - The registry credential guard is advisory (amber warning + link, Next stays enabled) since credentials can be staged on a bastion; a Harbor secret is matched by cluster name or lab name (acts as the lab-level default). Settings deep-links via `/settings?tab=secrets-vault`.
+  - Per-cluster Prism override (endpoint/port/user/container, never password) added to `ClusterInitRequest` and rendered into `<cluster>-input.ini` for Nutanix CSI modes so the wizard override is effective; Settings → Lab Infrastructure gained a Storage Mode select and Prism section.
+  - Host-side `ssh-key` permission bootstrap in `scripts/bootstrap-forge-central-vm.sh` left unchanged (follow-up: remove the `~/.ssh` chmod step from docs/script if no longer needed). Docker image build not exercised locally (no daemon run); entrypoint logic verified with a temp directory.

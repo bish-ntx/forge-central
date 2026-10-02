@@ -96,6 +96,32 @@ describe('SettingsPage', () => {
     expect(JSON.parse(options.body)).toMatchObject({ pve_host: '10.0.0.5', golden_vmid: 9000, registry_type: 'harbor', pve_password: null })
   })
 
+  test('Nutanix CSI storage mode reveals Prism fields and saves them without echoing the stored password', async () => {
+    const fetchMock = mockApi({
+      'GET /api/v1/lab/config': () =>
+        jsonResponse({ configured: true, lab_name: 'amd-lab', storage_mode: 'nutanix-csi-pe', prism_endpoint: '10.1.1.10', prism_port: 9441, prism_user: 'admin', prism_password: '***MASKED***', storage_container: 'ctr1' }),
+      'POST /api/v1/lab/init': () => jsonResponse({ status: 'initialized', config_path: '/srv/labs/amd-lab/amd-lab-infra.ini' }),
+    })
+    renderAs('admin')
+
+    await waitFor(() => expect(screen.getByTestId('input-lab-prism_endpoint')).toHaveValue('10.1.1.10'))
+    expect(screen.getByTestId('input-lab-prism_port')).toHaveValue(9441)
+    expect(screen.getByTestId('input-lab-prism_password')).toHaveValue('')
+    expect(screen.getByTestId('badge-prism-password-set')).toBeInTheDocument()
+    expect(screen.getByTestId('preview-lab-ini')).toHaveTextContent('PRISM_ENDPOINT="10.1.1.10"')
+    expect(screen.getByTestId('preview-lab-ini')).not.toHaveTextContent('MASKED')
+
+    fireEvent.click(screen.getByTestId('btn-save-lab'))
+    await screen.findByTestId('text-lab-notice')
+    const [, options] = fetchMock.mock.calls.find(([url]) => url === '/api/v1/lab/init')
+    expect(JSON.parse(options.body)).toMatchObject({
+      storage_mode: 'nutanix-csi-pe', prism_endpoint: '10.1.1.10', prism_port: 9441, prism_user: 'admin', prism_password: null, storage_container: 'ctr1',
+    })
+
+    fireEvent.change(screen.getByTestId('select-lab-storage_mode'), { target: { value: 'local' } })
+    expect(screen.queryByTestId('section-lab-prism')).not.toBeInTheDocument()
+  })
+
   test('surfaces backend validation errors', async () => {
     mockApi({ 'POST /api/v1/lab/init': () => jsonResponse({ detail: [{ msg: 'Value error, lab_ip_pool must look like 10.0.0.10-10.0.0.40' }] }, false) })
     renderAs('admin')

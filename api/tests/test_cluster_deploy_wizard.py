@@ -85,6 +85,35 @@ def _capture_sequence(monkeypatch) -> dict:
 # init-config
 # ---------------------------------------------------------------------------
 @pytest.mark.asyncio
+async def test_init_config_nutanix_csi_inherits_lab_prism_with_cluster_override(wizard_env) -> None:
+    prism_lab = {
+        **LAB,
+        "storage_mode": "nutanix-csi-pe",
+        "prism_endpoint": "10.1.1.10",
+        "prism_user": "admin",
+        "prism_password": "Pr1sm-secret",
+        "storage_container": "lab-container",
+    }
+    async with _client() as client:
+        assert (await client.post("/api/v1/lab/init", json=prism_lab, headers=ADMIN)).status_code == 200
+        inherited = await client.post(
+            "/api/v1/clusters/init-config", json={**INIT, "storage_mode": "nutanix-csi-pe"}
+        )
+        override = await client.post(
+            "/api/v1/clusters/init-config",
+            json={**INIT, "storage_mode": "nutanix-csi-pc", "prism_endpoint": "10.9.9.9", "prism_port": 9442},
+        )
+        local = await client.post("/api/v1/clusters/init-config", json=INIT)
+
+    first, second = inherited.json()["config_preview"], override.json()["config_preview"]
+    assert 'PRISM_ENDPOINT="10.1.1.10"' in first and 'PRISM_PORT="9440"' in first
+    assert 'STORAGE_CONTAINER="lab-container"' in first and 'PRISM_USER="admin"' in first
+    assert 'PRISM_ENDPOINT="10.9.9.9"' in second and 'PRISM_PORT="9442"' in second
+    assert "PRISM_" not in local.json()["config_preview"]
+    assert "Pr1sm-secret" not in first + second  # the Prism password stays in the lab file
+
+
+@pytest.mark.asyncio
 async def test_init_config_writes_input_ini_inheriting_lab_and_audits(wizard_env) -> None:
     async with _client() as client:
         await _create_lab(client)

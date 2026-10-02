@@ -39,7 +39,7 @@ class ClusterListResponse(BaseModel):
 class ClusterCreateRequest(BaseModel):
     cluster_name: str
     control_plane_nodes: int = 3
-    worker_nodes: int = 3
+    worker_nodes: int = 4
     kubernetes_version: str = "v1.31.1"
     hypervisor_type: Literal["proxmox", "ahv"] = "proxmox"
     # Guided wizard flow (Task-27): when `lab_name` is set, the run chains
@@ -134,10 +134,20 @@ class ClusterInitRequest(BaseModel):
     registry_type: str = "dockerhub"
     storage_mode: str = "local"
     control_plane_nodes: int = Field(default=3, ge=1, le=9)
-    worker_nodes: int = Field(default=3, ge=0, le=64)
+    worker_nodes: int = Field(default=4, ge=0, le=64)
     target_runner: Literal["central", "bastion"] = "central"
     bastion_ip: Optional[str] = None
     hypervisor_type: Literal["proxmox", "ahv"] = "proxmox"
+    # Optional per-cluster Prism target override for Nutanix CSI modes (the password is always inherited from the lab).
+    prism_endpoint: Optional[str] = None
+    prism_port: Optional[int] = Field(default=None, ge=1, le=65535)
+    prism_user: Optional[str] = None
+    storage_container: Optional[str] = None
+
+    @field_validator("prism_endpoint", "prism_user", "storage_container")
+    @classmethod
+    def _prism_text(cls, value: Optional[str]) -> Optional[str]:
+        return safe_ini_text(value.strip()) if value else None
 
     @field_validator("cluster_name")
     @classmethod

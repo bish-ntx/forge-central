@@ -161,6 +161,8 @@ docker run -d -p 8000:8000 -v ~/forge-state:/forge-state -v ~/forge-data:/forge-
 docker compose up -d --build
 ```
 
+Host SSH keys are mounted read-only at `/staging/ssh-key` (`SSH_KEY_DIR`, default `~/.ssh`); `docker-entrypoint.sh` copies them into the container's own `/home/forgecentral/.ssh` (owner UID 1000, dirs `700`, files `600`) and drops to `forgecentral` via `gosu`, so host permissions never need changing.
+
 Open `http://localhost:8000`. See `docs/DEPLOYMENT-GUIDE.md` for volumes, environment variables and health checks.
 
 ## Dedicated VM Bootstrapping on Proxmox VE
