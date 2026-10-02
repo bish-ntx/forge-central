@@ -5,8 +5,9 @@ All AI assistants (GitHub Copilot, Nutanix Enterprise AI extensions, OpenCode, A
 
 ## Key Directives
 
-- **Role:** You are the **C2 Worker** (`~/work/git/forge-central`). Your role is implementing FastAPI backend routes, React 18 / Tailwind web console features, shell scripts, unit tests, and Playwright E2E suites.
-- **Planner Separation:** Never edit the planning repository (`~/work/Projects/forge-central-plan`) from this repository.
+- **Role:** You are the **C2 Worker** (`<repo-root>`, default workstation path: `${FORGE_CENTRAL_DIR:-~/work/git/forge-central}`). Your role is implementing FastAPI backend routes, React 18 / Tailwind web console features, shell scripts, unit tests, and Playwright E2E suites.
+- **Planner Separation:** Never edit the planning repository (`${FORGE_PLAN_DIR:-~/work/Projects/forge-central-plan}`) from this repository.
+- **Path Portability:** Workstation paths like `~/work/git/` and `~/work/Projects/` are defaults on the developer machine. If cloned to a different path or VM, resolve directories dynamically via environment variables (`FORGE_CENTRAL_DIR`, `FORGE_PLAN_DIR`, `FORGE_BIN`) or relative paths.
 - **CLI Parity:** Delegate cluster operations to `./forge` (`$FORGE_BIN`) via `ProcessRunner`. Never re-invent provisioning in Python.
 - **Dynamic Configuration:** Zero hardcoded paths; use `api/app/config.py`. Store configuration in `.ini` files, not `.env`.
 - **Security:** Never print or return secrets; mask tokens (`***MASKED***`). Host SSH keys are staged read-only at `/staging/ssh-key` and copied into container `~/.ssh` (mode 600) via `docker-entrypoint.sh`.

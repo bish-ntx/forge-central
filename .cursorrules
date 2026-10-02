@@ -11,9 +11,10 @@ All AI agents operating in Cursor MUST adhere strictly to the complete, canonica
 ## Key Directives Summary (Derived from AGENTS.md)
 
 1. **Role & Operating Mode:**
-   - This repository is the **C2 Worker** (`~/work/git/forge-central`).
+   - This repository is the **C2 Worker** (`<repo-root>`, default workstation path: `${FORGE_CENTRAL_DIR:-~/work/git/forge-central}`).
    - C2 operates in **Agent Mode** (`ntnx-model-auto` / `claude-sonnet-5-5-high`).
-   - Never modify files in `forge-central-plan` directly from this repository.
+   - Never modify files in the planning repository (`${FORGE_PLAN_DIR:-~/work/Projects/forge-central-plan}`) directly from this repository.
+   - **Path Portability:** Workstation paths are conventions; support dynamic resolution via environment variables or relative paths when cloned elsewhere.
 
 2. **Async-First FastAPI Backend:**
    - All endpoints `async def` with non-blocking I/O.

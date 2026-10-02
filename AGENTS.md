@@ -3,7 +3,7 @@
 # Remote: git@github.com:bish-ntx/forge-central.git (branch: main)
 # Supported Environments: Cursor, VS Code (NAI / Meta Client / Copilot), OpenCode, Aider
 # Author: Bishwajit Kumar <Bishwajit.Kumar@nutanix.com>
-# Version: 2.0.0
+# Version: 2.1.0
 
 This file is the single, complete, self-contained source of truth for all AI agents working on `forge-central`.
 All editors and assistants (Cursor via `.cursorrules`, Copilot via `.github/copilot-instructions.md`, OpenCode, Aider) follow these instructions without deviation.
@@ -13,16 +13,24 @@ All editors and assistants (Cursor via `.cursorrules`, Copilot via `.github/copi
 ## 1. Dual-Workspace Architecture & Separation of Concerns
 
 Development operates strictly across two distinct workspaces:
-1. **C1 Planning & Governance (Supervisor):** `~/work/Projects/forge-central-plan`
+1. **C1 Planning & Governance (Supervisor):**
    - Repo: `git@github.com:bish-ntx/forge-central-plan.git` (branch `main`).
+   - Default workstation path: `${FORGE_PLAN_DIR:-~/work/Projects/forge-central-plan}` (or sibling `forge-central-plan` directory).
    - Role: Product requirements (PRD), feature sequencing, test plan architecture, prompt authoring, off-disk verification, and push coordination.
    - Operating Mode: **Permanently Plan / Supervisor Mode**. C1 never modifies code in `forge-central` directly.
-2. **C2 Codebase Execution (Worker — This Repository):** `~/work/git/forge-central`
+2. **C2 Codebase Execution (Worker — This Repository):**
    - Repo: `git@github.com:bish-ntx/forge-central.git` (branch `main`).
+   - Default workstation path: `${FORGE_CENTRAL_DIR:-~/work/git/forge-central}` (or `<repo-root>`).
    - Role: FastAPI backend implementation, React 18 / Vite / Tailwind Web Console, scripts, unit tests, and E2E automation.
    - Operating Mode: **Agent / Execution Mode**. C2 executes prompts issued by C1, creates local git commits, and appends execution audit reports.
-3. **Core CLI Engine (Read-Only Reference):** `~/work/git/nkp-forge` (`./forge`).
+3. **Core CLI Engine (Read-Only Reference):**
+   - Repo: `git@github.com:bish-ntx/nkp-forge.git` (`./forge`).
+   - Default workstation path: `${FORGE_BIN_DIR:-~/work/git/nkp-forge}` (or `$FORGE_BIN`).
    - Never modify or re-implement CLI logic directly. Delegate all cluster lifecycle operations to `./forge`.
+
+> **Portable Path Resolution Standard:**
+> Path prefixes like `~/work/Projects/` and `~/work/git/` are default conventions on the primary developer workstation. 
+> When running on another machine, VM, bastion host, or CI environment where repositories are cloned to different locations (e.g. `~/forge-central`, `~/repos/`, `/opt/`, or flat sibling directories), always resolve paths using environment variables (`FORGE_CENTRAL_DIR`, `FORGE_PLAN_DIR`, `FORGE_BIN`) or relative to the current repository root (`<repo-root>`). Never assume absolute directory structures outside the local repository.
 
 ---
 
@@ -52,14 +60,14 @@ When operating in VS Code, OpenCode, or via the Cursor Meta Client, use the inte
   - Infrastructure provisioning APIs MUST include explicit hypervisor parameters (`HYPERVISOR_TYPE: "proxmox" | "ahv"`).
   - Node onboarding APIs MUST include node infrastructure type parameters (`NODE_INFRA_TYPE: "vm" | "baremetal" | "vbm"`) and deployment mode placeholders (`DEPLOYMENT_MODE: "preprovisioned" | "ironstack_metal"` for Nutanix Foundation Central OS imaging).
   - The upper pre-provisioned NKP cluster lifecycle (`01-05`), PreprovisionedInventory, and Day-2 operations remain 100% invariant regardless of underlying hypervisor or bare metal deployment driver.
-- **CLI Subprocess Execution:** NEVER re-implement Proxmox VE, Nutanix AHV, or Nutanix CAPI cluster provisioning logic in Python. ALWAYS delegate write operations to the underlying `./forge` CLI engine (`~/work/git/nkp-forge/forge` or `$FORGE_BIN`) using `ProcessRunner` / `asyncio.create_subprocess_exec`.
+- **CLI Subprocess Execution:** NEVER re-implement Proxmox VE, Nutanix AHV, or Nutanix CAPI cluster provisioning logic in Python. ALWAYS delegate write operations to the underlying `./forge` CLI engine (`$FORGE_BIN` or relative sibling `../nkp-forge/forge`) using `ProcessRunner` / `asyncio.create_subprocess_exec`.
 - **SSE Terminal Log Streaming:** Async pipeline executions must broadcast stdout and stderr line-by-line over Server-Sent Events (`sse_starlette` or native FastAPI `EventSourceResponse`) to allow real-time Web Console terminal rendering.
 - **Error Handling:** Return standard HTTP status codes (`400 Bad Request`, `404 Not Found`, `500 Internal Server Error`) with structured JSON error bodies (`{"detail": "..."}`).
 - **Interactive OpenAPI & Help Docstrings:** All FastAPI routes MUST include clear Python docstrings for automatic OpenAPI (`/docs`) interactive documentation.
 
 ### Dynamic Path Configuration & Anti-Dotenv Discipline
-- **Zero Hardcoded Paths:** NEVER hardcode absolute or home-relative paths like `~/forge-data/`, `~/forge-central-data/`, `/cacrt/`, or `~/work/git/nkp-forge/forge` in Python code, shell wrappers, or React components.
-- **Centralized `app/config.py` Settings Engine:** All paths must resolve through dynamic settings:
+- **Zero Hardcoded Paths:** NEVER hardcode absolute or home-relative paths like `~/forge-data/`, `~/forge-central-data/`, `/cacrt/`, or workstation-specific paths in Python code, shell wrappers, or React components.
+- **Centralized `app/config.py` Settings Engine:** All paths must resolve through dynamic environment-driven settings:
   - `FORGE_HOME` & `FORGE_STATE_DIR`: defaults to `~/forge-state` (symlink to `forge-data`).
   - `FORGE_DATA_DIR`: canonical cluster state & configs (`~/forge-data`).
   - `FORGE_CENTRAL_DATA_DIR`: Product 1 DB, audit logs & telemetry (`~/forge-central-data`).
