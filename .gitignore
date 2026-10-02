@@ -11,3 +11,6 @@ dist-release/
 .env
 .DS_Store
 Thumbs.db
+
+# Full-stack E2E reports (scripts/run-e2e-suite.sh)
+tests/e2e/reports/

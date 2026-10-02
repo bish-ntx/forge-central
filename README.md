@@ -100,6 +100,8 @@ python -m playwright install chromium --with-deps
 pytest tests/e2e/ --browser chromium
 ```
 
+Full-stack hybrid E2E (wizard → IPAM → SSE → Proxmox/kubectl/helm audit): `./scripts/run-e2e-suite.sh --mode ui-only` (reports in `tests/e2e/reports/`), see `docs/E2E-PLAYWRIGHT-TESTING-GUIDE.md`.
+
 For complete backend + UI testing flows, see `docs/TESTING-GUIDE.md`.
 
 ## Web Console Layout Skeleton

@@ -62,6 +62,10 @@ The `tests/e2e/conftest.py` harness starts:
 - Theme mode cycle (`dark`, `light`, `system`) via `data-testid="toggle-theme-mode"`, including `<html>` class updates and `localStorage` persistence (`forge_theme_preference`)
 - Live terminal stream rendering via `data-testid="terminal-live-logs"`
 
+`tests/e2e/test_full_stack_cluster_deploy.py` is the parameterized full-stack hybrid suite (wizard + IPAM + SSE, plus Proxmox /
+kubectl / helm / NKP audits in `live-proxmox` mode). Run it with `./scripts/run-e2e-suite.sh --mode ui-only`; see
+`docs/E2E-PLAYWRIGHT-TESTING-GUIDE.md`.
+
 ## CI Workflow
 
 GitHub Actions workflow: `.github/workflows/ui-e2e-ci.yml`

@@ -2166,3 +2166,58 @@ Duration  2.82s
 - Bootstrap changes applied to both snippet blocks (the cloud-init overlay labels the step `[5/5]`, the unified init `[8/8]`).
 - Compose still mounts `~/forge-state:/forge-state` (`FORGE_HOME`/`FORGE_STATE_DIR` default) for compatibility; on hosts bootstrapped by the script it is a symlink to `~/forge-data`.
 - Docker image build not exercised locally; entrypoint/bootstrap verified via `sh -n`/`bash -n` and script tests.
+
+### [C1 VERIFICATION VERDICT — APPROVED] Task 34B (2026-10-01)
+
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** **100% APPROVED**
+- **C2 Agent:** C2-P34B ([c3b85bf4-09ff-4b10-bdc3-2a3c52846666](c3b85bf4-09ff-4b10-bdc3-2a3c52846666))
+- **Commit Hash:** `30eceea7ae67c1e258b3369277831790cf4d0396`
+- **Commit Message:** `fix(compose,paths): Task-34B — reconcile runtime state directories, forge-central-data mount & symlink transition`
+- **Independent Re-Verification:**
+  - Spot-checked `docker-compose.yml`, `Dockerfile`, `docker-entrypoint.sh`, bootstrap snippets, `config.py` / `paths.py`, and `DEPLOYMENT-GUIDE.md` — all acceptance criteria present.
+  - C1 re-ran `pytest api/tests/test_paths.py tests/scripts/test_bootstrap_script.py`: **37/37 passed**
+  - C2 reported full suite: pytest api **166/166**, scripts **32/32**, vitest **144/144**
+  - Working tree: `main` ahead of `origin/main` by **2** commits (`4e85394` Task 34 + `30eceea` Task 34B); no push performed by C1
+- **Code Review Spot-Checks:**
+  - Compose: `FORGE_CENTRAL_DATA_DIR` default `/forge-central-data`; volume `~/forge-central-data:/forge-central-data`.
+  - Image/runtime: `/forge-central-data` in ENV, mkdir, chown, VOLUME, and entrypoint ownership loop.
+  - Bootstrap (unified `[8/8]` + cloud-init `[5/5]`): creates `forge-central-data`, `forge-state → forge-data` symlink when safe, `chown 1000:${NKP_USER}` + `chmod 2775`.
+  - `forge_central_data_dir_resolved` added; `paths.py` already inspected `FORGE_CENTRAL_DATA_DIR` (strengthened unit test).
+- **Accepted Follow-Ups (non-blocking):**
+  - Live Docker rebuild / compose smoke on `ntx-forge-central1` still outstanding (create host `~/forge-central-data`, rebuild image, verify `/settings/paths`).
+  - Compose retains `~/forge-state:/forge-state` for `FORGE_HOME`/`FORGE_STATE_DIR` compatibility (symlink on bootstrapped hosts).
+- **Checklists Synchronized:** `deliverables/END-TO-END-BUILD-CHECKLIST.md` (Task 16.3B), `C1-CONTEXT-NOTES.md` updated; authorized push pending operator approval.
+
+## [C2-P35] Task 35 — Full-Stack Hybrid Playwright E2E Harness (2026-10-01)
+
+**Execution Status:** SUCCESS (ui-only validated end to end; live-proxmox code paths implemented, not exercised — no lab available)
+
+### Acceptance Criteria Matrix
+- [x] `tests/e2e/test_config.py` + `tests/e2e/test-config.ini` — `[lab]`, `[cluster]`, `[execution]` keys; precedence env (`FORGE_E2E_<KEY>`) > ini > default; customizable without code changes (unit-tested)
+- [x] Safety: run aborts (`pytest.exit`, rc 2) when cluster name or configured VIP/MetalLB conflicts with an active `GET /api/v1/ipam` allocation (verified manually with `amd-nkp1` and `10.0.0.12-10.0.0.13`)
+- [x] Phase 1 (ui-only): Stage 1 lab/registry badge, Stage 2 3 CP / 4 worker defaults + VIP/MetalLB from free pool + Prism badges, Stage 3 central/bastion, Stage 4 `<cluster>-input.ini` preview matches sizing + IPAM; Launch only when live
+- [x] ui-only finishes well under 60 s (test body + budget assertion; ~2.4 s)
+- [x] Phase 2 code paths (live-proxmox): `qm status` over SSH for all ledger VMIDs, `kubectl get nodes` Ready, `helm list -A` (CSI/MetalLB/Kommander), `forge get nkp-dashboard` URL + creds + HTTP 200 — parsers unit-tested; live execution [ ] pending lab
+- [x] `scripts/run-e2e-suite.sh` (chmod +x): `--mode`, `--conf`, headless, HTML report, traces, failure screenshots, `run.log` in `tests/e2e/reports/` (failure artifacts verified)
+- [x] `docs/E2E-PLAYWRIGHT-TESTING-GUIDE.md` created; `docs/TESTING-GUIDE.md` and `README.md` cross-linked
+- [x] `pytest api/tests/` and `npm test` 100% green
+- [x] Local commit only; no `git push`
+
+### Test Results
+- `pytest api/tests/`: 166 passed (166/166)
+- `pytest tests/scripts/`: 32 passed
+- `npm test` (ui/): 144 passed across 23 files (144/144)
+- E2E ui-only (`./scripts/run-e2e-suite.sh --mode ui-only`): 7 passed (1 full-stack Playwright + 6 harness unit tests) in ~3.6–4.8 s; full-stack test alone 2.4 s. Whole `pytest tests/e2e` (incl. Task 4 suite): 11 passed in 7.2 s
+
+### Local Git Commit
+`test(e2e): Task-35 — full-stack hybrid Playwright harness with Proxmox, kubectl & helm audit` (hash reported to C1 in the handoff; a commit cannot embed its own hash)
+
+### Modified Files
+- Created: `tests/e2e/test_config.py`, `tests/e2e/test-config.ini`, `tests/e2e/test_full_stack_cluster_deploy.py`, `tests/e2e/live_probes.py`, `tests/e2e/test_e2e_harness_unit.py`, `scripts/run-e2e-suite.sh`, `docs/E2E-PLAYWRIGHT-TESTING-GUIDE.md`
+- Modified: `tests/e2e/conftest.py` (live-proxmox uses configured `backend_url`, real SSE stream), `.gitignore` (`tests/e2e/reports/`), `docs/TESTING-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md` (also carries the pre-existing uncommitted C1 Task 34B verdict block)
+
+### Notes / Follow-ups
+- Prism badges live in Stage 2 of the wizard (not Stage 1); the test flips storage mode to `nutanix-csi-pe` temporarily if the lab uses local storage, then restores it.
+- live-proxmox needs: running Forge Central (`backend_url`), key-based SSH to the PVE host, `kubectl`, `helm`, `./forge`; set `forge_conf` if the API runs in a container.
+- Dashboard probe disables TLS verification for the single status GET (self-signed NKP cert); credentials are only checked for presence, never logged.

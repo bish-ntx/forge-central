@@ -14,6 +14,7 @@ from urllib.request import urlopen
 
 import pytest
 
+from test_config import load_config
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
@@ -36,8 +37,18 @@ def _wait_for_url(url: str, timeout_seconds: float = 45.0) -> None:
     raise RuntimeError(f"timed out waiting for URL: {url}")
 
 
+def _live_backend_url() -> str:
+    """Running Forge Central API for live-proxmox mode ('' = spawn the isolated mock backend)."""
+    cfg = load_config()
+    return cfg.backend_url if cfg.live else ""
+
+
 @pytest.fixture(scope="session")
 def backend_base_url() -> str:
+    live_url = _live_backend_url()
+    if live_url:
+        yield live_url
+        return
     backend_port = _find_open_port()
     backend_url = f"http://127.0.0.1:{backend_port}"
     command = [
@@ -107,7 +118,8 @@ def base_url(backend_base_url: str) -> str:
     frontend_url = f"http://127.0.0.1:{frontend_port}"
     env = os.environ.copy()
     env["VITE_BACKEND_PROXY_TARGET"] = backend_base_url
-    env["VITE_TERMINAL_STREAM_URL"] = "/api/v1/test/live-terminal-stream"
+    if not _live_backend_url():  # live-proxmox streams the real pipeline SSE instead of the mock feed
+        env["VITE_TERMINAL_STREAM_URL"] = "/api/v1/test/live-terminal-stream"
     command = [
         "npm",
         "run",
