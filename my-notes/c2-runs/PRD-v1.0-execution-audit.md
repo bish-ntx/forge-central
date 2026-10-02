@@ -2221,3 +2221,19 @@ Duration  2.82s
 - Prism badges live in Stage 2 of the wizard (not Stage 1); the test flips storage mode to `nutanix-csi-pe` temporarily if the lab uses local storage, then restores it.
 - live-proxmox needs: running Forge Central (`backend_url`), key-based SSH to the PVE host, `kubectl`, `helm`, `./forge`; set `forge_conf` if the API runs in a container.
 - Dashboard probe disables TLS verification for the single status GET (self-signed NKP cert); credentials are only checked for presence, never logged.
+
+### [C1 VERIFICATION VERDICT — APPROVED] Task 35 (2026-10-01)
+
+- **Reviewing Agent:** C1 Planner
+- **Verification Status:** **100% APPROVED**
+- **Commit Hash:** `9f9d07f516c0101e64a17f9996a79c6bf67e3764`
+- **Commit Message:** `test(e2e): Task-35 — full-stack hybrid Playwright harness with Proxmox, kubectl & helm audit`
+- **Independent Re-Verification:**
+  - Off-disk inspection of all 12 created/modified files confirmed acceptance criteria.
+  - Test suites verified: `pytest api/tests/` (166/166), `pytest tests/scripts/` (32/32), `npm test` (144/144 across 23 files), and `pytest tests/e2e` (7/7 harness tests in ~4s).
+  - Precedence hierarchy (`FORGE_E2E_*` > `test-config.ini` > defaults) and safety aborts (IPAM duplicate names / IP collision exit rc 2) validated via unit tests.
+  - Headless runner script `scripts/run-e2e-suite.sh` tested with trace / failure screenshot / html report generation.
+- **Accepted Follow-Ups (non-blocking):**
+  - Live Proxmox execution against actual physical lab hardware (`nx-intel-inno-gnr-01-1` / `ntx-forge-central1`) deferred until live bring-up window.
+- **Checklists Synchronized:** `deliverables/END-TO-END-BUILD-CHECKLIST.md` (Task 16.4), `deliverables/CURSOR-PROMPTS-FORGE-CENTRAL-v1.md` (`[PROMPT-35]`), and `C1-CONTEXT-NOTES.md` updated. Commit `9f9d07f` is on `origin/main`; this C1 verdict block is local-only until the next docs commit.
+

@@ -1,64 +1,49 @@
-# .cursorrules — Forge Central Control Plane & Web Console
-# Author: Bishwajit Kumar <Bishwajit.Kumar@nutanix.com>
-# Project: Forge Central (forge-central)
-# Version: 1.0.0
-
+---
+description: Universal engineering rules and agent operating standards for Forge Central (C2 Worker)
+alwaysApply: true
 ---
 
-## Role
+# .cursorrules — Forge Central (C2 Worker Repository)
+# Canonical Source of Truth: AGENTS.md (Root)
 
-You are an expert Full-Stack Control Plane Architect and Systems Engineer specializing in:
-- FastAPI (Python 3.12+) REST API design and Pydantic v2 schemas
-- Asynchronous process execution (`asyncio.create_subprocess_exec`) wrapping local Bash CLI engines (`./forge`)
-- Server-Sent Events (SSE) log streaming for real-time terminal rendering
-- React 18, Vite, and Tailwind CSS for modern enterprise cloud management dashboards
-- Resilient 2-tier multi-site control plane architecture (Local Write Console + HQ Read-Only Fleet Aggregator)
+All AI agents operating in Cursor MUST adhere strictly to the complete, canonical standards defined in `AGENTS.md` at the root of this repository.
 
-Your goal is to generate deterministic, production-grade Python backend and React frontend code for the `forge-central` project following all rules below without exception.
+## Key Directives Summary (Derived from AGENTS.md)
 
----
+1. **Role & Operating Mode:**
+   - This repository is the **C2 Worker** (`~/work/git/forge-central`).
+   - C2 operates in **Agent Mode** (`ntnx-model-auto` / `claude-sonnet-5-5-high`).
+   - Never modify files in `forge-central-plan` directly from this repository.
 
-## Non-Negotiable Rules
+2. **Async-First FastAPI Backend:**
+   - All endpoints `async def` with non-blocking I/O.
+   - Strict Pydantic v2 schemas for all requests and responses.
+   - CLI parity: delegate cluster provisioning to `./forge` (`$FORGE_BIN`) via `ProcessRunner`. Never re-invent provisioning in Python.
+   - Hypervisor abstraction: support `HYPERVISOR_TYPE: "proxmox" | "ahv"`, `NODE_INFRA_TYPE`, and `DEPLOYMENT_MODE: "preprovisioned" | "ironstack_metal"`.
+   - Comprehensive docstrings on all endpoints for automatic OpenAPI (`/docs`).
 
-### Backend Engineering Rules (Python 3.12+ / FastAPI)
-- **Async-First:** All API route handlers must be `async def`. Use non-blocking I/O (`asyncio`, `aiofiles`, `httpx`).
-- **Strict Pydantic Validation:** Every API request and response payload must be defined using explicit Pydantic v2 models (`pydantic.BaseModel`).
-- **Hypervisor & Infrastructure Abstraction:**
-  - Infrastructure provisioning APIs MUST include explicit hypervisor parameters (`HYPERVISOR_TYPE: "proxmox" | "ahv"`).
-  - Node onboarding APIs MUST include node infrastructure type parameters (`NODE_INFRA_TYPE: "vm" | "baremetal" | "vbm"`) and deployment mode placeholders (`DEPLOYMENT_MODE: "preprovisioned" | "ironstack_metal"` for Nutanix Foundation Central OS imaging).
-  - The upper pre-provisioned NKP cluster lifecycle (`01-05`), PreprovisionedInventory, and Day-2 operations remain 100% invariant regardless of underlying hypervisor or bare metal deployment driver.
-- **CLI Subprocess Execution:** NEVER re-implement Proxmox VE, Nutanix AHV, or Nutanix CAPI cluster provisioning logic in Python. ALWAYS delegate write operations to the underlying `./forge` CLI engine (`~/work/git/nkp-forge/forge` or local relative symlink) using `asyncio.create_subprocess_exec`.
-- **SSE Terminal Log Streaming:** Async pipeline executions must broadcast stdout and stderr line-by-line over Server-Sent Events (`sse_starlette` or native FastAPI `EventSourceResponse`) to allow real-time Web Console terminal rendering.
-- **Error Handling:** Return standard HTTP status codes (`400 Bad Request`, `404 Not Found`, `500 Internal Server Error`) with structured JSON error bodies (`{"detail": "..."}`).
+3. **Dynamic Paths & Structured INI Configuration:**
+   - Zero hardcoded paths; resolve all paths through `api/app/config.py`.
+   - Configuration stored in `.ini` files (`forge.ini`, `lab-config.ini`). Anti-dotenv discipline: no `.env` for operational state.
 
-### Frontend Engineering Rules (React 18 / Vite / Tailwind CSS)
-- **Component Architecture:** Keep UI components modular under `ui/src/components/` (`layout/`, `cluster/`, `vms/`, `common/`) and page views under `ui/src/pages/`.
-- **Styling:** Use Tailwind CSS utility classes exclusively. Default to dark mode styling (`bg-slate-900`, `text-slate-100`) matching Nutanix & Proxmox dark-themed control panels.
-- **Icons:** Use `lucide-react` icon set exclusively.
-- **State & API Handling:** Use custom React hooks (`useEventSource`, `useFetch`) or Axios for API interaction.
-- **Live Terminal Component:** Render streaming logs using a dark monospace terminal box with auto-scroll and status indicators (running, succeeded, failed).
+4. **Frontend Standards:**
+   - React 18, Vite, Tailwind CSS with `darkMode: 'class'` (support Dark, Light, System themes).
+   - Icons exclusively from `lucide-react`.
+   - Deterministic `data-testid` attributes on interactive elements.
+   - Streaming subprocess logs rendered via `<LiveTerminal />`.
 
-### Zero Hardcoded Paths, Structured INI Configuration & Anti-Dotenv Rules
-- **No Hardcoded Absolute/Relative Paths:** NEVER hardcode paths like `~/forge-data/`, `~/work/git/nkp-forge/forge`, or `/var/log/forge-central/` in Python code, shell wrappers, or React components.
-- **Centralized `app/config.py` Settings Engine:** All directory locations (`FORGE_HOME`, `FORGE_BIN_DIR`, `FORGE_CLI_PATH`, `FORGE_DATA_DIR`, `FORGE_BACKUP_DIR`, `FORGE_LOG_DIR`) MUST be resolved dynamically via environment-driven settings.
-- **Structured INI Configuration Standard:** Main application parameters and lab cluster settings MUST be stored in simple, human-readable **`.ini`** files (`forge.ini`, `lab-config.ini`, `~/forge-data/*.ini`). Avoid `.conf` extensions (reserved for system files like `kubeconfig.conf`) to ensure 100% uniformity with `nkp-forge`'s CLI INI engine.
-- **Anti-Dotenv Discipline:** Avoid relying on `.env` files for operational or application configuration. `.env` files are reserved strictly as low-level local developer environment overrides (such as local port numbers or secret keys) and MUST NOT be used for main application or lab configuration.
+5. **Security & SSH Staging:**
+   - Zero secret leakage; mask sensitive tokens (`***MASKED***`).
+   - Host SSH keys mounted read-only at `/staging/ssh-key:ro`; container entrypoint copies to container `~/.ssh` (mode 600, UID 1000). Never chmod host keys.
 
-### Security & Credential Hygiene
-- **No Secret Leakage:** NEVER log passwords, SSH private keys, or API tokens in plaintext or emit them in standard SSE log streams.
-- **Credential Storage:** Store sensitive credentials in encrypted local storage (`/api/v1/secrets`) or out-of-band environment variables.
-- **Masking:** Mask secrets in log outputs before broadcasting (`***MASKED***`).
+6. **Ponytail Minimalist Discipline:**
+   - YAGNI -> Reuse existing -> Borrow from sibling repos -> Shell out to `./forge` -> Use installed lib -> One line -> Minimal deterministic code.
 
-### Testing & Architecture Rules
-- **Playwright E2E Isolation:** E2E UI tests in `tests/e2e/` must use deterministic `data-testid` locators.
-- **macOS Apple Silicon Architecture Matching:** On macOS Apple Silicon (arm64), always install and run Playwright browser binaries (`playwright install chromium`) natively in non-sandboxed host runtime to prevent x64 vs arm64 CPU emulation mismatches.
+7. **Task Completion Protocol:**
+   - Ensure 100% pass rate: `pytest api/tests/` and `npm test` in `ui/`.
+   - Synchronously update `README.md` and `docs/` (`API-GUIDE.md`, `USER-GUIDE.md`, `DEPLOYMENT-GUIDE.md`).
+   - Append execution report to `my-notes/c2-runs/PRD-v1.0-execution-audit.md`.
+   - Create local conventional commit: `<type>(<scope>): Task-N — <description>`.
+   - **NEVER RUN `git push`.** Push authorization is handled by C1 after off-disk verification.
 
-### Documentation & Help-As-You-Go Discipline
-- **C2-Owned Documentation:** `README.md` and tracked guides under `docs/` (`docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `docs/ADMIN-GUIDE.md`) are **C2-owned**. C2 MUST update documentation concurrently with code changes.
-- **Never Leave Help Behind:** Every new REST API endpoint, UI view, or config flag introduced by a task MUST be documented in `README.md` and `docs/` in the same task turn.
-- **Interactive OpenAPI & Help Tooltips:** All FastAPI routes MUST include clear Python docstrings for automatic OpenAPI (`/docs`) interactive documentation.
-
-### Zero Copy-Paste Execution Audit Protocol
-- **C2 Mandatory Run Reporting:** Upon completing any prompt, C2 agents MUST append a complete execution report section and test output summary to `my-notes/c2-runs/PRD-v1.0-execution-audit.md`.
-- **Report Contents:** MUST contain Execution Status (`SUCCESS`/`FAILURE`), Acceptance Criteria Matrix (`[x]`/`[ ]`), `pytest` test results, local staged git commit hash & subject, and list of files created/modified.
-
+For complete architectural details, consult `AGENTS.md`.

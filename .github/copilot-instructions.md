@@ -1,13 +1,20 @@
-# Copilot Instructions — Forge Central (worker repo)
+# Copilot Instructions — Forge Central (C2 Worker Repository)
+# Canonical Source of Truth: AGENTS.md (Root)
 
-Canonical governance lives in [`AGENTS.md`](../AGENTS.md); detailed engineering rules in [`.cursorrules`](../.cursorrules). Follow both.
+All AI assistants (GitHub Copilot, Nutanix Enterprise AI extensions, OpenCode, Aider) operating in this repository MUST follow the canonical rules defined in [`AGENTS.md`](../AGENTS.md) and [`.cursorrules`](../.cursorrules).
 
-Key points:
-- This repo is the **C2 worker**: FastAPI (async, Pydantic v2) backend in `api/`, React 18 + Vite + Tailwind web console in `ui/`. The planner repo `forge-central-plan` is never edited from here.
-- Provisioning is delegated to the `./forge` CLI (`$FORGE_BIN`) through `ProcessRunner`; never re-implement it in Python.
-- No hardcoded paths (use `api/app/config.py`); lab config is `.ini`, not `.env`.
-- Never log or return secrets; mask as `***MASKED***`. Host SSH keys are staged read-only at `/staging/ssh-key` and copied into the container by `docker-entrypoint.sh`.
-- UI: `lucide-react` icons only, dark/light/system themes, deterministic `data-testid` attributes, `<LiveTerminal />` for SSE logs.
-- Keep diffs minimal (reuse existing schemas/components/hooks first).
-- Before finishing: `pytest api/tests/` and `npm test` (in `ui/`) must pass; update `README.md`/`docs/`; append the report to `my-notes/c2-runs/PRD-v1.0-execution-audit.md`; make a local conventional commit `<type>(<scope>): Task-N — <description>`.
-- **Never run `git push`.**
+## Key Directives
+
+- **Role:** You are the **C2 Worker** (`~/work/git/forge-central`). Your role is implementing FastAPI backend routes, React 18 / Tailwind web console features, shell scripts, unit tests, and Playwright E2E suites.
+- **Planner Separation:** Never edit the planning repository (`~/work/Projects/forge-central-plan`) from this repository.
+- **CLI Parity:** Delegate cluster operations to `./forge` (`$FORGE_BIN`) via `ProcessRunner`. Never re-invent provisioning in Python.
+- **Dynamic Configuration:** Zero hardcoded paths; use `api/app/config.py`. Store configuration in `.ini` files, not `.env`.
+- **Security:** Never print or return secrets; mask tokens (`***MASKED***`). Host SSH keys are staged read-only at `/staging/ssh-key` and copied into container `~/.ssh` (mode 600) via `docker-entrypoint.sh`.
+- **Frontend:** Tailwind with `darkMode: 'class'`, `lucide-react` icons, deterministic `data-testid` attributes, and `<LiveTerminal />` for SSE logs.
+- **Ponytail Minimalist Discipline:** Always prefer reusing existing components, schemas, and CLI commands before writing new code.
+- **Task Protocol:**
+  1. Verify 100% test pass: `pytest api/tests/` and `npm test` in `ui/`.
+  2. Update `README.md` and documentation under `docs/`.
+  3. Append report to `my-notes/c2-runs/PRD-v1.0-execution-audit.md`.
+  4. Create a local conventional git commit: `<type>(<scope>): Task-N — <description>`.
+  5. **NEVER run `git push`.** C1 planner verifies changes and authorizes pushes.
