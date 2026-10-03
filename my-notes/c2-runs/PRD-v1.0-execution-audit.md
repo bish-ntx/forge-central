@@ -722,6 +722,7 @@ api/tests/test_vms.py ...                                                [100%]
   git push origin main
   ```
 
+
 ---
 
 ## [2026-09-26] Task-9 Forge Fleet Aggregator REST endpoints and FleetDashboardPage UI
@@ -1534,7 +1535,7 @@ Duration  2.82s
 
 ### Files Created / Modified
 - Created: `api/tests/conftest.py`, `ui/src/components/common/SafetySnapshotNotice.jsx`
-- Modified: `api/app/services/backup.py`, `api/app/routers/clusters.py`, `api/app/routers/vms.py`, `api/app/schemas/clusters.py`, `api/app/schemas/vms.py`, `api/tests/test_clusters.py`, `api/tests/test_vms.py`, `ui/src/pages/{ClustersPage,ClusterDetailPage,VmListPage}.jsx`, `ui/src/pages/__tests__/{ClustersPage,ClusterDetailPage,VmListPage}.test.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- Modified: `api/app/services/backup.py`, `api/app/routers/clusters.py`, `api/app/routers/vms.py`, `api/app/schemas/clusters.py`, `api/app/schemas/vms.py`, `api/tests/test_clusters.py`, `api/tests/test_vms.py`, `ui/src/pages/{ClustersPage,ClusterDetailPage,VmListPage,DiagnosticsPage,FleetDashboardPage,PathSettingsPage}.jsx`, `ui/src/pages/__tests__/{ClustersPage,ClusterDetailPage,VmListPage,DiagnosticsPage,FleetDashboardPage,PathSettingsPage}.test.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
 
 ### Git
 - Local commit only: `feat(safety): Task-22 — pre-mutating auto-backup safety snapshots & destructive guard engine` (NOT pushed)
@@ -1630,12 +1631,16 @@ Duration  2.82s
 
 ### Test Results
 - `pytest api/tests/`: 77 passed (10 new in `api/tests/test_auth_rbac.py`)
-- `npm test` (vitest): 18 files, 83 passed (10 new)
+- `npm test` (vitest): 18 files, 83 passed (10 new: `SettingsPage.test.jsx` 8, `LoginGatewayModal.test.jsx` 4)
 - `npm run build`: succeeds
 
 ### Files Created / Modified
 - Created: `api/app/routers/auth.py`, `api/app/schemas/auth.py`, `api/tests/test_auth_rbac.py`, `ui/src/context/RoleContext.jsx`, `ui/src/components/layout/RoleSwitcher.jsx`, `ui/src/context/__tests__/RoleContext.test.jsx`
-- Modified: `api/app/{config,main}.py`, `api/app/routers/{clusters,vms,paths}.py`, `ui/src/main.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/pages/{ClustersPage,ClusterDetailPage,ClusterDeployPage,VmListPage,DiagnosticsPage,PathSettingsPage}.jsx`, `ui/src/pages/__tests__/{ClustersPage,ClusterDetailPage,PathSettingsPage}.test.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- Modified: `api/app/{config,main}.py`, `api/app/routers/{clusters,vms,paths}.py`, `ui/src/main.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/pages/{ClustersPage,ClusterDetailPage,ClusterDeployPage,VmListPage,DiagnosticsPage,PathSettingsPage}.jsx`, `ui/src/pages/__tests__/SettingsPage.test.jsx`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
 
 ### Git
 - Local commit only: `feat(rbac): Task-24 — 3-tier role-based access control (admin/operator/viewer) & typed destructive guards` (NOT pushed)
@@ -1972,7 +1977,7 @@ Duration  2.82s
 - Verification Status: **100% APPROVED & VERIFIED LIVE** on `ntx-forge-central1` (`10.123.238.120`).
 - Code Modifications:
   - `scripts/bootstrap-forge-central-vm.sh`: Updated guest init snippets to configure `chown -R 1000:1001` and `chmod -R 2775` on runtime state/data directories.
-  - `docker-compose.yml`: Exported explicit environment variables (`FORGE_STATE_DIR`, `FORGE_DATA_DIR`, `FORGE_CACRT_DIR`, `FORGE_LOG_DIR`).
+  - `docker-compose.yml`: Exported explicit environment variables (`FORGE_STATE_DIR`, `FORGE_CENTRAL_DATA_DIR`, `FORGE_DATA_DIR`, `FORGE_CACRT_DIR`, `FORGE_LOG_DIR`).
   - `api/app/services/lab.py`: Wrapped `write_private_file()` in `try...except (PermissionError, OSError)` returning structured HTTP 500 JSON exceptions (`{"detail": "..."}`).
   - `docs/DEPLOYMENT-GUIDE.md`: Documented host volume dual-ownership and setgid permissions.
   - `api/tests/test_lab_secrets.py`: Added unit test `test_lab_init_permission_error_returns_clean_500_json`.
@@ -2287,3 +2292,43 @@ Duration  2.82s
 - **Safety Verified:** No live Proxmox/VLAB infrastructure was contacted or modified. `10.117.50.111` and `10.123.238.110` were not contacted. No repository push was performed.
 - **Scope Boundary:** This approval covers only read-only/UI-only validation. Live Proxmox execution remains deferred.
 - **Authorized next action:** The operator may push commit `8a91d1f` to `origin/main` after reviewing this verdict.
+````
+This is the description of what the code block changes:
+<changeDescription>
+Append the Task 37 blocked-preflight result to the consolidated C2 execution audit without changing application code or tests.
+</changeDescription>
+
+This is the code block that represents the suggested code change:
+```markdown
+## [C2-P37] Task 37 — Live VLAB Preflight and E2E Validation (2026-10-03)
+
+**Execution Status:** BLOCKED during read-only preflight; live E2E not executed
+
+### Result
+- **Executor:** VS Code + Nutanix NAI; model `high`; branch `main`; commit `8471eb9bdaa6c5b3f57390fc102f17a112bf6abc`.
+- Forge Central `http://10.123.238.120:8000/health` passed with `mock_mode=false`.
+- `/api/v1/settings/paths` responded, but `/api/v1/ipam` and `/api/v1/ipam/free` returned HTTP 500 because the running application configured `/app/forge`, which was unavailable.
+- Application VM `ntx-forge-central1` and healthy `forge-central` container were inspected read-only; the container had neither `/nkp-forge/forge` nor `ssh` available.
+- Nested Proxmox `10.109.115.50` was contacted read-only only: Proxmox VE 9.2.0 / pve-manager 9.2.2, `vmbr0` up at `10.109.115.50/24`, `NTX-STORAGE-POOL` and `NTX-RESOURCE-POOL` present.
+- Template VMID `100` was absent (`qm config 100` failed); VM inventory was empty; node capacity queries via the supplied node identifier returned a Proxmox proxy-loop error.
+- VMID `151` was absent on the nested host and was not used.
+- The capacity gate independently fails: the existing 3-control-plane/4-worker workflow requires 7 node addresses plus 1 VIP plus a 5-address MetalLB block = **13 distinct addresses**, while the supplied range contains **6**. No cluster name was selected and no IP was allocated.
+
+### Acceptance Criteria Matrix
+- [x] Governance, latest audit, and Prompt-35 E2E implementation read before acting.
+- [x] Completely read-only preflight attempted.
+- [x] Forbidden targets were not contacted.
+- [x] VMID `151` was not used.
+- [x] No credentials or private-key contents exposed.
+- [x] Exact capacity shortfall documented: 13 required versus 6 available.
+- [ ] Live configuration generated — blocked by failed preflight/capacity gate.
+- [ ] Live E2E executed — intentionally not executed.
+- [ ] Proxmox/Kubernetes/Helm/NKP post-flight validation — not applicable.
+
+### Mutation and cleanup
+- **Exact command not executed:** `./scripts/run-e2e-suite.sh --mode live-proxmox --conf my-notes/environment/ntx-vlab-one-live-e2e.ini`.
+- No infrastructure, VM, cluster, IPAM, application code, or tests were modified.
+- Created VM identifiers: none. Created cluster identifier: none. Allocated addresses: none. Cleanup required: none.
+- Detailed audit: `my-notes/environment/ntx-vlab-one-live-e2e-audit.md`.
+- Explicit forbidden-target statement: `10.117.50.111`, `10.123.238.110`, `10.216.60.21`, and `10.216.61.50` were not connected to or inspected.
+```
