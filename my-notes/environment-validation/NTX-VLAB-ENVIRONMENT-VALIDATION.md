@@ -56,3 +56,48 @@
 - Static IPAM range `10.109.115.51-10.109.115.56` was not reserved.
 - No passwords, tokens, private keys, credential values, or secret contents were printed, logged, committed, or reported.
 - No application code, tests, or tracked configuration were changed.
+
+## Task 39B — Repair VLAB Runtime and Validate DHCP Sanity VM 130 (2026-10-03)
+
+- **Executor/model:** C2-P39B, VS Code + Nutanix NAI, high
+- **Result:** **SUCCESS**
+- **Source commits:** `forge-central` `74be1c876bf7b66533b10fc8b76135f670a74566`; `nkp-forge` `ece300e7a25636464a55c56b0d62f5df135cb482`.
+- **Remote repositories:** synchronized source trees present at `~/forge-central` and `~/nkp-forge`; Git metadata was intentionally excluded. Required Compose, entrypoint, executable `nkp-forge/forge`, and bootstrap/cloud-init source files were present.
+
+### Runtime repair
+
+- Created only `/home/nkpadmin/forge-central-data`; verified ownership `uid=1000,gid=1001` and mode `2775`.
+- Preserved existing `/home/nkpadmin/forge-state`, `/home/nkpadmin/forge-data`, and `/home/nkpadmin/cacrt`.
+- Compose **was rebuilt** with `docker compose down`, `docker compose build --no-cache`, `docker compose up -d`, and `docker compose ps`.
+- Container `forge-central`: running and healthy.
+- `FORGE_BIN=/nkp-forge/forge`; executable CLI and `/nkp-forge/forge` mount verified.
+- SSH client `/usr/bin/ssh` verified; staged key files present with safe permissions; contents were not printed.
+- `/health`: HTTP 200, healthy, non-mock mode.
+- `/api/v1/settings/paths`: HTTP 200; `/forge-central-data` accessible and writable.
+- `/api/v1/ipam`: HTTP 200; no prior CLI-unavailable error.
+
+### Proxmox and VM validation
+
+- Nested node `bish-proxmox-ve92`: online; `vmbr0`: UP.
+- `NTX-STORAGE-POOL`: present, ZFS, supports `images`; `NTX-RESOURCE-POOL`: present.
+- VMID 130, 151, and 100 were absent before creation. VMID 151 and 100 were not used or modified.
+- Approved Ubuntu 24.04 cloud image was obtained through the existing repository bootstrap convention from the approved Ubuntu cloud-image source.
+- Exactly one scratch VM was created using the existing bootstrap/cloud-init workflow:
+  - VMID `130`
+  - Name `ntx-vlab-dhcp-sanity-130`
+  - `NTX-STORAGE-POOL`, `vmbr0`, DHCP, 2 vCPU, 2 GiB RAM, 20 GiB disk
+  - QEMU guest agent enabled, existing `nkpadmin` SSH/public-key conventions used
+- `qm status 130`: **running**.
+- `qm agent 130 ping`: **PASS**.
+- `qm guest cmd 130 network-get-interfaces`: **PASS**; DHCP address `10.109.115.10`.
+- SSH using the approved existing orchestration key: **PASS**; hostname `ntx-vlab-dhcp-sanity-130`, SSH service active.
+- VMID 130 remains running for inspection.
+
+### Cleanup, blockers, and safety
+
+- Cleanup required: none; VMID 130 intentionally remains running.
+- Recovery required: **NO**. No full lab initialization or cluster deployment was run.
+- The static range `10.109.115.51-10.109.115.56` was not reserved.
+- Forbidden targets `10.117.50.111`, `10.123.238.110`, `10.216.60.21`, and `10.216.61.50` were not contacted or inspected.
+- No passwords, tokens, private-key contents, or credential values were printed, logged, committed, or reported.
+- No application source code, tests, or tracked configuration were changed.
