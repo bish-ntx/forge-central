@@ -2332,3 +2332,40 @@ This is the code block that represents the suggested code change:
 - Detailed audit: `my-notes/environment/ntx-vlab-one-live-e2e-audit.md`.
 - Explicit forbidden-target statement: `10.117.50.111`, `10.123.238.110`, `10.216.60.21`, and `10.216.61.50` were not connected to or inspected.
 ```
+
+## [C2-P38] Task 38 — Rebuild VLAB Forge Central and validate DHCP sanity VM (2026-10-03)
+
+- **Executor:** VS Code + Nutanix NAI
+- **Model:** high
+- **Execution Status:** **BLOCKED during read-only preflight**
+- **Result:** Compose rebuild and VMID 130 creation were not attempted.
+
+### Acceptance Criteria Matrix
+
+- [x] Required instructions, latest audit, Prompt 35 harness context, and Task 37 live audit reviewed.
+- [x] Forbidden targets were not contacted.
+- [x] VMID 130 collision check passed: VMID 130 was absent.
+- [x] VMID 151 was not used.
+- [x] Nested Proxmox node was reachable; `vmbr0` was UP.
+- [ ] Forge Central and `nkp-forge` repositories synchronized on the application VM.
+- [ ] Runtime `/nkp-forge/forge` and container SSH availability verified.
+- [ ] `/api/v1/ipam` healthy.
+- [ ] Verified usable `NTX-STORAGE-POOL` and approved cloud image.
+- [ ] Compose deployment rebuilt.
+- [ ] VMID 130 created, DHCP address assigned, guest agent verified, and SSH tested.
+
+### Preflight summary
+
+- Forge Central health: PASS (`10.123.238.120:8000/health`, HTTP 200).
+- Paths: PASS with warning; `FORGE_BACKUP_DIR` missing and runtime reported `FORGE_CENTRAL_DATA_DIR=/forge-state`.
+- IPAM: FAIL, HTTP 500; configured `/app/forge` unavailable.
+- Repository sync: FAIL/INCOMPLETE; local `forge-central` was ahead of origin with untracked `.vscode/`, local `~/nkp-forge` was absent, and remote user checkout was unavailable.
+- Container: healthy, but `/nkp-forge/forge` absent and `ssh` unavailable.
+- Proxmox: reachable; node `bish-proxmox-ve92` online; `vmbr0` UP; VMID 130 absent; VMID 151 absent; VMID 100 absent. `NTX-RESOURCE-POOL` was present; `NTX-STORAGE-POOL` and an approved cloud image were not verified.
+
+### Mutation and safety
+
+No `docker compose down`, build, restart, `qm create`, `qm set`, `qm start`, guest-agent polling, SSH VM test, lab initialization, or cluster deployment was run. No runtime data was deleted or pruned. No passwords, tokens, private keys, or credential values were reported. VMID 130 was not created and is not running. Forbidden targets were not contacted.
+
+- Detailed audit: `my-notes/environment/ntx-vlab-one-dhcp-sanity-audit.md`
+- Recovery required: **YES** — synchronize repositories and repair runtime mounts/CLI/SSH, verify storage and cloud image, then rerun read-only preflight.
