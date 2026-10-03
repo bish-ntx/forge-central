@@ -2237,3 +2237,35 @@ Duration  2.82s
   - Live Proxmox execution against actual physical lab hardware (`nx-intel-inno-gnr-01-1` / `ntx-forge-central1`) deferred until live bring-up window.
 - **Checklists Synchronized:** `deliverables/END-TO-END-BUILD-CHECKLIST.md` (Task 16.4), `deliverables/CURSOR-PROMPTS-FORGE-CENTRAL-v1.md` (`[PROMPT-35]`), and `C1-CONTEXT-NOTES.md` updated. Commit `9f9d07f` is on `origin/main`; this C1 verdict block is local-only until the next docs commit.
 
+
+---
+
+## [C2-P36] Task 36 — VLAB Read-Only Audit and UI-Only E2E Validation (2026-10-02)
+
+**Execution Status:** SUCCESS
+
+### Acceptance Criteria Matrix
+- [x] Repository governance files and the existing C2 audit log were read before acting.
+- [x] Read-only repository audit completed: no `VLAB`, `vlab`, `V-LAB`, or `v-lab` implementation, configuration, or test references were found.
+- [x] Existing E2E harness reviewed; UI-only mode is isolated, mock-backed, IPAM-safe, and never presses Launch.
+- [x] UI-only Playwright suite passed: 7/7 tests in 7.79 seconds.
+- [x] Backend and script regression suites passed: 198/198 tests.
+- [x] Frontend Vitest suite passed: 144/144 tests across 23 files.
+- [x] Frontend production build passed.
+- [x] No live-Proxmox/VLAB infrastructure was contacted or modified.
+- [x] Local audit commit created; no `git push` performed.
+
+### Validation Results
+- `./scripts/run-e2e-suite.sh --mode ui-only`: **7 passed**, HTML report generated at `tests/e2e/reports/report.html`.
+- `pytest api/tests/ tests/scripts/`: **198 passed**.
+- `npm --prefix ui test -- --run`: **144 passed** across 23 files.
+- `npm --prefix ui run build`: **succeeded** with Vite 8.3.1.
+- Existing React Router and `act(...)` warnings were non-failing test output; no new product errors were introduced.
+
+### Scope and Safety Notes
+- The untracked `.vscode/` directory was pre-existing and was not modified or included.
+- This task was read-only with respect to application behavior; only this audit log was updated.
+- Live Proxmox validation remains intentionally unexecuted because Task 36 is UI-only and no VLAB/live infrastructure was accessed.
+
+### Modified Files
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
