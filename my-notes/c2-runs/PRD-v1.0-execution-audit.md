@@ -2463,3 +2463,37 @@ No `docker compose down`, build, restart, `qm create`, `qm set`, `qm start`, gue
 - **DHCP Sanity VM:** VMID `130` created as `ntx-vlab-dhcp-sanity-130`; running; guest agent PASS; DHCP `10.109.115.10`; SSH PASS.
 - **Safety:** VMID `151` and `100` not used. Forbidden targets not contacted. No code/tests/config changed.
 - **Authorized next action:** The operator may push commit `7e2d47e` to `origin/main` after reviewing this verdict. VMID 130 intentionally left running.
+
+## [C2-P40A] Task 40A — UI demo data and defaults cleanup (2026-10-04)
+
+- **Execution Status:** **SUCCESS**
+- **Branch:** `task-40a-ui-defaults`
+
+### Acceptance Criteria Matrix
+
+- [x] Removed the default `nkp-prod-01` cluster name from the deployment wizard; empty names are now validated before advancing.
+- [x] Removed the default diagnostics cluster `amd-nkp1`; capture remains disabled until an operator enters a cluster name.
+- [x] Suppressed fallback demo diagnostics rows for Operator/Admin mode while preserving demo fallback rows for Viewer mode.
+- [x] Suppressed fallback fleet demo sites for Operator/Admin mode while preserving demo fallback sites for Viewer mode.
+- [x] Confirmed the IPAM page has no hardcoded `ntx-lab` default value.
+- [x] Updated focused UI assertions for the new empty-default behavior.
+
+### Test Results
+
+- `npm --prefix ui test -- --run`: **23 files, 145 tests passed**.
+- `pytest api/tests/`: **166 passed**.
+
+### Modified Files
+
+- `ui/src/pages/ClusterDeployPage.jsx`
+- `ui/src/pages/DiagnosticsPage.jsx`
+- `ui/src/pages/FleetDashboardPage.jsx`
+- `ui/src/pages/__tests__/ClusterDeployPage.test.jsx`
+- `ui/src/pages/__tests__/DiagnosticsPage.test.jsx`
+- `ui/src/pages/__tests__/IpamPage.test.jsx`
+
+### Notes
+
+- No API contract changes were required.
+- Existing Viewer/Demo fallback behavior remains available through the role context.
+- No push was performed.

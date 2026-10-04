@@ -117,9 +117,12 @@ function renderDeployWizard() {
   )
 }
 
-async function renderReady() {
+async function renderReady({ clusterName = 'nkp-prod-01' } = {}) {
   renderDeployWizard()
   await waitFor(() => expect(screen.getByTestId('select-lab')).toHaveValue('amd-lab'))
+  if (clusterName) {
+    fireEvent.change(screen.getByTestId('input-cluster-name'), { target: { value: clusterName } })
+  }
 }
 
 const next = () => fireEvent.click(screen.getByTestId('btn-wizard-next'))
@@ -132,7 +135,8 @@ describe('ClusterDeployPage Component', () => {
 
   test('renders Stage 1 with the active lab pre-selected and inherited infrastructure values', async () => {
     const fetchMock = installFetch()
-    await renderReady()
+    renderDeployWizard()
+    await waitFor(() => expect(screen.getByTestId('select-lab')).toHaveValue('amd-lab'))
 
     expect(screen.getByTestId('page-clusters-deploy')).toBeInTheDocument()
     expect(screen.getByTestId('stage-1-container')).toBeInTheDocument()
@@ -146,10 +150,11 @@ describe('ClusterDeployPage Component', () => {
     expect(within(card).getByTestId('text-lab-bridge')).toHaveTextContent('vmbr1')
     expect(within(card).getByTestId('text-lab-storage-pool')).toHaveTextContent('local-lvm')
     expect(screen.getByTestId('input-nkp-version')).toHaveValue('v2.18.0')
-    expect(screen.getByTestId('input-cluster-name')).toHaveValue('nkp-prod-01')
+    expect(screen.getByTestId('input-cluster-name')).toHaveValue('')
     expect(screen.getByTestId('select-hypervisor')).toHaveValue('proxmox')
     expect(screen.getByTestId('btn-wizard-back')).toBeDisabled()
-    expect(screen.getByTestId('btn-wizard-next')).toBeEnabled()
+    expect(screen.getByTestId('btn-wizard-next')).toBeDisabled()
+    expect(screen.getByTestId('text-next-blocker')).toHaveTextContent('Cluster name')
   })
 
   test('switching the lab loads that lab and re-inherits its values', async () => {
@@ -440,7 +445,8 @@ describe('ClusterDeployPage Component', () => {
     expect(warning).toHaveTextContent('No harbor credentials found')
     expect(screen.getByTestId('registry-secret-stage1-link')).toHaveAttribute('href', '/settings?tab=secrets-vault')
     expect(screen.queryByTestId('registry-secret-stage1-ok')).not.toBeInTheDocument()
-    // The guard is advisory: the wizard can still proceed.
+    // The guard is advisory: the wizard can still proceed once a cluster name is supplied.
+    fireEvent.change(screen.getByTestId('input-cluster-name'), { target: { value: 'nkp-prod-01' } })
     expect(screen.getByTestId('btn-wizard-next')).toBeEnabled()
   })
 

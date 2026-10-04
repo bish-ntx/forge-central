@@ -75,8 +75,8 @@ function statusBadgeClasses(status) {
 }
 
 function DiagnosticsPage() {
-  const { mutationProps } = useRole()
-  const [clusterName, setClusterName] = useState('amd-nkp1')
+  const { mutationProps, isViewer } = useRole()
+  const [clusterName, setClusterName] = useState('')
   const [bundles, setBundles] = useState([])
   const [auditLogs, setAuditLogs] = useState([])
   const [loading, setLoading] = useState(true)
@@ -133,12 +133,12 @@ function DiagnosticsPage() {
   }
 
   const displayedBundles = useMemo(
-    () => (bundles.length > 0 ? bundles : FALLBACK_BUNDLES),
-    [bundles],
+    () => (bundles.length > 0 ? bundles : isViewer ? FALLBACK_BUNDLES : []),
+    [bundles, isViewer],
   )
   const displayedAuditLogs = useMemo(
-    () => (auditLogs.length > 0 ? auditLogs : FALLBACK_AUDIT_LOGS),
-    [auditLogs],
+    () => (auditLogs.length > 0 ? auditLogs : isViewer ? FALLBACK_AUDIT_LOGS : []),
+    [auditLogs, isViewer],
   )
 
   return (

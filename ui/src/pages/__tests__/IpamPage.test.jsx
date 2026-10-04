@@ -60,6 +60,7 @@ describe('IpamPage', () => {
     expect(screen.getByTestId('card-ipam-allocated')).toHaveTextContent('5')
     expect(screen.getByTestId('card-ipam-free')).toHaveTextContent('1')
     expect(screen.getByTestId('text-ipam-pool')).toHaveTextContent('10.0.0.10-10.0.0.40')
+    expect(screen.queryByText('ntx-lab')).not.toBeInTheDocument()
 
     const table = screen.getByTestId('table-ipam')
     expect(within(table).getAllByRole('row')).toHaveLength(7) // header + 6 slots

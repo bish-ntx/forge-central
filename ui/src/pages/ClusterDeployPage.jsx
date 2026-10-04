@@ -118,7 +118,7 @@ function ClusterDeployPage() {
 
   // Form State
   const [formData, setFormData] = useState({
-    cluster_name: 'nkp-prod-01',
+    cluster_name: '',
     lab_name: '',
     nkp_version: DEFAULT_NKP_VERSION,
     hypervisor_type: 'proxmox',

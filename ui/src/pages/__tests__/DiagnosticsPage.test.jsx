@@ -56,13 +56,27 @@ describe('DiagnosticsPage', () => {
     render(<DiagnosticsPage />)
 
     expect(screen.getByTestId('card-diagnostics-capture')).toBeInTheDocument()
-    expect(screen.getByTestId('input-diagnostics-cluster')).toBeInTheDocument()
-    expect(screen.getByTestId('btn-capture-diagnostics')).toBeInTheDocument()
+    expect(screen.getByTestId('input-diagnostics-cluster')).toHaveValue('')
+    expect(screen.getByTestId('btn-capture-diagnostics')).toBeDisabled()
 
     await waitFor(() => expect(screen.getByTestId('table-diagnostic-bundles')).toBeInTheDocument())
     expect(screen.getByText('bundle-amd-nkp1-20260926.tar.gz')).toBeInTheDocument()
     expect(screen.getByTestId('table-audit-logs')).toBeInTheDocument()
     expect(screen.getByText('run-diag-capture-amd-nkp1')).toBeInTheDocument()
+  })
+
+  test('operator mode does not show fallback demo rows when APIs are empty', async () => {
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      if (url === '/api/v1/diagnostics/bundles') return jsonResponse({ bundles: [] })
+      if (url === '/api/v1/audit/logs') return jsonResponse({ logs: [] })
+      return jsonResponse({}, false)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    render(<DiagnosticsPage />)
+
+    await waitFor(() => expect(screen.queryByText('bundle-amd-nkp1-20260926.tar.gz')).not.toBeInTheDocument())
+    expect(screen.queryByText('run-provision-amd-nkp1')).not.toBeInTheDocument()
   })
 
   test('capture button triggers capture API and reloads tables', async () => {
@@ -91,6 +105,7 @@ describe('DiagnosticsPage', () => {
 
     render(<DiagnosticsPage />)
     await waitFor(() => expect(fetchMock).toHaveBeenCalled())
+    fireEvent.change(screen.getByTestId('input-diagnostics-cluster'), { target: { value: 'amd-nkp1' } })
 
     fireEvent.click(screen.getByTestId('btn-capture-diagnostics'))
 

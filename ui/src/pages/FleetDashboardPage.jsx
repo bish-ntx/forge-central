@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react'
 import Timestamp from '../components/common/Timestamp.jsx'
+import { useRole } from '../context/RoleContext.jsx'
 
 const API_STATUS = '/api/v1/fleet/status'
 
@@ -53,6 +54,7 @@ function getStatusBadgeClass(status) {
 }
 
 function FleetDashboardPage() {
+  const { isViewer } = useRole()
   const [fleet, setFleet] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -78,7 +80,7 @@ function FleetDashboardPage() {
     void loadFleetStatus()
   }, [])
 
-  const activeSites = fleet?.sites?.length ? fleet.sites : DEFAULT_SEED_SITES
+  const activeSites = fleet?.sites?.length ? fleet.sites : isViewer ? DEFAULT_SEED_SITES : []
 
   const summary = useMemo(() => {
     const totalSites = activeSites.length
