@@ -2292,14 +2292,6 @@ Duration  2.82s
 - **Safety Verified:** No live Proxmox/VLAB infrastructure was contacted or modified. `10.117.50.111` and `10.123.238.110` were not contacted. No repository push was performed.
 - **Scope boundary:** This approval covers only read-only/UI-only validation. Live Proxmox execution remains deferred.
 - **Authorized next action:** The operator may push commit `8a91d1f` to `origin/main` after reviewing this verdict.
-```markdown
-This is the description of what the code block changes:
-<changeDescription>
-Append the Task 37 blocked-preflight result to the consolidated C2 execution audit without changing application code or tests.
-</changeDescription>
-
-This is the code block that represents the suggested code change:
-```
 
 ---
 
