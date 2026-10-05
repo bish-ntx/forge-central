@@ -440,56 +440,62 @@ function VmListPage() {
                 className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
                 data-testid="input-create-vm-name"
               />
-              <input
-                required
-                placeholder="Node"
-                value={createForm.node}
-                onChange={(event) =>
-                  setCreateForm((current) => ({ ...current, node: event.target.value }))
-                }
-                className="w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-                data-testid="input-create-vm-node"
-              />
+              <label className="block text-sm text-slate-300">
+                Target Host
+                <input
+                  required
+                  placeholder="Hypervisor node"
+                  value={createForm.node}
+                  onChange={(event) =>
+                    setCreateForm((current) => ({ ...current, node: event.target.value }))
+                  }
+                  className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                  data-testid="input-create-vm-node"
+                />
+              </label>
               <div className="grid grid-cols-3 gap-3">
-                <input
-                  type="number"
-                  min={1}
-                  value={createForm.cores}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({
-                      ...current,
-                      cores: Number(event.target.value),
-                    }))
-                  }
-                  className="rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-                  data-testid="input-create-vm-cores"
-                />
-                <input
-                  type="number"
-                  min={256}
-                  value={createForm.memory_mb}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({
-                      ...current,
-                      memory_mb: Number(event.target.value),
-                    }))
-                  }
-                  className="rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-                  data-testid="input-create-vm-memory"
-                />
-                <input
-                  type="number"
-                  min={5}
-                  value={createForm.disk_gb}
-                  onChange={(event) =>
-                    setCreateForm((current) => ({
-                      ...current,
-                      disk_gb: Number(event.target.value),
-                    }))
-                  }
-                  className="rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
-                  data-testid="input-create-vm-disk"
-                />
+                <label className="text-sm text-slate-300">
+                  vCPU
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={createForm.cores}
+                    onChange={(event) =>
+                      setCreateForm((current) => ({ ...current, cores: Number(event.target.value) }))
+                    }
+                    className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                    data-testid="input-create-vm-cores"
+                  />
+                </label>
+                <label className="text-sm text-slate-300">
+                  GB RAM
+                  <input
+                    type="number"
+                    min={1}
+                    step={1}
+                    value={createForm.memory_mb / 1024}
+                    onChange={(event) =>
+                      setCreateForm((current) => ({ ...current, memory_mb: Number(event.target.value) * 1024 }))
+                    }
+                    className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                    data-testid="input-create-vm-memory"
+                  />
+                </label>
+                <label className="text-sm text-slate-300">
+                  GB Disk
+                  <input
+                    type="number"
+                    min={5}
+                    step={1}
+                    value={createForm.disk_gb}
+                    onChange={(event) =>
+                      setCreateForm((current) => ({ ...current, disk_gb: Number(event.target.value) }))
+                    }
+                    className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                    data-testid="input-create-vm-disk"
+                  />
+                </label>
               </div>
               <CliSnippetCard
                 command={`./forge vm-create --name ${createForm.name || '<vm-name>'} --node ${createForm.node || '<node>'} --cores ${createForm.cores} --memory-mb ${createForm.memory_mb}`}

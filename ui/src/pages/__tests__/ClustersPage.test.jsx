@@ -196,6 +196,48 @@ describe('ClustersPage', () => {
     expect(screen.getByTestId('banner-prep-node-success')).toBeInTheDocument()
   })
 
+  test('conditions target infrastructure by node role and resets invalid selections', async () => {
+    vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload)))
+
+    renderWithRoutes()
+    await waitFor(() => expect(screen.getByTestId('btn-open-prep-node-modal')).toBeInTheDocument())
+    fireEvent.click(screen.getByTestId('btn-open-prep-node-modal'))
+
+    const targetSelect = screen.getByTestId('select-prep-target-type')
+    expect(screen.getByRole('option', { name: 'Bare Metal' })).toBeDisabled()
+    fireEvent.change(screen.getByTestId('select-prep-node-type'), { target: { value: 'gpu-wk' } })
+    expect(targetSelect).toHaveValue('baremetal')
+    expect(screen.getByRole('option', { name: 'VM' })).toBeDisabled()
+    expect(screen.getByRole('option', { name: 'Bare Metal' })).toBeEnabled()
+  })
+
+  test('labels config path clearly and renders optional password without submitting it', async () => {
+    const fetchMock = vi.fn().mockImplementation((url) => {
+      if (url === '/api/v1/lab/config') {
+        return jsonResponse({ config_path: '/safe/lab/lab-infra.ini' })
+      }
+      return jsonResponse(mockClusterPayload)
+    })
+    vi.stubGlobal('fetch', fetchMock)
+
+    renderWithRoutes()
+    await waitFor(() => expect(screen.getByTestId('btn-open-prep-node-modal')).toBeInTheDocument())
+    fireEvent.click(screen.getByTestId('btn-open-prep-node-modal'))
+    expect(screen.getByText('Cluster/Lab Configuration File')).toBeInTheDocument()
+    await waitFor(() => expect(screen.getByTestId('input-prep-node-conf')).toHaveValue('/safe/lab/lab-infra.ini'))
+    expect(screen.getByTestId('input-prep-node-password')).toHaveAttribute('type', 'password')
+    expect(screen.getByText(/SSH key-based authentication is preferred/)).toBeInTheDocument()
+    expect(screen.getByText('Hypervisor Node')).toBeInTheDocument()
+
+    fireEvent.change(screen.getByTestId('input-prep-node-address'), { target: { value: '10.10.0.21' } })
+    fireEvent.change(screen.getByTestId('input-prep-node-user'), { target: { value: 'nutanix' } })
+    fireEvent.change(screen.getByTestId('input-prep-node-password'), { target: { value: 'not-a-real-secret' } })
+    fireEvent.click(screen.getByTestId('btn-submit-prep-node'))
+    await waitFor(() => expect(screen.queryByTestId('modal-prep-node')).not.toBeInTheDocument())
+    const postCall = fetchMock.mock.calls.find(([url]) => url === '/api/v1/nodes/prep')
+    expect(postCall[1].body).not.toContain('not-a-real-secret')
+  })
+
   test('prep node modal can be closed', async () => {
     vi.stubGlobal('fetch', vi.fn().mockImplementation(() => jsonResponse(mockClusterPayload)))
 

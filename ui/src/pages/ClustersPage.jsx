@@ -10,10 +10,18 @@ const API_BASE = '/api/v1/clusters'
 const PREP_NODE_DEFAULTS = {
   address: '',
   sshUser: '',
+  sshPassword: '',
   conf: '',
   nodeType: 'wk',
   targetType: 'vm',
   dryRun: false,
+}
+
+const TARGET_TYPES_BY_NODE_ROLE = {
+  wk: ['vm'],
+  cp: ['vm'],
+  'gpu-wk': ['baremetal'],
+  bastion: ['vm'],
 }
 
 function buildPrepNodeCommand(form) {
@@ -72,6 +80,7 @@ function ClustersPage() {
   const [resetConfirmationText, setResetConfirmationText] = useState('')
   const [prepNodeOpen, setPrepNodeOpen] = useState(false)
   const [prepNodeForm, setPrepNodeForm] = useState(PREP_NODE_DEFAULTS)
+  const [prepNodeConfigOptions, setPrepNodeConfigOptions] = useState([])
   const [notice, setNotice] = useState('')
 
   async function loadClusters() {
@@ -163,11 +172,24 @@ function ClustersPage() {
     }
   }
 
-  function openPrepNodeModal() {
+  async function openPrepNodeModal() {
     setPrepNodeForm(PREP_NODE_DEFAULTS)
     setPrepNodeOpen(true)
+    try {
+      const response = await fetch('/api/v1/lab/config')
+      if (!response.ok) return
+      const payload = await response.json()
+      const configPath = payload.config_path || ''
+      setPrepNodeConfigOptions(configPath ? [configPath] : [])
+      if (configPath) {
+        setPrepNodeForm((current) => ({ ...current, conf: configPath }))
+      }
+    } catch {
+      setPrepNodeConfigOptions([])
+    }
   }
 
+  const validTargetTypes = TARGET_TYPES_BY_NODE_ROLE[prepNodeForm.nodeType] ?? ['vm']
   const prepNodeIncomplete =
     !prepNodeForm.address.trim() || !prepNodeForm.sshUser.trim() || !prepNodeForm.conf.trim()
 
@@ -518,7 +540,7 @@ function ClustersPage() {
           >
             <h3 className="text-lg font-semibold text-slate-100">Prep Node over SSH</h3>
             <label className="mt-3 block text-sm text-slate-300">
-              Host / IP
+              Hypervisor Node
               <input
                 className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
                 value={prepNodeForm.address}
@@ -536,11 +558,29 @@ function ClustersPage() {
               />
             </label>
             <label className="mt-3 block text-sm text-slate-300">
+              SSH Password (optional)
+              <input
+                type="password"
+                autoComplete="new-password"
+                className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
+                value={prepNodeForm.sshPassword}
+                onChange={(event) => setPrepNodeForm({ ...prepNodeForm, sshPassword: event.target.value })}
+                data-testid="input-prep-node-password"
+              />
+              <span className="mt-1 block text-xs text-slate-400">
+                SSH key-based authentication is preferred. This password is used only in the form and is not submitted.
+              </span>
+            </label>
+            <label className="mt-3 block text-sm text-slate-300">
               Node Role
               <select
                 className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
                 value={prepNodeForm.nodeType}
-                onChange={(event) => setPrepNodeForm({ ...prepNodeForm, nodeType: event.target.value })}
+                onChange={(event) => {
+                  const nodeType = event.target.value
+                  const targetType = TARGET_TYPES_BY_NODE_ROLE[nodeType][0]
+                  setPrepNodeForm({ ...prepNodeForm, nodeType, targetType })
+                }}
                 data-testid="select-prep-node-type"
               >
                 <option value="wk">Worker</option>
@@ -557,18 +597,24 @@ function ClustersPage() {
                 onChange={(event) => setPrepNodeForm({ ...prepNodeForm, targetType: event.target.value })}
                 data-testid="select-prep-target-type"
               >
-                <option value="vm">VM</option>
-                <option value="baremetal">Bare Metal</option>
+                <option value="vm" disabled={!validTargetTypes.includes('vm')}>VM</option>
+                <option value="baremetal" disabled={!validTargetTypes.includes('baremetal')}>Bare Metal</option>
               </select>
             </label>
             <label className="mt-3 block text-sm text-slate-300">
-              Config file path
+              Cluster/Lab Configuration File
               <input
+                list="prep-node-config-options"
+                placeholder="Path to a cluster or lab .ini file"
                 className="mt-1 w-full rounded border border-slate-600 bg-slate-800 px-3 py-2 text-sm text-slate-100"
                 value={prepNodeForm.conf}
                 onChange={(event) => setPrepNodeForm({ ...prepNodeForm, conf: event.target.value })}
                 data-testid="input-prep-node-conf"
               />
+              <datalist id="prep-node-config-options">
+                {prepNodeConfigOptions.map((configPath) => <option key={configPath} value={configPath} />)}
+              </datalist>
+              <span className="mt-1 block text-xs text-slate-400">Use the configuration file consumed by the prep command, not a kubeconfig.</span>
             </label>
             <label className="mt-3 flex items-center gap-2 text-sm text-slate-300">
               <input

@@ -906,7 +906,7 @@ Duration  2.82s
   - Diagnostics REST routes (`POST /api/v1/diagnostics/capture`, `GET /api/v1/diagnostics/bundles`, `GET /api/v1/diagnostics/bundles/{bundle_id}`) built in `api/app/routers/diagnostics.py`.
   - Audit REST routes (`GET /api/v1/audit/logs` with verb/status filtering) and shared helper `record_audit_event(...)` built in `api/app/routers/audit.py`.
   - Pydantic models created in `api/app/schemas/diagnostics.py` and `api/app/schemas/audit.py`.
-  - Backend pytest suite passed 26/26 across all endpoints in 0.59s.
+  - Backend pytest suite passed 26/26 across all endpoints in `api/tests/`.
   - UI page `DiagnosticsPage.jsx` built with `/diagnostics` route in `App.jsx` and nav item in `Sidebar.jsx`, featuring capture card (`data-testid="card-diagnostics-capture"`), bundles table (`data-testid="table-diagnostic-bundles"`), and audit log table (`data-testid="table-audit-logs"`).
   - Vitest component suite passed 25/25 tests across 8 test files in `ui/`.
   - OpenAPI & user documentation updated in `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, and `README.md`.
@@ -1636,7 +1636,7 @@ Duration  2.82s
 
 ### Files Created / Modified
 - Created: `api/app/routers/auth.py`, `api/app/schemas/auth.py`, `api/tests/test_auth_rbac.py`, `ui/src/context/RoleContext.jsx`, `ui/src/components/layout/RoleSwitcher.jsx`, `ui/src/context/__tests__/RoleContext.test.jsx`
-- Modified: `api/app/{config,main}.py`, `api/app/routers/{clusters,vms,paths}.py`, `ui/src/main.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/pages/{ClustersPage,ClusterDetailPage,ClusterDeployPage,VmListPage,DiagnosticsPage,PathSettingsPage}.jsx`, `ui/src/pages/__tests__/SettingsPage.test.jsx`
+- Modified: `api/app/{config,main}.py`, `api/app/routers/{clusters,vms,paths}.py`, `ui/src/main.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/pages/{ClustersPage,ClusterDetailPage,ClusterDeployPage,VmListPage,DiagnosticsPage,FleetDashboardPage,PathSettingsPage}.jsx`, `ui/src/pages/__tests__/SettingsPage.test.jsx`
 - `docs/API-GUIDE.md`
 - `docs/USER-GUIDE.md`
 - `README.md`

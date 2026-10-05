@@ -71,7 +71,7 @@ describe('VmListPage', () => {
     expect(screen.getByTestId('row-vm-102')).toBeInTheDocument()
   })
 
-  test('opens VM creation modal from toolbar button', async () => {
+  test('opens VM creation modal with resource units and numeric controls', async () => {
     const fetchMock = vi.fn().mockImplementation(() => jsonResponse(mockVmPayload))
     vi.stubGlobal('fetch', fetchMock)
 
@@ -80,6 +80,12 @@ describe('VmListPage', () => {
 
     fireEvent.click(screen.getByTestId('btn-open-create-vm-modal'))
     expect(screen.getByTestId('modal-create-vm')).toBeInTheDocument()
+    expect(screen.getByText('vCPU')).toBeInTheDocument()
+    expect(screen.getByText('GB RAM')).toBeInTheDocument()
+    expect(screen.getByText('GB Disk')).toBeInTheDocument()
+    expect(screen.getByTestId('input-create-vm-cores')).toHaveAttribute('step', '1')
+    expect(screen.getByTestId('input-create-vm-memory')).toHaveValue(4)
+    expect(screen.getByTestId('input-create-vm-disk')).toHaveValue(40)
   })
 
   test('triggers VM start action handler', async () => {
