@@ -2369,3 +2369,26 @@ No `docker compose down`, build, restart, `qm create`, `qm set`, `qm start`, gue
 
 - Detailed audit: `my-notes/environment/ntx-vlab-one-dhcp-sanity-audit.md`
 - Recovery required: **YES** — synchronize repositories and repair runtime mounts/CLI/SSH, verify storage and cloud image, then rerun read-only preflight.
+
+## [C2-P40C] Task 40C — Theme & display fixes (2026-10-07)
+
+- Execution timestamp: 2026-10-07T11:07:00-07:00
+- Starting commit: `7e2d47e` (`origin/main`)
+- Branch: `task-40c-theme-display`
+- Branch ancestry: based directly on then-current `origin/main`; not based on Task 40B.
+- Dependency analysis: Task 40B changed only cluster/VM dialog and form behavior. Task 40C targets theme, Fleet Dashboard, sidebar, and command palette; no implementation dependency found. Independent branching was safe.
+- Changed files: `ui/src/hooks/useTheme.js`, `ui/src/components/layout/Layout.jsx`, `ui/src/components/layout/Sidebar.jsx`, `ui/src/components/common/CommandPalette.jsx`, `ui/src/pages/FleetDashboardPage.jsx`.
+- Bug 5: changed the Fleet Dashboard read-only banner from amber warning styling to neutral blue informational styling.
+- Bug 13: extracted deterministic dark/light/system theme cycling into `useTheme`, preserving local storage and system preference listeners; Tailwind already used `darkMode: 'class'`.
+- Bug 14: audited command items against the current router; all listed paths are implemented, including Air-Gapped Upgrade at `/settings/upgrade`.
+- Bug 16: Fleet Dashboard navigation and command item are hidden when `VITE_DEPLOYMENT_MODE=non-hq`; default behavior preserves HQ visibility.
+- Focused tests: initial focused run exposed expected pre-existing layout assumptions; final full suite passed.
+- Full Vitest: `23` files, `144` tests passed.
+- Backend pytest: `166` passed.
+- Production build: passed (`vite build`).
+- Commit hash and subject: recorded below after commit.
+- Historical audit sections preserved; this report was appended only.
+- `.vscode/` was not modified, staged, or committed.
+- No infrastructure or forbidden target was contacted.
+- No push or merge was performed.
+- Remaining concerns: non-HQ mode is selected through the existing Vite deployment configuration (`VITE_DEPLOYMENT_MODE`); no new backend configuration mechanism was introduced.

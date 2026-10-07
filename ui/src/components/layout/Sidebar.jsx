@@ -60,6 +60,9 @@ const NAV_ITEMS = [
 ]
 
 function Sidebar({ mode, onModeChange }) {
+  const isHqDeployment = import.meta.env.VITE_DEPLOYMENT_MODE !== 'non-hq'
+  const visibleNavItems = NAV_ITEMS.filter(({ to }) => to !== '/fleet' || isHqDeployment)
+
   return (
     <aside
       className="flex w-72 shrink-0 flex-col border-r border-slate-700 bg-card-slate p-4"
@@ -103,7 +106,7 @@ function Sidebar({ mode, onModeChange }) {
       </div>
 
       <nav className="space-y-2" data-testid="sidebar-nav">
-        {NAV_ITEMS.map(({ to, label, icon: Icon, testId }) => (
+        {visibleNavItems.map(({ to, label, icon: Icon, testId }) => (
           <NavLink
             key={to}
             to={to}

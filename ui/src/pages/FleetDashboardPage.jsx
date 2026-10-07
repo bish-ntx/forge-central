@@ -93,13 +93,13 @@ function FleetDashboardPage() {
   return (
     <section className="space-y-4 rounded border border-slate-700 bg-card-slate p-6" data-testid="page-fleet">
       <div
-        className="rounded border border-amber-500/60 bg-amber-500/10 p-4"
+        className="rounded border border-blue-500/60 bg-blue-500/10 p-4"
         data-testid="fleet-banner-readonly"
       >
-        <p className="text-sm font-semibold text-amber-200">
+        <p className="text-sm font-semibold text-blue-200">
           HQ Fleet Dashboard — Read-Only Multi-Site Telemetry
         </p>
-        <p className="mt-1 text-xs text-amber-100/90">
+        <p className="mt-1 text-xs text-blue-100/90">
           Live monitoring across edge lab regions. Write actions are disabled in HQ Fleet view.
         </p>
       </div>

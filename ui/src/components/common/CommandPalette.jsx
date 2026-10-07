@@ -48,7 +48,9 @@ function CommandPalette({ open, onOpen, onClose }) {
   }
 
   const needle = query.trim().toLowerCase()
-  const results = COMMAND_ITEMS.filter(
+  const isHqDeployment = import.meta.env.VITE_DEPLOYMENT_MODE !== 'non-hq'
+  const availableItems = COMMAND_ITEMS.filter((item) => item.id !== 'nav-fleet' || isHqDeployment)
+  const results = availableItems.filter(
     (item) =>
       item.title.toLowerCase().includes(needle) || item.category.toLowerCase().includes(needle),
   )
