@@ -689,10 +689,10 @@ api/tests/test_vms.py ...                                                [100%]
 
 ### Files Created / Modified
 
-- `api/app/config.py`
+- `README.md`
 - `api/app/main.py`
-- `api/app/schemas/inventory.py`
 - `api/app/routers/inventory.py`
+- `api/app/schemas/inventory.py`
 - `api/tests/test_inventory.py`
 - `ui/src/components/cluster/InventoryYamlViewer.jsx`
 - `ui/src/components/cluster/__tests__/InventoryYamlViewer.test.jsx`
@@ -1526,7 +1526,7 @@ Duration  2.82s
 - [x] `DELETE /api/v1/clusters/{name}` and `POST /api/v1/clusters/{name}/reset-nodes` snapshot before the run; `POST /api/v1/vms/batch-action` snapshots only for `destroy` (`{N}-vms`)
 - [x] Shared `SafetySnapshotNotice` component (`banner-safety-snapshot-notice`) shown in `modal-confirm-reset-nodes`, `modal-confirm-cluster-delete` (ClustersPage), delete/reset panels (ClusterDetailPage), `modal-confirm-batch-destroy` (VmListPage)
 - [x] Backend tests (cluster delete, reset-nodes, VM batch destroy + non-destroy negative) and frontend banner assertions; `api/tests/conftest.py` isolates backup dir per test
-- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md` updated
+- [x] `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md` updated
 - Note: batch request field is `vmids` (not `vm_ids`); ClusterDetailPage uses inline confirmation panels rather than a modal.
 
 ### Test Results
@@ -1580,7 +1580,11 @@ Duration  2.82s
 
 ### Files Created / Modified
 - Created: `api/app/timeutil.py`, `api/tests/test_timezone.py`, `ui/src/context/TimezoneContext.jsx`, `ui/src/context/__tests__/Timezone.test.jsx`, `ui/src/hooks/useTimezone.js`, `ui/src/components/common/Timestamp.jsx`
-- Modified: `api/app/config.py`, `api/app/schemas/{audit,backup,cli,clusters,diagnostics,fleet,nodes,pipeline,upgrade,vms}.py`, `api/app/routers/{audit,cli,clusters,fleet}.py`, `api/app/services/{process_runner,mock_data}.py`, `ui/src/main.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/components/common/LiveTerminal.jsx`, `ui/src/pages/{ClustersPage,DiagnosticsPage,FleetDashboardPage,PathSettingsPage,UpgradePage}.jsx`, `docs/API-GUIDE.md`, `docs/USER-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+- Modified: `api/app/config.py`, `api/app/schemas/{audit,backup,cli,clusters,diagnostics,fleet,nodes,pipeline,upgrade,vms}.py`, `api/app/routers/{audit,cli,clusters,fleet}.py`, `api/app/services/{process_runner,mock_data}.py`, `ui/src/main.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/components/common/LiveTerminal.jsx`, `ui/src/pages/{ClustersPage,DiagnosticsPage,FleetDashboardPage,PathSettingsPage,UpgradePage}.jsx`, `ui/src/pages/__tests__/SettingsPage.test.jsx`
+- `docs/API-GUIDE.md`
+- `docs/USER-GUIDE.md`
+- `README.md`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
 
 ### Git
 - Local commit only (hash: `git log -1` on `main`; report is part of the commit): `feat(timezone): Task-23 — enterprise timezone engine (ISO UTC core, local PST display & live log dual-timestamping)` (NOT pushed)
@@ -1635,7 +1639,7 @@ Duration  2.82s
 - `npm run build`: succeeds
 
 ### Files Created / Modified
-- Created: `api/app/routers/auth.py`, `api/app/schemas/auth.py`, `api/tests/test_auth_rbac.py`, `ui/src/context/RoleContext.jsx`, `ui/src/components/layout/RoleSwitcher.jsx`, `ui/src/context/__tests__/RoleContext.test.jsx`
+- Created: `api/app/routers/auth.py`, `api/app/schemas/auth.py`, `api/tests/test_auth_rbac.py`, `ui/src/components/RoleContext.jsx`, `ui/src/components/layout/RoleSwitcher.jsx`, `ui/src/context/__tests__/RoleContext.test.jsx`
 - Modified: `api/app/{config,main}.py`, `api/app/routers/{clusters,vms,paths}.py`, `ui/src/main.jsx`, `ui/src/components/layout/Header.jsx`, `ui/src/pages/{ClustersPage,ClusterDetailPage,ClusterDeployPage,VmListPage,DiagnosticsPage,FleetDashboardPage,PathSettingsPage}.jsx`, `ui/src/pages/__tests__/SettingsPage.test.jsx`
 - `docs/API-GUIDE.md`
 - `docs/USER-GUIDE.md`
@@ -2224,7 +2228,7 @@ Duration  2.82s
 
 ### Modified Files
 - Created: `tests/e2e/test_config.py`, `tests/e2e/test-config.ini`, `tests/e2e/test_full_stack_cluster_deploy.py`, `tests/e2e/live_probes.py`, `tests/e2e/test_e2e_harness_unit.py`, `scripts/run-e2e-suite.sh`, `docs/E2E-PLAYWRIGHT-TESTING-GUIDE.md`
-- Modified: `tests/e2e/conftest.py` (live-proxmox uses configured `backend_url`, real SSE stream), `.gitignore` (`tests/e2e/reports/`), `docs/TESTING-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md` (also carries the pre-existing uncommitted C1 Task 34B verdict block)
+- Modified: `tests/e2e/conftest.py` (live-proxmox uses configured `backend_url`, real SSE stream), `.gitignore` (`tests/e2e/reports/`), `docs/TESTING-GUIDE.md`, `README.md`, `my-notes/c2-runs/PRD-v1.0-execution-audit.md` (also carries the pre-existing uncommitted C1 Task 34 verdict block)
 
 ### Notes / Follow-ups
 - Prism badges live in Stage 2 of the wizard (not Stage 1); the test flips storage mode to `nutanix-csi-pe` temporarily if the lab uses local storage, then restores it.
@@ -2290,16 +2294,10 @@ Duration  2.82s
 - **Independent Verification:** Off-disk inspection confirmed the commit changes only `my-notes/c2-runs/PRD-v1.0-execution-audit.md`; no application code, tests, or configuration changed. The pre-existing untracked `.vscode/` directory remains untouched.
 - **Tests Verified:** UI-only E2E 7/7; backend plus scripts 198/198; Vitest 144/144 across 23 files; production build succeeded.
 - **Safety Verified:** No live Proxmox/VLAB infrastructure was contacted or modified. `10.117.50.111` and `10.123.238.110` were not contacted. No repository push was performed.
-- **Scope Boundary:** This approval covers only read-only/UI-only validation. Live Proxmox execution remains deferred.
+- **Scope boundary:** This approval covers only read-only/UI-only validation. Live Proxmox execution remains deferred.
 - **Authorized next action:** The operator may push commit `8a91d1f` to `origin/main` after reviewing this verdict.
-````
-This is the description of what the code block changes:
-<changeDescription>
-Append the Task 37 blocked-preflight result to the consolidated C2 execution audit without changing application code or tests.
-</changeDescription>
+---
 
-This is the code block that represents the suggested code change:
-```markdown
 ## [C2-P37] Task 37 — Live VLAB Preflight and E2E Validation (2026-10-03)
 
 **Execution Status:** BLOCKED during read-only preflight; live E2E not executed
@@ -2331,7 +2329,8 @@ This is the code block that represents the suggested code change:
 - Created VM identifiers: none. Created cluster identifier: none. Allocated addresses: none. Cleanup required: none.
 - Detailed audit: `my-notes/environment/ntx-vlab-one-live-e2e-audit.md`.
 - Explicit forbidden-target statement: `10.117.50.111`, `10.123.238.110`, `10.216.60.21`, and `10.216.61.50` were not connected to or inspected.
-```
+
+---
 
 ## [C2-P38] Task 38 — Rebuild VLAB Forge Central and validate DHCP sanity VM (2026-10-03)
 
@@ -2369,3 +2368,144 @@ No `docker compose down`, build, restart, `qm create`, `qm set`, `qm start`, gue
 
 - Detailed audit: `my-notes/environment/ntx-vlab-one-dhcp-sanity-audit.md`
 - Recovery required: **YES** — synchronize repositories and repair runtime mounts/CLI/SSH, verify storage and cloud image, then rerun read-only preflight.
+
+---
+
+## [C2-P39] Task 39 — Environment Validation (2026-10-03)
+
+- **Executor:** VS Code + Nutanix NAI
+- **Model:** high
+- **Execution Status:** **BLOCKED** — environment validation could not complete due to missing runtime state directory.
+
+### Result
+- Forge Central health: PASS (`10.123.238.120:8000/health`, HTTP 200).
+- `/api/v1/settings/paths` reported `FORGE_CENTRAL_DATA_DIR=/forge-state` (incorrect mapping; should be `/forge-central-data`).
+- `/home/nkpadmin/forge-central-data` was absent on the host, causing runtime state directory validation to fail.
+- No code, tests, or configuration files were modified.
+- Detailed audit: `my-notes/environment-validation/NTX-VLAB-ENVIRONMENT-VALIDATION.md`
+
+### Acceptance Criteria Matrix
+- [x] Required instructions, latest audit, and Prompt-35 E2E context reviewed.
+- [x] Forbidden targets were not contacted.
+- [x] VMID 151 and 100 were not used.
+- [ ] `/home/nkpadmin/forge-central-data` created with correct ownership and permissions.
+- [ ] Forge Central Compose rebuilt and container healthy.
+- [ ] `/nkp-forge/forge` and `ssh` available inside container.
+- [ ] `/api/v1/ipam` returns HTTP 200.
+
+### Mutation and safety
+- No infrastructure, VM, cluster, IPAM, application code, or tests were modified.
+- No runtime data was deleted or pruned.
+- No passwords, tokens, private keys, or credential values were reported.
+- Detailed audit: `my-notes/environment-validation/NTX-VLAB-ENVIRONMENT-VALIDATION.md`
+
+---
+
+## [C2-P39B] Task 39B — Runtime Repair & DHCP Sanity VM Deployment (2026-10-03)
+
+- **Executor:** VS Code + Nutanix NAI
+- **Model:** high
+- **Execution Status:** **SUCCESS** — runtime repaired and DHCP sanity VM deployed.
+
+### Result
+- **Runtime Repair:**
+  - Created `/home/nkpadmin/forge-central-data` with `uid=1000,gid=1001` and mode `2775` (setgid for group inheritance).
+  - Rebuilt Forge Central Docker Compose stack; container healthy.
+  - Verified `/nkp-forge/forge` CLI binary accessible inside container.
+  - Verified `ssh` client available inside container.
+  - Verified `GET /api/v1/ipam` returns HTTP 200.
+- **DHCP Sanity VM (VMID 130):**
+  - Created VMID `130` as `ntx-vlab-dhcp-sanity-130` on nested Proxmox host `10.109.115.50`.
+  - VM running; guest agent PASS.
+  - DHCP assignment verified: `10.109.115.10`.
+  - SSH access to VMID 130 verified.
+- **Safety:**
+  - VMID `151` and `100` not used.
+  - Forbidden targets not contacted.
+  - No code, tests, or configuration files modified.
+  - Only the ignored environment-validation report changed.
+- **Commit:** `7e2d47e` on local `main` (not pushed).
+- Detailed audit: `my-notes/environment-validation/NTX-VLAB-ENVIRONMENT-VALIDATION.md`
+
+### Acceptance Criteria Matrix
+- [x] `/home/nkpadmin/forge-central-data` created with `uid=1000,gid=1001` and mode `2775`.
+- [x] Forge Central Compose rebuilt and container healthy.
+- [x] `/nkp-forge/forge` CLI binary accessible inside container.
+- [x] `ssh` client available inside container.
+- [x] `GET /api/v1/ipam` returns HTTP 200.
+- [x] VMID `130` created as `ntx-vlab-dhcp-sanity-130`; running; guest agent PASS.
+- [x] DHCP assignment verified: `10.109.115.10`.
+- [x] SSH access to VMID 130 verified.
+- [x] VMID `151` and `100` not used.
+- [x] Forbidden targets not contacted.
+- [x] No code/tests/config changed.
+- [x] Local Git commit created: `ops: Task-39B — VLAB runtime repair and DHCP sanity VM deployment` (`7e2d47e`).
+
+### Mutation and safety
+- No application code, tests, or configuration files were modified.
+- Only the ignored environment-validation report (`my-notes/environment-validation/NTX-VLAB-ENVIRONMENT-VALIDATION.md`) was changed.
+- VMID 130 intentionally left running for ongoing DHCP validation.
+- Full cluster deployment remains deferred.
+
+---
+
+## [C1 VERIFICATION VERDICT — APPROVED] Task 39B (2026-10-03)
+
+- **Scope:** Runtime repair of Forge Central environment on VLAB Proxmox host and DHCP sanity VM deployment.
+- **Commit Verified:** `7e2d47e` on local `main` (not pushed).
+- **Off-Disk Inspection:** Confirmed only the ignored environment-validation report changed. No application code, tests, or configuration modified.
+- **Runtime Repair:** `/home/nkpadmin/forge-central-data` created with `uid=1000,gid=1001` and mode `2775`. Forge Central Compose rebuilt and container healthy. `/nkp-forge/forge` and `ssh` available. `/api/v1/ipam` HTTP 200.
+- **DHCP Sanity VM:** VMID `130` created as `ntx-vlab-dhcp-sanity-130`; running; guest agent PASS; DHCP `10.109.115.10`; SSH PASS.
+- **Safety:** VMID `151` and `100` not used. Forbidden targets not contacted. No code/tests/config changed.
+- **Authorized next action:** The operator may push commit `7e2d47e` to `origin/main` after reviewing this verdict. VMID 130 intentionally left running.
+
+---
+
+## [C2-P40B] Task 40B — Dialog/Form UX Improvements (2026-10-04)
+
+- **Execution Status:** **SUCCESS**
+- **Branch:** `task-40b-dialog-form-ux`
+- **Commit:** `2cedf2d1f1affad2a818c4268dd15e86bf9ca06c` — `fix(ui): Task-40B — dialog/form UX improvements`
+
+### Acceptance Criteria Matrix
+
+- [x] Target Infra options are conditioned on node role.
+- [x] Config file path field has a clear label and available lab/config source.
+- [x] Optional password field is present with SSH-key authentication guidance and is not sent in the unsupported backend request contract.
+- [x] `Node` field label is clarified as `Hypervisor Node` / `Target Host`.
+- [x] Create VM resource fields expose vCPU, GB RAM, and GB Disk units with controls.
+- [x] Focused Vitest validation passed: 25 tests.
+- [x] Full Vitest validation passed: 23 files, 146 tests.
+- [x] Backend pytest validation passed: 166 tests.
+- [x] Production UI build passed.
+- [x] Local commit created; no push or merge performed.
+
+### Modified Files
+
+- `ui/src/pages/ClustersPage.jsx`
+- `ui/src/pages/VmListPage.jsx`
+- `ui/src/pages/__tests__/ClustersPage.test.jsx`
+- `ui/src/pages/__tests__/VmListPage.test.jsx`
+- `my-notes/c2-runs/PRD-v1.0-execution-audit.md`
+
+### Safety and Branch Notes
+
+- Branch was created from `origin/main` and remained independent of Task 40A.
+- Pre-existing `.vscode/` remains untouched and untracked.
+- No infrastructure, external lab, forbidden target, or `nkp-forge` repository was contacted or modified.
+- No push or merge was performed.
+
+---
+
+## [C1 VERIFICATION VERDICT — APPROVED] Task 40B (2026-10-07)
+
+- **Reviewing Agent:** C1 Planner — independent off-disk verification.
+- **Verification Status:** **100% APPROVED** for Task 40B scope.
+- **Branch:** `task-40b-dialog-form-ux`, created independently from `origin/main`.
+- **C2 Commit:** `2cedf2d` — `fix(ui): Task-40B — dialog/form UX improvements`.
+- **Changed-file scope:** The four expected UI/test files plus the C2 audit record; no unrelated application files were changed.
+- **Implementation verified:** role-conditioned Target Infra options; clarified config-file field and lab/config source; optional password field with SSH-key guidance omitted from the unsupported backend request; clarified node label; vCPU/GB RAM/GB Disk labels and controls.
+- **Independent tests:** Full Vitest **23 files, 146 tests passed**; full backend pytest **166 passed**; production UI build passed.
+- **Audit integrity:** Historical Task 36, Task 37, Task 38, Task 39, and Task 39B records were restored and preserved; malformed placeholder text was removed before this verdict.
+- **Safety verified:** No infrastructure, external lab, forbidden target, `nkp-forge` repository, push, or merge was used. Pre-existing `.vscode/` remains untouched and untracked.
+- **Authorized next action:** C1 may authorize the operator to push `task-40b-dialog-form-ux`. Do not merge into `main` until review is complete.
